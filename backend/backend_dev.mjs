@@ -1,12 +1,9 @@
 import request from 'request';
-import fs from 'fs';
-import https from 'https';
 import got from 'got';
 
 // Search "RefreshToken" in localstorage
 const client_id = ""
 
-// Search "RefreshToken" in localstorage
 const refresh_token = ""
 
 var tokens = {}
@@ -42,7 +39,7 @@ async function TeamConversation(teamId, topicId) {
 
 
     var headers = {
-        'authorization': volutile_maintoken,
+        'authorization': 'Bearer ' + tokens['https://chatsvcagg.teams.microsoft.com/.default'],
     };
 
     var options = {
@@ -142,6 +139,7 @@ async function GenTokens(scope) {
 async function RenewTokens() {
 
     var ic3_token = await GenTokens("https://ic3.teams.office.com/Teams.AccessAsUser.All")
+    var chatsvcagg_token = await GenTokens("https://chatsvcagg.teams.microsoft.com/.default");
     var authz = await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
 
 
@@ -160,12 +158,10 @@ async function RenewTokens() {
 
     tokens = {
         "skypetoken": skypetoken,
-        "https://ic3.teams.office.com/Teams.AccessAsUser.Al": ic3_token['access_token'],
-        "https://api.spaces.skype.com/Authorization.ReadWrite": authz['access_token']
+        "https://ic3.teams.office.com/Teams.AccessAsUser.Al" : ic3_token['access_token'],
+        "https://api.spaces.skype.com/Authorization.ReadWrite": authz['access_token'],
+        "https://chatsvcagg.teams.microsoft.com/.default" : chatsvcagg_token['access_token']
     }
-
-
-
 }
 
 async function Main() {
@@ -173,7 +169,7 @@ async function Main() {
     await RenewTokens()
 
     var properties = await UserProperties()
-    var conversations = await TeamDetails(JSON.parse(properties['teamsOrder'])[1]['teamId'])
+    var conversations = await TeamConversation(JSON.parse(properties['teamsOrder'])[1]['teamId'],(JSON.parse(properties['teamsOrder'])[1]['teamId']))
     console.log(conversations)
 
 }

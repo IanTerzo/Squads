@@ -18,6 +18,8 @@
 	font-optical-sizing: auto;
 	font-style: normal;
 	background-color: #3c3c3c;
+	overflow-y: hidden;
+	
 }
 
 :global(main) {
@@ -29,15 +31,18 @@
 
 }
 :global(.linkpage) {
-    margin-bottom: 8px;
+    margin-bottom: 8.5px;
     font-size: 15px;
     background-color: #333;
     width: 312px;
+	min-height: 37px;
     padding: 7px;
     border-radius:10px;
     display:block;
     cursor: pointer;
     text-decoration:none;
+	display: flex;
+	align-items: center;
 }
 
 :global(.linkpage span) {
@@ -53,7 +58,8 @@
 }
 
 :global(.activity-box){
-
+display: flex;
+flex-direction: column;
 background-color: #333;
 width:690px;
 height:fit-content;
@@ -67,7 +73,7 @@ color: white;
 display:flex;
 align-items: center;
 gap:10px;
-margin-bottom:20px;
+margin-bottom:10px;
 }
 
 :global(.activity-box-img){
@@ -83,7 +89,12 @@ border-radius: 5px;
 
 :global(.selgroup){
 	color:white;
+	display: flex;
+	flex-direction:column;
+	overflow-y: scroll;
 	margin-top:15px;
+	height: 85vh;
+	scrollbar-width: none;
 }
 
 :global(.linkpage img){

@@ -14,7 +14,7 @@ onMount(reloadTeams);
 
 </svelte:head>
 
-<section>
+<section >
 <div class="infotext"> Teams ^ </div>
 	<div class="selgroup" id="teams">
 

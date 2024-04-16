@@ -89,7 +89,7 @@ async function TeamConversation(teamId, topicId) {
 
 
     var headers = {
-        'authorization': volutile_maintoken,
+        'authorization': 'Bearer ' + tokens['https://chatsvcagg.teams.microsoft.com/.default'],
     };
 
     var options = {
@@ -175,10 +175,7 @@ async function GenTokens(scope) {
                 reject(error);
                 return;
             }
-            if (response.statusCode == 400) {
-                reject(new Error(`Request failed with status code ${response.statusCode}. Is your refresh token or client id right?`));
-
-            } else if (response.statusCode !== 200) {
+            if (response.statusCode !== 200) {
                 reject(new Error(`Request failed with status code ${response.statusCode}`));
                 return;
             }
@@ -192,6 +189,7 @@ async function GenTokens(scope) {
 async function RenewTokens() {
 
     var ic3_token = await GenTokens("https://ic3.teams.office.com/Teams.AccessAsUser.All")
+    var chatsvcagg_token = await GenTokens("https://chatsvcagg.teams.microsoft.com/.default");
     var authz = await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
 
 
@@ -210,12 +208,10 @@ async function RenewTokens() {
 
     tokens = {
         "skypetoken": skypetoken,
-        "https://ic3.teams.office.com/Teams.AccessAsUser.Al": ic3_token['access_token'],
-        "https://api.spaces.skype.com/Authorization.ReadWrite": authz['access_token']
+        "https://ic3.teams.office.com/Teams.AccessAsUser.Al" : ic3_token['access_token'],
+        "https://api.spaces.skype.com/Authorization.ReadWrite": authz['access_token'],
+        "https://chatsvcagg.teams.microsoft.com/.default" : chatsvcagg_token['access_token']
     }
-
-
-
 }
 
 
