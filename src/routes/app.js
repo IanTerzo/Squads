@@ -33,4 +33,19 @@ export async function reloadTeams() {
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error);
     }
-  }
+}
+
+export async function getConversation(teamId, topicId){
+  try {
+    console.log(teamId, topicId);
+      const response = await fetch(`http://localhost:5102/team-conversation/${teamId}/${topicId}`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const data = await response.json();
+      return data;
+
+    } catch (error) {
+      console.error('There was a problem with the fetch operation:', error);
+    }
+}

@@ -24,7 +24,7 @@ $: id = $page.params.id;
             </div>
             <div class="selgroup">
             {#each team.topics as topic}
-                <a class="linkpage" href='team/{id}'><span># {topic.name}</span></a>
+                <a class="linkpage" href='../team/{id}'><span># {topic.name}</span></a>
             {/each}
             </div>
         {/if}

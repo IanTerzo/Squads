@@ -4,6 +4,7 @@ import got from 'got';
 // Search "RefreshToken" in localstorage
 const client_id = ""
 
+// Search "RefreshToken" in localstorage
 const refresh_token = ""
 
 var tokens = {}
@@ -92,24 +93,16 @@ async function TeamDetails(TeamID) {
     });
 }
 
+
 async function GenTokens(scope) {
+
     var headers = {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:122.0) Gecko/20100101 Firefox/122.0',
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Referer': 'https://teams.microsoft.com/',
-        'content-type': 'application/x-www-form-urlencoded;charset=utf-8',
+
         'Origin': 'https://teams.microsoft.com',
-        'Connection': 'keep-alive',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'cross-site',
-        'TE': 'trailers'
+
     };
 
-
-    var dataString = `client_id=${client_id}&scope=${scope} openid profile offline_access&grant_type=refresh_token&client_info=1&x-client-SKU=msal.js.browser&x-client-VER=3.7.1&x-ms-lib-capability=retry-after,h429&x-client-current-telemetry=5|61,0,,,|,&x-client-last-telemetry=5|0|||0,0&refresh_token=${refresh_token}`;
+    var dataString = `client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&scope=${scope} openid profile offline_access&grant_type=refresh_token&client_info=1&x-client-SKU=msal.js.browser&x-client-VER=3.7.1&refresh_token=${refresh_token}&claims={"access_token":{"xms_cc":{"values":["CP1"]}}}`;
 
     var options = {
         url: 'https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token',
@@ -118,6 +111,8 @@ async function GenTokens(scope) {
         gzip: true,
         body: dataString
     };
+
+
 
     return new Promise((resolve, reject) => {
         request(options, (error, response, body) => {
@@ -158,20 +153,16 @@ async function RenewTokens() {
 
     tokens = {
         "skypetoken": skypetoken,
-        "https://ic3.teams.office.com/Teams.AccessAsUser.Al" : ic3_token['access_token'],
+        "https://ic3.teams.office.com/Teams.AccessAsUser.Al": ic3_token['access_token'],
         "https://api.spaces.skype.com/Authorization.ReadWrite": authz['access_token'],
-        "https://chatsvcagg.teams.microsoft.com/.default" : chatsvcagg_token['access_token']
+        "https://chatsvcagg.teams.microsoft.com/.default": chatsvcagg_token['access_token']
     }
 }
 
 async function Main() {
 
-    await RenewTokens()
-
-    var properties = await UserProperties()
-    var conversations = await TeamConversation(JSON.parse(properties['teamsOrder'])[1]['teamId'],(JSON.parse(properties['teamsOrder'])[1]['teamId']))
-    console.log(conversations)
-
+    var refresh_token_new = await GenTokens("https://chatsvcagg.teams.microsoft.com/.default")
+    console.log(refresh_token_new)
 }
 
 Main()

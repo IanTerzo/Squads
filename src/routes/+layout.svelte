@@ -61,7 +61,7 @@
 display: flex;
 flex-direction: column;
 background-color: #333;
-width:690px;
+width:35vw;
 height:fit-content;
 margin-top:15px;
 border-radius:10px;
@@ -85,6 +85,13 @@ border-radius: 5px;
 	width:32px;
 	height:32px;
 	border-radius: 3px;
+}
+
+:global(.show-replies){
+	margin-bottom: 10px;
+	margin-top: 10px;
+	font-size: 14px;
+	color: #6698d9;
 }
 
 :global(.selgroup){

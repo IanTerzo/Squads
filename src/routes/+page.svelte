@@ -36,6 +36,21 @@ onMount(reloadTeams);
 	<h3>Titel</h3>
 	<span> Lorem ipsus dolor sit amet pasa que nada </span>
 	<img class="activity-box-img" width="350px" height="220px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+
+	<span class="show-replies"> Show replies </span>
+	<div class="replies">
+
+	<div class="messages">
+	<div class="post-sender-info">
+	<img class="pfp-img" width="32px" height="32x" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+	<span>John Toe</span>
+
+	</div>
+	<span>hello world! </span>
+	</div>
+
+
+	</div>
 	</div>
 </section>
 
