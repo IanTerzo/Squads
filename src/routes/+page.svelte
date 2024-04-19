@@ -19,7 +19,7 @@ onMount(reloadTeams);
 	<div class="selgroup" id="teams">
 
 	{#each Object.entries($teams) as [id, team]}
-		<a class="linkpage" href='team/{id}'><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg"><span>{team.name}</span></a>
+		<a class="linkpage" href='team/{id}/{id}'><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg"><span>{team.name}</span></a>
  	{/each}
 	<div>
 
