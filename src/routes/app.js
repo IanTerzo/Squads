@@ -22,7 +22,8 @@ export async function reloadTeams() {
         var topics = [{'id':teamData['id'], 'name':'General'}]
 
         if (teamData['threadProperties']['topics']){
-          topics = JSON.parse(teamData['threadProperties']['topics'])
+          const parsedTopics = JSON.parse(teamData['threadProperties']['topics'])
+          topics.push(...parsedTopics);
         }
 
         tempTeams[teamData["id"]] = {"id":teamData["id"], "name":teamData['threadProperties']['spaceThreadTopic'], "topics": topics};
@@ -37,15 +38,64 @@ export async function reloadTeams() {
 
 export async function getConversation(teamId, topicId){
   try {
-    console.log(teamId, topicId);
+      var messages = []
       const response = await fetch(`http://localhost:5102/team-conversation/${teamId}/${topicId}`);
       if (!response.ok) {
         throw new Error('Network response was not ok');
       }
       const data = await response.json();
-      return data;
+     
+      const reversedReplyChains = {};
+Object.keys(data.replyChains).reverse().forEach(key => {
+    reversedReplyChains[key] = data.replyChains[key];
+});
+
+// Reverse the order of messages in each reply chain
+Object.keys(reversedReplyChains).forEach(key => {
+    reversedReplyChains[key].messages.reverse();
+});
+
+console.log(reversedReplyChains)
+      return reversedReplyChains;
+      
 
     } catch (error) {
       console.error('There was a problem with the fetch operation:', error);
     }
 }
+
+export async function profilePicture(userId){
+  try {
+    const response = await fetch(`http://localhost:5102/profilePicture/${userId}`);
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    const blob = await response.blob();
+
+    const imageUrl = URL.createObjectURL(blob);
+    return imageUrl;
+
+  } catch (error) {
+    console.error('There was a problem with the fetch operation:', error);
+  }
+}
+
+
+
+export async function authorizeImage(imageId){
+   try {
+      const response = await fetch(`http://localhost:5102/image/${imageId}`);
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const blob = await response.blob();
+
+      const imageUrl = URL.createObjectURL(blob);
+      return imageUrl;
+
+    } catch (error) {
+      console.error('There was a problem with the fetch operation:', error);
+    }
+}
+
+

@@ -14,12 +14,23 @@
 
 <style>
 :global(body){
-	font-family: "Montserrat", sans-serif;
+	font-family: "Montserrat", sans-serif !important;
 	font-optical-sizing: auto;
 	font-style: normal;
 	background-color: #3c3c3c;
 	overflow-y: hidden;
+	line-height: 1.52 !important;
 	
+}
+
+:global(a){
+	color: #6698d9;
+	text-decoration: none;
+}
+
+:global(span){
+	font-size: 16px;
+	font-family: "Montserrat", sans-serif !important;
 }
 
 :global(main) {
@@ -50,6 +61,10 @@
 	color: white;
 	vertical-align: super;
 
+	text-overflow: ellipsis;
+	white-space: nowrap; 
+    overflow: hidden;
+
 }
 
 :global(.infotext){
@@ -69,16 +84,35 @@ padding:14px;
 color: white;
 }
 
+
+:global(.titlespan){
+    color:white;
+	position:relative;
+	font-size: 16.5px;
+    font-weight: 600;
+	margin-bottom: 12px;
+}
+
 :global(.post-sender-info){
 display:flex;
 align-items: center;
 gap:10px;
-margin-bottom:10px;
+margin-bottom:18px;
 }
 
-:global(.activity-box-img){
-margin-top:15px;
+:global(#content p){
+margin: 0px;
+}
+
+
+:global(#content img){
+margin-top:10px;
+margin-bottom: 10px;
 border-radius: 5px;
+}
+
+:global(#content){
+display: inline-grid;
 }
 
 :global(.pfp-img){
@@ -88,10 +122,20 @@ border-radius: 5px;
 }
 
 :global(.show-replies){
-	margin-bottom: 10px;
-	margin-top: 10px;
+	margin-top: 16px;
+	margin-bottom: -12px;
 	font-size: 14px;
 	color: #6698d9;
+	cursor: pointer;
+}
+
+:global([itemtype="http://schema.skype.com/Emoji"]){
+	margin-top: 0px !important;
+	margin-bottom: -5px !important;
+}
+
+:global(.reply){
+margin-top: 25px;
 }
 
 :global(.selgroup){

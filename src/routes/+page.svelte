@@ -15,7 +15,7 @@ onMount(reloadTeams);
 </svelte:head>
 
 <section >
-<div class="infotext"> Teams ^ </div>
+<div class="infotext"> Teams </div>
 	<div class="selgroup" id="teams">
 
 	{#each Object.entries($teams) as [id, team]}
@@ -34,8 +34,10 @@ onMount(reloadTeams);
 	</div>
 
 	<h3>Titel</h3>
+	<div id="content">
 	<span> Lorem ipsus dolor sit amet pasa que nada </span>
-	<img class="activity-box-img" width="350px" height="220px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+	<img width="350px" height="220px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+	</div>
 
 	<span class="show-replies"> Show replies </span>
 	<div class="replies">
