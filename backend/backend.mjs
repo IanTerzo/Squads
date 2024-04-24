@@ -3,7 +3,7 @@ import bodyParser from 'body-parser';
 import request from 'request';
 import cors from 'cors';
 import got from 'got';
-import fs, { cpSync } from 'fs';
+import fs, {cpSync} from 'fs';
 
 const app = express();
 const port = 5102;
