@@ -1,9 +1,9 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import request from 'request';
 import cors from 'cors';
 import got from 'got';
-import fs, {cpSync} from 'fs';
+import puppeteer from 'puppeteer';
+import fs, {cpSync, rename} from 'fs';
 
 const app = express();
 const port = 5102;
@@ -12,289 +12,388 @@ app.use(bodyParser.json());
 app.use(cors());
 
 app.get('/user-properties', async (req, res) => {
-    try {
-        const properties = await UserProperties();
-        res.json(properties);
-    } catch (error) {
-        res.status(500).json({
-            error: error.message
-        });
+    if (!tokens['credentials'].email == ""){
+        try {
+            const properties = await UserProperties();
+            res.json(properties);
+        } catch (error) {
+            res.status(500).json({
+                error: error.message
+            });
+        }     
+    }
+    else
+    {
+        res.sendStatus(401)
     }
 });
 
 app.get('/image/:imageId', async (req, res) => {
-    const {
-        imageId
-    } = req.params;
-    try {
-        const binaryData = await authorizeImage(imageId);
-        res.setHeader('Content-Type', 'image/jpeg');
+    if (!tokens['credentials'].email == ""){
+        const {
+            imageId
+        } = req.params;
+        try {
+            const binaryData = await authorizeImage(imageId);
+            res.setHeader('Content-Type', 'image/jpeg');
+    
+            res.send(binaryData);
+        } catch (error) {
+            res.status(500).json({
+                error: error.message
+            });
+        }
+    }
+    else
+    {
+        res.sendStatus(401)
+    }
+});
 
-        res.send(binaryData);
+app.post('/authorize/', async (req, res) => {
+    try {
+        const authorization = await authorize(req.body.email, req.body.password);
+        if(authorization == "Success"){
+            res.sendStatus(200)
+        }
+        else
+        {
+            res.status(401).send(authorization)
+        }
+        res.send()
     } catch (error) {
         res.status(500).json({
             error: error.message
         });
     }
 });
-
 
 app.get('/profilePicture/:userId/:displayName', async (req, res) => {
-    const userId = req.params.userId;
-    const displayName = req.params.displayName;
-    try {
-        const binaryData = await authorizeProfilePicture(userId, displayName);
-        res.setHeader('Content-Type', 'image/jpeg');
+    if (!tokens['credentials'].email == ""){
+        const userId = req.params.userId;
+        const displayName = req.params.displayName;
+        try {
+            const binaryData = await authorizeProfilePicture(userId, displayName);
+            res.setHeader('Content-Type', 'image/jpeg');
 
-        res.send(binaryData);
-    } catch (error) {
-        res.status(500).json({
+            res.send(binaryData);
+        } catch (error) {
+            res.status(500).json({
             error: error.message
         });
+        }
+    }
+    else
+    {
+        res.sendStatus(401)
     }
 });
 
-
 app.get('/team-conversation/:teamId/:topicId', async (req, res) => {
-    const teamId = req.params.teamId;
-    const topicId = req.params.topicId;
-    try {
-        const conversation = await TeamConversation(teamId, topicId);
-        res.json(conversation);
-    } catch (error) {
-        res.status(500).json({
-            error: error.message
-        });
+    if (!tokens['credentials'].email == ""){
+        const teamId = req.params.teamId;
+        const topicId = req.params.topicId;
+        try {
+            const conversation = await TeamConversation(teamId, topicId);
+            res.json(conversation);
+        } catch (error) {
+            res.status(500).json({
+                error: error.message
+            });
+        }
+    }
+    else
+    {
+        res.sendStatus(401)
     }
 });
 
 app.get('/team-details/:teamId', async (req, res) => {
-    const {
-        teamId
-    } = req.params;
-    try {
-        const details = await TeamDetails(teamId);
-        res.json(details);
-    } catch (error) {
-        res.status(500).json({
-            error: error.message
-        });
+    if (!tokens['credentials'].email == ""){
+        const {
+            teamId
+        } = req.params;
+        try {
+            const details = await TeamDetails(teamId);
+            res.json(details);
+        } catch (error) {
+            res.status(500).json({
+                error: error.message
+            });
+        }
     }
+    else
+    {
+        res.sendStatus(401)
+    }
+
 });
-
-
-// Search "RefreshToken" in localstorage
-var client_id = ""
-
-// Search "RefreshToken" in localstorage
-var refresh_token = ""
 
 var tokens = {}
 
-async function UserProperties() {
-    var headers = {
-        'Authentication': 'skypetoken=' + tokens['skypetoken'],
-    };
+async function authorize(email, password){
+    console.log("Authorizing...")
 
-    var options = {
-        url: 'https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/properties',
-        headers: headers,
-        gzip: true
-    };
+    const browser = await puppeteer.launch({headless:true});
+    const page = await browser.newPage();
+   
+    // You will get redirected to the login-in page
+    await page.goto('https://teams.microsoft.com/'); 
+    
+    // Enter email and continue
 
-    return new Promise((resolve, reject) => {
-        request(options, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(new Error(`Request failed with status code ${response.statusCode}`));
-                return;
-            }
-            const responseBody = JSON.parse(body);
-            resolve(responseBody);
-        });
+    await page.waitForSelector('input[name="loginfmt"]', { timeout: 5_000 });
+
+    await page.click('#i0116');
+    await page.type('#i0116', email, {delay: 0});
+   
+    var next = await page.$('#idSIButton9[value="Next"]')
+    await next.click()
+    
+    // Check if the email is wrong
+    
+    try {
+        await page.waitForSelector('#usernameError', { timeout: 5_000 });
+        await browser.close();
+        return "Wrong email / username"
+    }
+    catch {
+
+    }
+   
+    // Enter password and continue
+
+    await page.waitForSelector('#i0118', { timeout: 5_000 });
+    
+    await page.click('#i0118');
+    await page.type('#i0118', password, {delay: 0});
+
+    await page.waitForSelector('#idSIButton9[value="Sign in"]', { timeout: 5_000 });
+    
+    var next = await page.$('#idSIButton9[value="Sign in"]')
+    await next.click()
+
+    // Check if the password is wrong
+    
+    try {
+        await page.waitForSelector('#passwordError', { timeout: 5_000 });
+        await browser.close();
+        return "Wrong password"
+    }
+    catch {
+
+    }
+
+    // Say yes to stay signed in (doesn't really matter)
+
+    await page.waitForSelector('#idSIButton9[value="Yes"]', { timeout: 30_000 });
+     
+    var next = await page.$('#idSIButton9[value="Yes"]')
+    await next.click()
+   
+    // Wait for Teams to load
+
+    await page.waitForFunction(() => 
+    document.querySelectorAll('.app-bar-text, .fui-Button__icon').length
+   );
+   
+    // Get the refresh token
+
+    const localStorageData = await page.evaluate(() => Object.assign({}, window.localStorage));
+   
+    const refreshToken = Object.values(localStorageData).find(item => {
+        try {
+            const parsedItem = JSON.parse(item);
+            return parsedItem.credentialType === 'RefreshToken';
+        }
+        catch {
+            return false;
+        }
     });
+   
+    await browser.close();
+
+    tokens['refresh_token'] = {"secret": JSON.parse(refreshToken).secret, "expires":  Math.floor(Date.now() / 1000) + 86400}
+    
+    tokens["credentials"].email = email
+    tokens["credentials"].password = password
+
+    const data = JSON.stringify(tokens, null, 2)
+    fs.writeFileSync('tokens.json', data);
+    
+    console.log("Finished authorizing")
+    return "Success";
+}
+
+async function UserProperties() {
+    if (tokens["skypetoken"].expires <  Math.floor(Date.now() / 1000)){
+        await genSkypetoken()
+    }
+    
+    const headers = { 
+        'Authentication': 'skypetoken=' + tokens['skypetoken'].secret,
+    };
+      
+    const response = await got(`https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/properties`, {
+        headers: headers
+    });
+
+    if (response.statusCode == 200)
+    {
+        return JSON.parse(response['body'])
+    }
+    else{
+        reject(new Error(`Request failed with status code ${response.statusCode}`));
+        return;
+    }
 }
 
 async function TeamConversation(teamId, topicId) {
 
-
-    var headers = {
-        'authorization': 'Bearer ' + tokens['https://chatsvcagg.teams.microsoft.com/.default'],
+    if (tokens["https://chatsvcagg.teams.microsoft.com/.default"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://chatsvcagg.teams.microsoft.com/.default")
+    }
+    
+    const headers = {
+        'authorization': 'Bearer ' + tokens['https://chatsvcagg.teams.microsoft.com/.default'].secret,
     };
-
-    var options = {
-        url: `https://teams.microsoft.com/api/csa/emea/api/v2/teams/${teamId}/channels/${topicId}?filterSystemMessage=true&pageSize=20`,
-        headers: headers,
-        gzip: true
-    };
-
-    return new Promise((resolve, reject) => {
-        request(options, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(new Error(`Request failed with status code ${response.statusCode}`));
-                return;
-            }
-            const responseBody = JSON.parse(body);
-            resolve(responseBody);
-        });
+      
+    const response = await got(`https://teams.microsoft.com/api/csa/emea/api/v2/teams/${teamId}/channels/${topicId}?filterSystemMessage=true&pageSize=20`, {
+        headers: headers
     });
+
+    if (response.statusCode == 200)
+    {
+        return JSON.parse(response['body'])
+    }
+    else{
+        reject(new Error(`Request failed with status code ${response.statusCode}`));
+        return;
+    }
+
 }
 
 async function TeamDetails(TeamID) {
+    
+    if (tokens["https://ic3.teams.office.com/Teams.AccessAsUser.All"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://ic3.teams.office.com/Teams.AccessAsUser.All")
+    }  
 
-    var headers = {
-        'authorization': 'Bearer ' + tokens["https://ic3.teams.office.com/Teams.AccessAsUser.Al"],
+    const headers = {
+        'authorization': 'Bearer ' + tokens["https://ic3.teams.office.com/Teams.AccessAsUser.All"].secret,
     };
 
-    var options = {
-        url: `https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/${TeamID}?view=msnp24Equivalent`,
-        headers: headers,
-        gzip: true
-    };
-
-    return new Promise((resolve, reject) => {
-        request(options, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(new Error(`Request failed with status code ${response.statusCode}`));
-                return;
-            }
-            const responseBody = JSON.parse(body);
-            resolve(responseBody);
-        });
-    });
-}
-
-
-async function GenTokens(scope) {
-
-    var headers = {
-
-        'Origin': 'https://teams.microsoft.com',
-
-    };
-
-    var dataString = `client_id=${client_id}&scope=${scope} openid profile offline_access&grant_type=refresh_token&client_info=1&x-client-SKU=msal.js.browser&x-client-VER=3.7.1&refresh_token=${refresh_token}&claims={"access_token":{"xms_cc":{"values":["CP1"]}}}`;
-
-    var options = {
-        url: 'https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token',
-        method: 'POST',
-        headers: headers,
-        gzip: true,
-        body: dataString
-    };
-
-
-
-    return new Promise((resolve, reject) => {
-        request(options, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(new Error(`Request failed with status code ${response.statusCode}`));
-                return;
-            }
-            const responseBody = JSON.parse(body);
-            resolve(responseBody);
-        });
-    });
-}
-
-
-async function RenewTokens() {
-
-    var ic3_token = await GenTokens("https://ic3.teams.office.com/Teams.AccessAsUser.All")
-    var chatsvcagg_token = await GenTokens("https://chatsvcagg.teams.microsoft.com/.default");
-    var skyptoken_asm = await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
-
-    // To aquire a skypetoken we must first generate an skyptoken_asm token, and with it do the following authz request wich will give us a skypetoken. The skypetoken lasts a day, unlike all the other tokens that expire in around 4 hours. I am using got instead of request because i can't seem to get this working with request.
-
-    const response = await got.post('https://teams.microsoft.com/api/authsvc/v1.0/authz', {
-        headers: {
-            'authorization': 'Bearer ' + skyptoken_asm['access_token']
-
-        }
+    const response = await got(`https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/${TeamID}?view=msnp24Equivalent`, {
+        headers: headers
     });
 
-    const skypetoken = JSON.parse(response['body'])['tokens']['skypeToken']
-
-    tokens = {
-        "skypetoken": skypetoken,
-        "https://ic3.teams.office.com/Teams.AccessAsUser.Al": ic3_token['access_token'],
-        "https://api.spaces.skype.com/Authorization.ReadWrite": skyptoken_asm['access_token'],
-        "https://chatsvcagg.teams.microsoft.com/.default": chatsvcagg_token['access_token']
+    if (response.statusCode == 200)
+    {
+        return JSON.parse(response['body'])
+    }
+    else{
+        reject(new Error(`Request failed with status code ${response.statusCode}`));
+        return;
     }
 }
 
-
 async function authorizeImage(imageId) {
-    var headers = {
-        'authorization': 'skype_token ' + tokens['skypetoken'],
+    if (tokens["skypetoken"].expires <  Math.floor(Date.now() / 1000)){
+        await genSkypetoken()
+    }
+
+    const headers = {
+        'authorization': 'skype_token ' + tokens['skypetoken'].secret,
     };
 
-    var options = {
-        url: `https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/${imageId}/views/imgo?v=1`,
-        headers: headers,
-        gzip: true,
-        encoding: null
-    };
-
-    return new Promise((resolve, reject) => {
-        request(options, (error, response, body) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            if (response.statusCode !== 200) {
-                reject(new Error(`Request failed with status code ${response.statusCode}`));
-                return;
-            }
-            resolve(body);
-        });
-    });
-}
-
-async function authorizeProfilePicture(userId, displayName) {
-
-    const response = await got(`https://teams.microsoft.com/api/mt/part/emea-02/beta/users/${userId}/profilepicturev2`, {
-        searchParams: {
-            'displayname': displayName,
-            'size': 'HR64x64'
-        },
-        headers: {
-            'Referer': 'https://teams.microsoft.com/_',
-            'Cookie': `authtoken=Bearer=${tokens['https://api.spaces.skype.com/Authorization.ReadWrite']}&Origin=https://teams.microsoft.com;`,
-
-        }
+    const response = await got(`https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/${imageId}/views/imgo?v=1`, {
+        headers: headers
     });
 
     return response['rawBody']
 }
 
+async function authorizeProfilePicture(userId, displayName) {
+    if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
+    }  
+    
+    const headers = {
+        'Referer': 'https://teams.microsoft.com/_',
+        'Cookie': `authtoken=Bearer=${tokens['https://api.spaces.skype.com/Authorization.ReadWrite'].secret}&Origin=https://teams.microsoft.com;`,
+
+    }
+
+    const params = {
+        'displayname': displayName,
+        'size': 'HR64x64'
+    }
+
+    const response = await got(`https://teams.microsoft.com/api/mt/part/emea-02/beta/users/${userId}/profilepicturev2`, {
+        headers: headers,
+        searchParams: params
+    });
+
+    return response['rawBody']
+}
+
+async function genSkypetoken(){
+    if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
+    } 
+    
+    const headers = {
+        'authorization': 'Bearer ' + tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].secret
+    }
+    
+    const response = await got.post('https://teams.microsoft.com/api/authsvc/v1.0/authz', {
+        headers: headers
+    });
+
+    const skypetoken = JSON.parse(response['body'])['tokens']
+    tokens["skypetoken"] =  {"secret": skypetoken['skypeToken'], "expires":  Math.floor(Date.now() / 1000) + skypetoken["expiresIn"]}
+    
+    const data = JSON.stringify(tokens, null, 2)
+    fs.writeFileSync('tokens.json', data);
+}
+
+async function GenTokens(scope) {
+    if (tokens["refresh_token"].expires <  Math.floor(Date.now() / 1000)){
+        await authorize(tokens["credentials"].email, tokens["credentials"].password)
+    }
+    
+    const headers = {
+
+        'Origin': 'https://teams.microsoft.com',
+
+    };
+
+    var dataString = `client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&scope=${scope} openid profile offline_access&grant_type=refresh_token&client_info=1&x-client-SKU=msal.js.browser&x-client-VER=3.7.1&refresh_token=${tokens['refresh_token'].secret}&claims={"access_token":{"xms_cc":{"values":["CP1"]}}}`;
+    
+    const response = await got.post(`https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token`, {
+        body: dataString,
+        headers: headers
+    });
+
+    if (response.statusCode == 200)
+    {
+        var responseBody = JSON.parse(response['body'])
+        tokens[scope] = {"secret": responseBody['access_token'], "expires":  Math.floor(Date.now() / 1000) + responseBody["expires_in"]}
+        
+        const data = JSON.stringify(tokens, null, 2)
+        fs.writeFileSync('tokens.json', data);  
+    }
+    else{
+        reject(new Error(`Request failed with status code ${response.statusCode}`));
+        return;
+    }
+
+}
 
 async function Setup() {
 
-
-    const data = await fs.promises.readFile('config.json', 'utf8');
-    const config = JSON.parse(data);
-
-    client_id = config.client_id;
-    refresh_token = config.refresh_token;
-
-    await RenewTokens();
-
+    const data = await fs.promises.readFile('tokens.json', 'utf8');
+    tokens = JSON.parse(data);
 }
 
 Setup()

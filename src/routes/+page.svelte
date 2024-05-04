@@ -9,7 +9,6 @@ onMount(reloadTeams);
 <svelte:head>
 	<title>Home</title>
 	<meta name="description" content="Svelte demo app" />
-
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 
 </svelte:head>

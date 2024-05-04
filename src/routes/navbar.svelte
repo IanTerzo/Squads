@@ -1,7 +1,7 @@
 <script>
- import homeIcon from "$lib/images/home_FILL1_wght400_GRAD0_opsz24.svg";
- import chatIcon from "$lib/images/chat_bubble_FILL0_wght400_GRAD0_opsz24.svg";
- import assignmentsIcon from "$lib/images/description_FILL0_wght400_GRAD0_opsz24.svg";
+ import homeIcon from "$lib/images/icons8-home.svg";
+ import chatIcon from "$lib/images/icons8-chat-96.png";
+ import assignmentsIcon from "$lib/images/icons8-rectangle-100.png"
 </script>
 
 <div class="navbar">
@@ -9,9 +9,9 @@
     <span id="title">Squads</span>
     </div>
     <div class="navbar-icons">
-        <img class="icon" src={homeIcon} alt="SVG"/>
-        <img class="icon-nonsel icon-chat" src={chatIcon} alt="SVG"/>
-        <img class="icon-nonsel icon-assignments" src={assignmentsIcon} alt="SVG"/>
+        <a href="/" style="line-height: 0;"><img class="icon icon-selected icon-home" src={homeIcon} alt="SVG"/></a>
+        <a style="line-height: 0;"><img class="icon icon-chat" src={chatIcon} alt="SVG"/></a>
+        <a style="line-height: 0;"><img class="icon icon-assignments" src={assignmentsIcon} alt="SVG"/></a>
     </div>
 </div>
 
@@ -35,27 +35,32 @@
      margin-left: 8.5px;
      color:white;
  }
- .icon{
-    width:34px;
-    heght:34px;
+ .icon-selected{
     margin-bottom:2px;
     border-bottom:2px solid white;
  }
+ .icon{
+   cursor: pointer;
+ }
+ .icon-home{
+   width:31.5px;
+    height:31.5px;
+ }
  .icon-chat{
     width:31px;
-    heght:31px;
+    height:31px;
     margin-top:3.5px;
  }
 .icon-assignments{
-    width:32px;
-    height:32px;
+    width:31px;
+    height:31px;
  }
  .navbar-icons{
     position:absolute;
-    right: 8.25px;
+    right: 9px;
     display: flex;
     align-items: center;
-    gap: 8.25px;
+    gap: 9px;
  }
 
  .navbar a {
