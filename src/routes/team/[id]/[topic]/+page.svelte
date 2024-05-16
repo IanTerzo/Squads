@@ -128,13 +128,13 @@ function toggleReplies(content) {
 </svelte:head>
 
 <section>
-    {#each Object.entries($teams) as [teamId, team]}
-        {#if teamId === id}
+    {#each Object.entries($teams) as [index, team]}
+        {#if team.id === id}
             <div id="teamInfo">
                 <img id="teamPfp" width="50px" height="50px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
                 <div>
-                    <div id="teamTitle">{team.name}</div>
-                    <div id="channelName">General</div>
+                    <div id="teamTitle">{team.displayName}</div>
+                    <div id="channelName">{team.channels[0].displayName}</div>
                 </div>
             </div>
             <div id="pages">
@@ -143,8 +143,8 @@ function toggleReplies(content) {
                 <span>Assignments</span>
             </div>
             <div class="selgroup">
-                {#each team.topics as topic}
-                    <a class="linkpage" on:click={loadConversation} href='../../team/{id}/{topic.id}'><span># {topic.name}</span></a>
+                {#each team.channels as channel}
+                    <a class="linkpage" on:click={loadConversation} href='../../team/{id}/{channel.id}'><span># {channel.displayName}</span></a>
                 {/each}
             </div>
         {/if}
@@ -240,7 +240,8 @@ function toggleReplies(content) {
 
 #channelName {
 	color: white;
-	font-size: 16px
+	font-size: 16px;
+    max-width: 262px;
 }
 
 #pages {
@@ -258,6 +259,10 @@ function toggleReplies(content) {
 	position: relative;
 	font-size: 16px;
 	font-weight: 600;
+    max-width: 262px;
+    text-overflow: ellipsis;
+white-space: nowrap;
+overflow: hidden;
 }
 
 #conversationDiv {

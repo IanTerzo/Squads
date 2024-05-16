@@ -1,6 +1,15 @@
 import { persisted } from 'svelte-persisted-store'
 
-export const teams = persisted('persistent', {})
+export const teams = persisted('persistent', {}, {
+    storage: 'local',
+    syncTabs: true,
+    onWriteError: (error) => {
+      console.error("Write Error:", error);
+    },
+    onParseError: (raw, error) => {
+      console.error("Parse Error:", raw, error);
+    }
+  }); 
 
 export async function authorize(email, password) {
     try {
@@ -27,45 +36,17 @@ export async function authorize(email, password) {
 
 export async function reloadTeams() {
     try {
-        const response = await fetch('http://localhost:5102/user-properties');
+        const response = await fetch('http://localhost:5102/teams');
         if (!response.ok) {
             if (response.status == 401){
                 window.location.href ="../../../../../../../login"  // temporary fix
             }
             throw new Error('Network response was not ok');
         }
-        const data = await response.json();
-        const teamsOrder = JSON.parse(data['teamsOrder']);
+        
+        const data = await response.json();  
 
-        const tempTeams = {};
-        for (const team of teamsOrder) {
-            const teamResponse = await fetch(`http://localhost:5102/team-details/${team.teamId}`);
-            if (!teamResponse.ok) {
-                if (teamResponse.status == 401){
-                    window.location.href ="../../../../../../../login" 
-                }
-                throw new Error('Network response was not ok');
-            }
-            const teamData = await teamResponse.json();
-
-            var topics = [{
-                'id': teamData['id'],
-                'name': 'General'
-            }]
-
-            if (teamData['threadProperties']['topics']) {
-                const parsedTopics = JSON.parse(teamData['threadProperties']['topics'])
-                topics.push(...parsedTopics);
-            }
-
-            tempTeams[teamData["id"]] = {
-                "id": teamData["id"],
-                "name": teamData['threadProperties']['spaceThreadTopic'],
-                "topics": topics
-            };
-        }
-
-        teams.set(tempTeams);
+        teams.set(data.teams);
 
     } catch (error) {
         console.error('There was a problem with the fetch operation:', error);

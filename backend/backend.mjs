@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import got from 'got';
@@ -11,11 +11,28 @@ const port = 5102;
 app.use(bodyParser.json());
 app.use(cors());
 
-app.get('/user-properties', async (req, res) => {
+app.get('/properties', async (req, res) => {
     if (!tokens['credentials'].email == ""){
         try {
             const properties = await UserProperties();
             res.json(properties);
+        } catch (error) {
+            res.status(500).json({
+                error: error.message
+            });
+        }     
+    }
+    else
+    {
+        res.sendStatus(401)
+    }
+});
+
+app.get('/teams', async (req, res) => {
+    if (!tokens['credentials'].email == ""){
+        try {
+            const teams = await UserTeams();
+            res.json(teams);
         } catch (error) {
             res.status(500).json({
                 error: error.message
@@ -248,6 +265,40 @@ async function UserProperties() {
     }
 }
 
+
+async function UserTeams() {
+    if (tokens["https://chatsvcagg.teams.microsoft.com/.default"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://chatsvcagg.teams.microsoft.com/.default")
+    }
+    
+    const headers = { 
+        'Authentication': 'skypetoken=' + tokens['skypetoken'].secret,
+    };
+      
+   
+    const response = await got('https://teams.microsoft.com/api/csa/emea/api/v2/teams/users/me', {
+        searchParams: {
+        'isPrefetch': 'false',
+        'enableMembershipSummary': 'true',
+        'enableRC2Fetch': 'false'
+    },
+    headers: {
+        'authorization': 'Bearer ' + tokens['https://chatsvcagg.teams.microsoft.com/.default'].secret
+    }
+    });
+
+
+    if (response.statusCode == 200)
+    {
+        return JSON.parse(response['body'])
+    }
+    else{
+        reject(new Error(`Request failed with status code ${response.statusCode}`));
+        return;
+    }
+}
+
+
 async function TeamConversation(teamId, topicId) {
 
     if (tokens["https://chatsvcagg.teams.microsoft.com/.default"].expires <  Math.floor(Date.now() / 1000)){
@@ -337,6 +388,56 @@ async function authorizeProfilePicture(userId, displayName) {
     return response['rawBody']
 }
 
+async function renderListDataAsStream(section, filesRelativePath){
+    if (tokens["SPOIDCRL"].expires <  Math.floor(Date.now() / 1000)){
+        await genSPOIDCRL()
+    }
+
+    // Temporary !!!!!!
+    
+    const response = await got.post(`https://abbindgym.sharepoint.com/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&TryNewExperienceSingle=TRUE`, {
+        headers: {
+            'Cookie': 'SPOIDCRL=' + tokens["SPOIDCRL"].secret,
+        },
+        json: {
+            'parameters': {
+            'RenderOptions': 5723911,
+            'AllowMultipleValueFilterForTaxonomyFields': true,
+            'AddRequiredFields': true,
+            'ModernListBoot': true,
+            'RequireFolderColoringFields': true
+        }
+    }
+    });
+
+    console.log(JSON.parse(response.body))
+}
+
+async function genSPOIDCRL(section){
+
+    // Temporary !!!!!!
+
+    if (tokens["https://abbindgym.sharepoint.com/.default"].expires <  Math.floor(Date.now() / 1000)){
+        await GenTokens("https://abbindgym.sharepoint.com/.default")
+    } 
+
+    const response = await got.post(`https://abbindgym.sharepoint.com/sites/${section}/_api/SP.OAuth.NativeClient/Authenticate`, {
+        headers: {
+            'Authorization': 'Bearer ' + tokens["https://abbindgym.sharepoint.com/.default"].secret,
+        }
+
+    });
+
+
+    const match = response.headers['set-cookie'][0].match(/SPOIDCRL=(.+?);/);
+    const SPOIDCRL = match[0].replace("SPOIDCRL=","").replace(";","")
+
+    tokens["SPOIDCRL"] =  {"secret": SPOIDCRL, "expires":  Math.floor(Date.now() / 1000) + 2628288} // One month
+    
+    const data = JSON.stringify(tokens, null, 2)
+    fs.writeFileSync('tokens.json', data);
+}
+
 async function genSkypetoken(){
     if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires <  Math.floor(Date.now() / 1000)){
         await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
@@ -391,9 +492,10 @@ async function GenTokens(scope) {
 }
 
 async function Setup() {
-
+    
     const data = await fs.promises.readFile('tokens.json', 'utf8');
     tokens = JSON.parse(data);
+
 }
 
 Setup()

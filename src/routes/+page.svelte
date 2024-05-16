@@ -1,6 +1,6 @@
 <script>
 import { onMount } from 'svelte';
-import { reloadTeams, teams,} from './app.js';
+import { reloadTeams, teams} from './app.js';
 
 onMount(reloadTeams);
 
@@ -17,8 +17,8 @@ onMount(reloadTeams);
 <div class="infotext"> Teams </div>
 	<div class="selgroup" id="teams">
 
-	{#each Object.entries($teams) as [id, team]}
-		<a class="linkpage" href='team/{id}/{id}'><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg"><span>{team.name}</span></a>
+	{#each Object.entries($teams) as [index, team]}
+		<a class="linkpage" href='team/{team.id}/{team.id}'><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg"><span>{team.displayName}</span></a>
  	{/each}
 	<div>
 

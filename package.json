@@ -18,6 +18,7 @@
 	"type": "module",
 	"dependencies": {
 		"cors": "^2.8.5",
+		"devalue": "^5.0.0",
 		"express": "^4.19.2",
 		"got": "^14.2.1",
 		"puppeteer": "^22.7.1",
