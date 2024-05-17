@@ -100,14 +100,12 @@
 	display: flex;
 	flex-direction: column;
 	background-color: #333;
-	width: 35vw;
 	height: fit-content;
 	margin-top: 15px;
 	border-radius: 10px;
 	padding: 14px;
 	color: white;
 }
-
 
 :global(.titlespan) {
 	color: white;
@@ -131,7 +129,7 @@
 
 :global(.activity-box img) {
 	border-radius: 5px;
-	max-width: 35vw;
+		max-width: 100%;
 	height: auto;
 }
 
@@ -170,8 +168,8 @@
 	display: flex;
 	flex-direction: column;
 	overflow-y: scroll;
-	margin-top: 15px;
-	height: 85vh;
+	margin-top: 17px;
+	height: 60vh;
 	scrollbar-width: none;
 }
 

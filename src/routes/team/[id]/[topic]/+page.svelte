@@ -13,6 +13,8 @@ import {
     getConversation
 } from '../../../app.js';
 
+import folderIcon from "$lib/images/folder.svg";
+
 $: id = $page.params.id;
 $: topic = $page.params.topic;
 var conversation = {}
@@ -226,7 +228,81 @@ function toggleReplies(content) {
         </div>
     {/each}
 </section>
+
+<section id="files">
+<span># General </span>
+<div class="folder">
+    <div class="folder-title"> <img src={folderIcon}> Ellära </div>
+    <div class="folder">
+        <span class="filesFile">ellära.pptx</span>
+        <span class="filesFile" >ohmslag.pptx</span>
+    </div>
+</div>
+<span># Annat </span>
+<div class="folder">
+    <div class="folder-title"> <img src={folderIcon}> Teknik </div>
+    <div class="folder">
+        <span class="filesFile">teknik.pdf</span>
+
+        <div class="folder-title"> <img src={folderIcon}> Electromagnetic Compatibility</div>
+        <div class="folder">
+             <span class="filesFile">Electromagneic Fields.pptx</span>
+        </div>
+
+    </div>
+
+</div>
+
+</section>
+
 <style>
+#files {
+    color: white;
+	display: flex;
+	flex-direction: column;
+	/* Reverse the order of items */
+	overflow-y: scroll;
+    background-color: #333;
+	height: 80vh;
+	width: 21vw;
+	border-radius: 10px;
+
+	scrollbar-width: none;
+	padding: 14px;
+
+	cursor: default;
+}
+
+.folder{
+    margin-top:3px;
+    padding-left: 19px;
+    display: flex;
+    flex-direction:column;
+    margin-bottom: 5px;
+}
+.folder-title{
+margin-top:10px;
+    display: flex;
+    gap: 6px;
+}
+
+.folder-title img {
+    height: 18px;
+    width: auto;
+}
+
+.filesFile{
+    width: fit-content;
+    padding-right: 4px;
+    padding-left: 4px;
+}
+
+
+.filesFile:hover{
+    background-color: #444;
+    border-radius: 3px;
+}
+
 #teamInfo {
 	display: flex;
 	align-items: center;
@@ -272,7 +348,8 @@ overflow: hidden;
 	/* Reverse the order of items */
 	overflow-y: scroll;
 
-	height: 87vh;
+	height: 83.7vh;
+	width:42vw;
 	scrollbar-width: none;
 }
 </style>
