@@ -1,16 +1,12 @@
 <script>
 import {
-    onDestroy,
     onMount
 } from 'svelte';
 import {
     page
 } from '$app/stores';
 import {
-    profilePicture,
-    authorizeImage,
     teams,
-    getConversation
 } from '../../../app.js';
 
 import folderIcon from "$lib/images/folder.svg";
@@ -19,6 +15,33 @@ $: id = $page.params.id;
 $: topic = $page.params.topic;
 var conversation = {}
 var lastTopic = ""
+
+async function getConversation(teamId, topicId) {
+    try {
+        const response = await fetch(`/api/teamConversation/${teamId}/${topicId}`);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+
+        const reversedReplyChains = {};
+        Object.keys(data.replyChains).reverse().forEach(key => {
+            reversedReplyChains[key] = data.replyChains[key];
+        });
+
+        // Reverse the order of messages in each reply chain
+        Object.keys(reversedReplyChains).forEach(key => {
+            reversedReplyChains[key].messages.reverse();
+        });
+
+        console.log(reversedReplyChains)
+        return reversedReplyChains;
+
+
+    } catch (error) {
+        console.error('There was a problem with the fetch operation:', error);
+    }
+}
 
 onMount(async () => {
     lastTopic = topic;
@@ -38,7 +61,7 @@ async function loadConversation() {
 
             lastTopic = topic;
         }
-    }, 5);
+    }, 2);
 
 }
 
@@ -95,7 +118,7 @@ async function parseContent(conversation) {
 
             for (const img of images) {
                 if (img.attributes.imageid) {
-                    const imageUrl = await authorizeImage(img.getAttribute('imageid'));
+                    const imageUrl = "/api/image/" + img.getAttribute('imageid');
                     img.setAttribute('src', imageUrl);
                 }
             }
@@ -160,7 +183,7 @@ function toggleReplies(content) {
                 {#if replyChain.messages[0].messageType == "Event/Call"}
                     <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/icons8-video-camera-96.png">
                 {:else}
-                    <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="http://localhost:5102/profilePicture/{replyChain.messages[0].from}/{replyChain.messages[0].imDisplayName}">
+                    <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{replyChain.messages[0].from}/{replyChain.messages[0].imDisplayName}">
                 {/if}
 
                 {#if !replyChain.messages[0].imDisplayName}
@@ -204,7 +227,7 @@ function toggleReplies(content) {
                     <div style="display: none" class="reply">
                         <div class="messages">
                             <div class="post-sender-info">
-                                <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="http://localhost:5102/profilePicture/{message.from}/{message.imDisplayName}">
+                                <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{message.from}/{message.imDisplayName}">
                                 {#if !message.imDisplayName}
                                     {#if replyChain.messages[0].messageType == "Event/Call"}
                                         <span><b>Meeting Ended</b></span>

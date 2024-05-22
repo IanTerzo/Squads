@@ -1,5 +1,4 @@
 <script>
-import {authorize} from '../app.js';
 
 let loader;
 let continueBtn; 
@@ -9,25 +8,45 @@ let password;
 
 let error;
 
-async function getTokens(){
+async function authorize(){
 	error.style.display="none";
-
+	
 	if (email.value && password.value){
 		continueBtn.style.display="none";
 		loader.style.display="block";
 
-		let body = await authorize(email.value, password.value)
-		if (body == "OK"){
+		const response = await fetch(`/api/authorize`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({"email" : email.value, "password" : password.value}),
+        });
+ 
+        if (response.ok)  {
+
 			console.log('Authorization successful');
             window.location.href ="../"
-		}
-		else {
-			error.textContent = body;
+
+           return response.text();
+            
+        }
+        else if (response.status == 401){
+			error.textContent = "Unauthorized"
 			error.style.display="block";
 
 			loader.style.display="none";
 			continueBtn.style.display="block";
 
+        }
+		else {
+			error.textContent = "Network response was not ok";
+			error.style.display="block";
+			
+			loader.style.display="none";
+			continueBtn.style.display="block";
+
+			throw new Error('Network response was not ok');
 		}
 	}
 }
@@ -62,7 +81,7 @@ async function getTokens(){
 		<div><input class="field"/></div>
 	</div>
 
-	<span on:click={getTokens} id="login-button"><div bind:this={continueBtn} style="display: block;">Continue</div> <div bind:this={loader} style="display: none;" class="loader"></div> </span>
+	<span on:click={authorize} id="login-button"><div bind:this={continueBtn} style="display: block;">Continue</div> <div bind:this={loader} style="display: none;" class="loader"></div> </span>
 
 	<div bind:this={error} style="display: none;" id="error">  </div>
 	
