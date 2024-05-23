@@ -156,7 +156,7 @@ function toggleReplies(content) {
     {#each Object.entries($teams) as [index, team]}
         {#if team.id === id}
             <div id="teamInfo">
-                <img id="teamPfp" width="50px" height="50px" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+                <img id="teamPfp" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
                 <div>
                     <div id="teamTitle">{team.displayName}</div>
                     <div id="channelName">{team.channels[0].displayName}</div>
@@ -167,9 +167,9 @@ function toggleReplies(content) {
                 <span>Class Notebook</span>
                 <span>Assignments</span>
             </div>
-            <div class="selgroup">
+            <div class="selGroup">
                 {#each team.channels as channel}
-                    <a class="linkpage" on:click={loadConversation} href='../../team/{id}/{channel.id}'><span># {channel.displayName}</span></a>
+                    <a class="linkPage" on:click={loadConversation} href='../../team/{id}/{channel.id}'><span># {channel.displayName}</span></a>
                 {/each}
             </div>
         {/if}
@@ -178,12 +178,12 @@ function toggleReplies(content) {
 
 <section id="conversationDiv">
     {#each Object.entries(conversation) as [number, replyChain]}
-        <div class="activity-box">
-            <div class="post-sender-info">
+        <div class="activityBox">
+            <div class="postSenderInfo">
                 {#if replyChain.messages[0].messageType == "Event/Call"}
-                    <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/icons8-video-camera-96.png">
+                    <img class="pfpImg" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/icons8-video-camera-96.png">
                 {:else}
-                    <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{replyChain.messages[0].from}/{replyChain.messages[0].imDisplayName}">
+                    <img class="pfpImg" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{replyChain.messages[0].from}/{replyChain.messages[0].imDisplayName}">
                 {/if}
 
                 {#if !replyChain.messages[0].imDisplayName}
@@ -198,7 +198,7 @@ function toggleReplies(content) {
             </div>
 
             {#if replyChain.messages[0].properties['subject']}
-                <span class="titlespan">{replyChain.messages[0].properties['subject']}</span>
+                <span class="titleSpan">{replyChain.messages[0].properties['subject']}</span>
             {/if}
 
             {#each replyChain.messages as message, index}
@@ -218,16 +218,16 @@ function toggleReplies(content) {
                 {:else}
                     {#if index === 1}
                         {#if replyChain.messages[0].messageType == "Event/Call"}
-                            <span class="show-replies" on:click={toggleReplies} style="margin-top: 0px;">Show Replies</span>
+                            <span class="showReplies" on:click={toggleReplies} style="margin-top: 0px;">Show Replies</span>
                         {:else}
-                            <span class="show-replies" on:click={toggleReplies}>Show Replies</span>
+                            <span class="showReplies" on:click={toggleReplies}>Show Replies</span>
                         {/if}
                     {/if}
 
                     <div style="display: none" class="reply">
                         <div class="messages">
                             <div class="post-sender-info">
-                                <img class="pfp-img" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{message.from}/{message.imDisplayName}">
+                                <img class="pfpImg" width="32px" height="32x" onerror="this.src='/icons8-question-mark-100.png'" src="/api/profilePicture/{message.from}/{message.imDisplayName}">
                                 {#if !message.imDisplayName}
                                     {#if replyChain.messages[0].messageType == "Event/Call"}
                                         <span><b>Meeting Ended</b></span>
@@ -255,7 +255,7 @@ function toggleReplies(content) {
 <section id="files">
 <span># General </span>
 <div class="folder">
-    <div class="folder-title"> <img src={folderIcon}> Ellära </div>
+    <div class="folderTitle"> <img src={folderIcon}> Ellära </div>
     <div class="folder">
         <span class="filesFile">ellära.pptx</span>
         <span class="filesFile" >ohmslag.pptx</span>
@@ -263,11 +263,11 @@ function toggleReplies(content) {
 </div>
 <span># Annat </span>
 <div class="folder">
-    <div class="folder-title"> <img src={folderIcon}> Teknik </div>
+    <div class="folderTitle"> <img src={folderIcon}> Teknik </div>
     <div class="folder">
         <span class="filesFile">teknik.pdf</span>
 
-        <div class="folder-title"> <img src={folderIcon}> Electromagnetic Compatibility</div>
+        <div class="folderTitle"> <img src={folderIcon}> Electromagnetic Compatibility</div>
         <div class="folder">
              <span class="filesFile">Electromagneic Fields.pptx</span>
         </div>
@@ -279,101 +279,6 @@ function toggleReplies(content) {
 </section>
 
 <style>
-#files {
-    color: white;
-	display: flex;
-	flex-direction: column;
-	/* Reverse the order of items */
-	overflow-y: scroll;
-    background-color: #333;
-	height: 80vh;
-	width: 21vw;
-	border-radius: 10px;
 
-	scrollbar-width: none;
-	padding: 14px;
-
-	cursor: default;
-}
-
-.folder{
-    margin-top:3px;
-    padding-left: 19px;
-    display: flex;
-    flex-direction:column;
-    margin-bottom: 5px;
-}
-.folder-title{
-margin-top:10px;
-    display: flex;
-    gap: 6px;
-}
-
-.folder-title img {
-    height: 18px;
-    width: auto;
-}
-
-.filesFile{
-    width: fit-content;
-    padding-right: 4px;
-    padding-left: 4px;
-}
-
-
-.filesFile:hover{
-    background-color: #444;
-    border-radius: 3px;
-}
-
-#teamInfo {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	margin-bottom: 20px;
-}
-
-#teamPfp {
-	border-radius: 4px;
-}
-
-#channelName {
-	color: white;
-	font-size: 16px;
-    max-width: 262px;
-}
-
-#pages {
-	display: flex;
-	flex-direction: column;
-	color: white;
-	gap: 6px;
-	cursor: pointer;
-	margin-top: 15px;
-	margin-bottom: 18px;
-}
-
-#teamTitle {
-	color: white;
-	position: relative;
-	font-size: 16px;
-	font-weight: 600;
-    max-width: 262px;
-    text-overflow: ellipsis;
-white-space: nowrap;
-overflow: hidden;
-}
-
-#conversationDiv {
-	color: white;
-	display: flex;
-	flex-direction: column-reverse;
-	/* Reverse the order of items */
-	overflow-y: scroll;
-
-	height: 83.7vh;
-	width:42vw;
-	scrollbar-width: none;
-}
 </style>
 
