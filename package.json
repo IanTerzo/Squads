@@ -24,6 +24,7 @@
 		"devalue": "^5.0.0",
 		"express": "^4.19.2",
 		"got": "^14.2.1",
+		"nipplejs": "^0.10.2",
 		"puppeteer": "^22.7.1",
 		"request": "^2.88.2",
 		"svelte-persisted-store": "^0.9.1"

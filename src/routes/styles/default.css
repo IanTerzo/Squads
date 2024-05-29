@@ -10,7 +10,7 @@
 
 /* Root Styles */
 body {
-    font-family: sans-serif !important;
+    font-family: Arial, sans-serif !important;
     font-optical-sizing: auto;
     font-style: normal;
     background-color: var(--background-color);

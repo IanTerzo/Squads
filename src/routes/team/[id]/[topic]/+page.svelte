@@ -13,6 +13,10 @@ import folderIcon from "$lib/images/folder.svg";
 
 $: id = $page.params.id;
 $: topic = $page.params.topic;
+
+let team;
+let section;
+
 var conversation = {}
 var lastTopic = ""
 
@@ -43,27 +47,7 @@ async function getConversation(teamId, topicId) {
     }
 }
 
-onMount(async () => {
-    lastTopic = topic;
-    var unparsedConversation = await getConversation(id, topic)
-    conversation = preparseContent(unparsedConversation)
-    conversation = await parseContent(conversation)
-});
 
-
-async function loadConversation() {
-
-    setTimeout(async function() {
-        if (topic != lastTopic) {
-            var unparsedConversation = await getConversation(id, topic)
-            conversation = preparseContent(unparsedConversation)
-            conversation = await parseContent(conversation)
-
-            lastTopic = topic;
-        }
-    }, 2);
-
-}
 
 function cleanUpBody(node) {
 
@@ -130,6 +114,76 @@ async function parseContent(conversation) {
     return conversation;
 }
 
+let files = {}
+
+async function collectFiles(contents){
+    var found = []
+    for (const item of contents) {
+        if (item["FileLeafRef.Suffix"] == "") { 
+            // If it is a folder
+            const response = await fetch(`/api/renderListDataAsStream/${section}?filesRelativePath=${item.FileRef}`);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+
+            found[item.FileLeafRef] = await collectFiles(data.ListData.Row)
+        }
+        else {
+            found[item.FileLeafRef] = {"url" : item[".spItemUrl"]}
+        }
+    }
+    return found;
+}
+
+
+async function loadFiles(){
+    let channel = team.channels.find(channel => channel.id === topic);
+    let channelIndex = team.channels.indexOf(channel)
+
+    let filesRelativePath = team.channels[channelIndex].defaultFileSettings.filesRelativePath
+
+    const response = await fetch(`/api/renderListDataAsStream/${section}?filesRelativePath=${filesRelativePath}`);
+    if (!response.ok) {
+        throw new Error('Network response was not ok');
+    }
+    const data = await response.json();
+
+    files = await collectFiles(data.ListData.Row)
+
+    console.log(files)    
+
+}
+
+onMount(async () => {
+    team = $teams.find(team => team.id === id);
+    section = team.smtpAddress.split('@')[0]
+
+    lastTopic = topic;
+
+    var unparsedConversation = await getConversation(id, topic)
+    conversation = preparseContent(unparsedConversation)
+    conversation = await parseContent(conversation)
+    await loadFiles();
+    
+});
+
+
+async function loadConversation() {
+
+    setTimeout(async function() {
+        if (topic != lastTopic) {
+            lastTopic = topic;
+    
+            var unparsedConversation = await getConversation(id, topic)
+            conversation = preparseContent(unparsedConversation)
+            conversation = await parseContent(conversation)
+            await loadFiles();
+        }
+    }, 2);
+
+}
+
 function toggleReplies(content) {
     const element = event.target;
     const replies = element.parentNode.querySelectorAll(".reply")
@@ -156,7 +210,7 @@ function toggleReplies(content) {
     {#each Object.entries($teams) as [index, team]}
         {#if team.id === id}
             <div id="teamInfo">
-                <img id="teamPfp" src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Cat_August_2010-4.jpg/1200px-Cat_August_2010-4.jpg">
+                <img id="teamPfp" src="/api/teamPicture/{team.teamSiteInformation.groupId}/{team.displayName}/{team.pictureETag}">
                 <div>
                     <div id="teamTitle">{team.displayName}</div>
                     <div id="channelName">{team.channels[0].displayName}</div>
@@ -211,7 +265,7 @@ function toggleReplies(content) {
                     {#if replyChain.messages[0].properties['files'] && replyChain.messages[0].properties['files'] != "[]"}
                         {#each JSON.parse(replyChain.messages[0].properties['files']) as file}
                             <div class="file">
-                                <img class="file-icon" width="18px" height="18px" src="/icons8-attachment-file-64_blue.png"/><a href="{file.fileInfo.fileUrl}" download>{file.fileName}</a>
+                                <img class="file-icon" width="18px" height="18px" src="/icons8-attachment-file-64_blue.png"/><a href="{file.fileInfo.shareUrl}" target="_blank" rel="noopener noreferrer">{file.fileName}</a>
                             </div>
                         {/each}
                     {/if}
@@ -275,7 +329,9 @@ function toggleReplies(content) {
     </div>
 
 </div>
-
+{#each Object.entries(files) as [index, team]}
+<span>{index}</span>
+{/each}
 </section>
 
 <style>

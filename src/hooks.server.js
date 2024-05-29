@@ -266,6 +266,30 @@ async function authorizeProfilePicture(userId, displayName) {
     return response['rawBody']
 }
 
+
+async function authorizeTeamPicture(groupId, ETag, displayName) {
+    if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires < Math.floor(Date.now() / 1000)) {
+        await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
+    }
+
+
+const response = await got('https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/' + groupId, {
+  searchParams: {
+    'etag': ETag,
+    'displayName': displayName,
+  },
+  headers: {
+    'Referer': 'https://teams.microsoft.com/v2/',
+    'Cookie': `authtoken=Bearer=${tokens['https://api.spaces.skype.com/Authorization.ReadWrite'].secret}&Origin=https://teams.microsoft.com;`,
+
+  }
+
+  
+});
+
+
+return response['rawBody']
+}
 async function userAggregateSettings(json) {
     if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires < Math.floor(Date.now() / 1000)) {
         await GenTokens("https://api.spaces.skype.com/Authorization.ReadWrite")
@@ -289,8 +313,10 @@ async function renderListDataAsStream(section, filesRelativePath) {
     if (tokens["SPOIDCRL"].expires < Math.floor(Date.now() / 1000)) {
         await genSPOIDCRL(section) // Uknown section, domain / org section?
     }
-
-    const response = await got.post(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&TryNewExperienceSingle=TRUE`, {
+    console.log("https://abbindgym.sharepoint.com/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/Delade dokument/Termometer'&RootFolder=/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/Delade dokument/Termometer&TryNewExperienceSingle=TRUE")
+    console.log(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&RootFolder=${filesRelativePath}&TryNewExperienceSingle=TRUE`)
+    
+    const response = await got.post(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&RootFolder=${filesRelativePath}&TryNewExperienceSingle=TRUE`, {
         headers: {
             'Cookie': 'SPOIDCRL=' + tokens["SPOIDCRL"].secret,
         },
@@ -399,25 +425,17 @@ async function Setup() {
         tokens = JSON.parse(data);
     }
 
-    //console.log(tokens)
-    //let teams = await UserTeams()
-    //console.log(teams)
-
-    //let filesRelativePath = teams['teams'][4].channels[0].defaultFileSettings.filesRelativePath
-    //console.log(filesRelativePath)
+    let teams = await userTeams()
 
     //let section = teams['teams'][4].smtpAddress.split('@')[0]
     //console.log(section)
 
-    //let datastream = await renderListDataAsStream(section, filesRelativePath)
+    //let filesRelativePath = teams['teams'][4].channels[0].defaultFileSettings.filesRelativePath
+    //console.log(filesRelativePath)
+
+   // let datastream = await renderListDataAsStream(section, filesRelativePath)
 
     //console.log(datastream)
-
-
-    //let userAggregateSetting = await userAggregateSettings({
-    //    'tenantSiteUrl': true,
-    //})
-    //console.log(userAggregateSetting)
 
 
 }
@@ -498,7 +516,6 @@ export async function handle({
             
             else if (url[2] === 'image' && url[3]) {
                 const binaryData = await authorizeImage(url[3]);
-                console.log(binaryData)
 
                 // This is needed
                 const uint8Array = new Uint8Array(binaryData);
@@ -519,7 +536,19 @@ export async function handle({
                     }
                 });
             } 
+            else if (url[2] === 'teamPicture' && url[3] && url[4] && url[5]) {
+                const binaryData = await authorizeTeamPicture(url[3], url[4], url[4]);
+
+                const uint8Array = new Uint8Array(binaryData);
+                return new Response(uint8Array.buffer, {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'image/jpeg'
+                    }
+                });
+            } 
             
+
             else if (url[2] === 'teamConversation' && url[3] && url[4]) {
                 const conversation = await teamConversation(url[3], url[4]);
                 return new Response(JSON.stringify(conversation), {
@@ -537,9 +566,18 @@ export async function handle({
                     }
                 });
             } else if (url[2] === 'renderListDataAsStream' && url[3]) {
+               
                 const section = url[3];
-                const filesRelativePath = event.request.url.split('?')[1];
-                const conversation = await renderListDataAsStream(section, filesRelativePath);
+
+                const parametersArray = event.request.url.split('?')[1].split('&');
+                const parameters = {};
+
+                parametersArray.forEach(parameter => {
+                    const [key, value] = parameter.split('=');
+                    parameters[key] = value;
+                });
+                  
+                const conversation = await renderListDataAsStream(section, parameters.filesRelativePath);
                 return new Response(JSON.stringify(conversation), {
                     status: 200,
                     headers: {
@@ -549,7 +587,7 @@ export async function handle({
             }
 
         } catch (error) {
-            console.log(error)
+            //console.log(error)
             return new Response(JSON.stringify({
                 error: error.message
             }), {
