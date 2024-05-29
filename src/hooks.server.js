@@ -498,7 +498,11 @@ export async function handle({
             
             else if (url[2] === 'image' && url[3]) {
                 const binaryData = await authorizeImage(url[3]);
-                return new Response(binaryData, {
+                console.log(binaryData)
+
+                // This is needed
+                const uint8Array = new Uint8Array(binaryData);
+                return new Response(uint8Array.buffer, {
                     status: 200,
                     headers: {
                         'Content-Type': 'image/jpeg'
@@ -506,7 +510,9 @@ export async function handle({
                 });
             } else if (url[2] === 'profilePicture' && url[3] && url[4]) {
                 const binaryData = await authorizeProfilePicture(url[3], url[4]);
-                return new Response(binaryData, {
+
+                const uint8Array = new Uint8Array(binaryData);
+                return new Response(uint8Array.buffer, {
                     status: 200,
                     headers: {
                         'Content-Type': 'image/jpeg'
@@ -543,6 +549,7 @@ export async function handle({
             }
 
         } catch (error) {
+            console.log(error)
             return new Response(JSON.stringify({
                 error: error.message
             }), {
