@@ -430,7 +430,7 @@ async function Setup() {
         tokens = JSON.parse(data);
     }
 
-    let teams = await userTeams()
+    //let teams = await userTeams()
 
     //let section = teams['teams'][4].smtpAddress.split('@')[0]
     //console.log(section)
