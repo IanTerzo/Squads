@@ -110,17 +110,6 @@ async function authorize(email, password) {
     tokens["credentials"].email = email
     tokens["credentials"].password = password
 
-    let userAggregateSetting = await userAggregateSettings({
-        'tenantSiteUrl': true,
-    })
-
-    tokens["webUrl"] = userAggregateSetting.tenantSiteUrl.value.webUrl.replace("/_layouts/15/sharepoint.aspx", "")
-
-    tokens[tokens["webUrl"] + "/.default"] = {
-        secret: "",
-        expires: 0
-    }
-
     const data = JSON.stringify(tokens, null, 2)
     fs.writeFileSync('tokens/tokens.json', data);
 
@@ -313,8 +302,6 @@ async function renderListDataAsStream(section, filesRelativePath) {
     if (tokens["SPOIDCRL"].expires < Math.floor(Date.now() / 1000)) {
         await genSPOIDCRL(section) // Uknown section, domain / org section?
     }
-    console.log("https://abbindgym.sharepoint.com/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/Delade dokument/Termometer'&RootFolder=/sites/Section_66a0f508-8efa-4055-a555-e4f30ad8a923/Delade dokument/Termometer&TryNewExperienceSingle=TRUE")
-    console.log(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&RootFolder=${filesRelativePath}&TryNewExperienceSingle=TRUE`)
     
     const response = await got.post(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&RootFolder=${filesRelativePath}&TryNewExperienceSingle=TRUE`, {
         headers: {
@@ -333,8 +320,26 @@ async function renderListDataAsStream(section, filesRelativePath) {
 
     return JSON.parse(response.body)
 }
+async function genWebUrl(){
+    let userAggregateSetting = await userAggregateSettings({
+        'tenantSiteUrl': true,
+    })
+
+    tokens["webUrl"] = userAggregateSetting.tenantSiteUrl.value.webUrl.replace("/_layouts/15/sharepoint.aspx", "")
+
+    tokens[tokens["webUrl"] + "/.default"] = {
+        secret: "",
+        expires: 0
+    }
+
+    const data = JSON.stringify(tokens, null, 2)
+    fs.writeFileSync('tokens/tokens.json', data);
+}
 
 async function genSPOIDCRL(section) {
+    if (tokens.webUrl == ""){
+        await genWebUrl()
+    }
 
     if (tokens[tokens["webUrl"] + "/.default"].expires < Math.floor(Date.now() / 1000)) {
         await GenTokens(tokens["webUrl"] + "/.default")
@@ -451,6 +456,7 @@ function isAuthorized() {
     return true
 
 }
+
 
 
 export async function handle({
