@@ -66,22 +66,22 @@
 	
 		<div id="credentials" style="display: block;">
 			<div class="group">
-				<span class="over-inp">Email</span>
+				<span class="overInp">Email</span>
 				<div><input class="field" bind:this={email}/></div>
 			</div>
 	
 			<div class="group">
-				<span class="over-inp">Password</span>
+				<span class="overInp">Password</span>
 				<div><input class="field" type="password" bind:this={password}/></div>
 			</div>
 		</div>
 	
 		<div style="display: none;" id="refresh" class="group">
-			<span class="over-inp">Refresh Token</span>
+			<span class="overInp">Refresh Token</span>
 			<div><input class="field"/></div>
 		</div>
 	
-		<span on:click={authorize} id="login-button"><div bind:this={continueBtn} style="display: block;">Continue</div> <div bind:this={loader} style="display: none;" class="loader"></div> </span>
+		<span on:click={authorize} id="loginButton"><div bind:this={continueBtn} style="display: block;">Continue</div> <div bind:this={loader} style="display: none;" class="loader"></div> </span>
 	
 		<div bind:this={error} style="display: none;" id="error">  </div>
 		
