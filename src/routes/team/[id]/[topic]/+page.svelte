@@ -9,8 +9,6 @@ import {
     teams,
 } from '../../../app.js';
 
-import folderIcon from "$lib/images/folder.svg";
-
 $: id = $page.params.id;
 $: topic = $page.params.topic;
 
@@ -18,6 +16,8 @@ let team;
 let section;
 
 var conversation = {}
+let files = ""
+
 var lastTopic = ""
 
 async function getConversation(teamId, topicId) {
@@ -114,10 +114,8 @@ async function parseContent(conversation) {
     return conversation;
 }
 
-let files = {}
-
 async function collectFiles(contents){
-    var found = []
+    var found = ""
     for (const item of contents) {
         if (item["FileLeafRef.Suffix"] == "") { 
             // If it is a folder
@@ -127,10 +125,17 @@ async function collectFiles(contents){
             }
             const data = await response.json();
 
-            found[item.FileLeafRef] = await collectFiles(data.ListData.Row)
+            found += `<div class="folderTitle"> <img src="/folder.svg"> ${item.FileLeafRef}</div>`
+
+            found += '<div class="folder">'
+
+            let contents = await collectFiles(data.ListData.Row)
+            found += contents
+            found +=  "</div>"
+
         }
         else {
-            found[item.FileLeafRef] = {"url" : item[".spItemUrl"]}
+            found += `<a class="filesFile" href="${item[".spItemUrl"]}">${item.FileLeafRef}</a>`
         }
     }
     return found;
@@ -138,20 +143,22 @@ async function collectFiles(contents){
 
 
 async function loadFiles(){
-    let channel = team.channels.find(channel => channel.id === topic);
-    let channelIndex = team.channels.indexOf(channel)
 
-    let filesRelativePath = team.channels[channelIndex].defaultFileSettings.filesRelativePath
+    for (const channel of team.channels){
+        var filesRelativePath = channel.defaultFileSettings.filesRelativePath
 
-    const response = await fetch(`/api/renderListDataAsStream/${section}?filesRelativePath=${filesRelativePath}`);
-    if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const response = await fetch(`/api/renderListDataAsStream/${section}?filesRelativePath=${filesRelativePath}`);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+       
+        files += `<span># ${channel.displayName} </span>`
+        files += '<div class="folder">'
+        files += await collectFiles(data.ListData.Row)
+        files +=  "</div>"
+
     }
-    const data = await response.json();
-
-    files = await collectFiles(data.ListData.Row)
-
-    console.log(files)    
 
 }
 
@@ -174,7 +181,8 @@ async function loadConversation() {
     setTimeout(async function() {
         if (topic != lastTopic) {
             lastTopic = topic;
-    
+            files = ""
+            
             var unparsedConversation = await getConversation(id, topic)
             conversation = preparseContent(unparsedConversation)
             conversation = await parseContent(conversation)
@@ -307,31 +315,7 @@ function toggleReplies(content) {
 </section>
 
 <section id="files">
-<span># General </span>
-<div class="folder">
-    <div class="folderTitle"> <img src={folderIcon}> Ellära </div>
-    <div class="folder">
-        <span class="filesFile">ellära.pptx</span>
-        <span class="filesFile" >ohmslag.pptx</span>
-    </div>
-</div>
-<span># Annat </span>
-<div class="folder">
-    <div class="folderTitle"> <img src={folderIcon}> Teknik </div>
-    <div class="folder">
-        <span class="filesFile">teknik.pdf</span>
-
-        <div class="folderTitle"> <img src={folderIcon}> Electromagnetic Compatibility</div>
-        <div class="folder">
-             <span class="filesFile">Electromagneic Fields.pptx</span>
-        </div>
-
-    </div>
-
-</div>
-{#each Object.entries(files) as [index, team]}
-<span>{index}</span>
-{/each}
+{@html files}
 </section>
 
 <style>
