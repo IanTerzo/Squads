@@ -9,7 +9,7 @@ async function authorize(email, password) {
     console.log("Authorizing...")
 
     const browser = await puppeteer.launch({
-        headless: true
+        headless: false
     });
     const page = await browser.newPage();
 
@@ -43,7 +43,7 @@ async function authorize(email, password) {
     }
 
     // Enter password and continue
-
+    
     await page.waitForSelector('#i0118', {
         timeout: 5_000
     });
@@ -74,12 +74,16 @@ async function authorize(email, password) {
 
     // Say yes to stay signed in (doesn't really matter)
 
-    await page.waitForSelector('#idSIButton9[value="Yes"]', {
-        timeout: 30_000
-    });
+    try {
+        await page.waitForSelector('#idSIButton9[value="Yes"]', {
+            timeout: 5_000
+        });
 
-    var next = await page.$('#idSIButton9[value="Yes"]')
-    await next.click()
+        var next = await page.$('#idSIButton9[value="Yes"]')
+        await next.click()
+    } catch {
+
+    }
 
     // Wait for Teams to load
 
@@ -262,22 +266,22 @@ async function authorizeTeamPicture(groupId, ETag, displayName) {
     }
 
 
-const response = await got('https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/' + groupId, {
-  searchParams: {
-    'etag': ETag,
-    'displayName': displayName,
-  },
-  headers: {
-    'Referer': 'https://teams.microsoft.com/v2/',
-    'Cookie': `authtoken=Bearer=${tokens['https://api.spaces.skype.com/Authorization.ReadWrite'].secret}&Origin=https://teams.microsoft.com;`,
+    const response = await got('https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/' + groupId, {
+        searchParams: {
+            'etag': ETag,
+            'displayName': displayName,
+        },
+        headers: {
+            'Referer': 'https://teams.microsoft.com/v2/',
+            'Cookie': `authtoken=Bearer=${tokens['https://api.spaces.skype.com/Authorization.ReadWrite'].secret}&Origin=https://teams.microsoft.com;`,
 
-  }
-
-  
-});
+        }
 
 
-return response['rawBody']
+    });
+
+
+    return response['rawBody']
 }
 async function userAggregateSettings(json) {
     if (tokens["https://api.spaces.skype.com/Authorization.ReadWrite"].expires < Math.floor(Date.now() / 1000)) {
@@ -302,7 +306,7 @@ async function renderListDataAsStream(section, filesRelativePath) {
     if (tokens["SPOIDCRL"].expires < Math.floor(Date.now() / 1000)) {
         await genSPOIDCRL(section) // Uknown section, domain / org section?
     }
-    
+
     const response = await got.post(`${tokens['webUrl']}/sites/${section}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='${filesRelativePath}'&RootFolder=${filesRelativePath}&TryNewExperienceSingle=TRUE`, {
         headers: {
             'Cookie': 'SPOIDCRL=' + tokens["SPOIDCRL"].secret,
@@ -320,7 +324,7 @@ async function renderListDataAsStream(section, filesRelativePath) {
 
     return JSON.parse(response.body)
 }
-async function genWebUrl(){
+async function genWebUrl() {
     let userAggregateSetting = await userAggregateSettings({
         'tenantSiteUrl': true,
     })
@@ -337,7 +341,7 @@ async function genWebUrl(){
 }
 
 async function genSPOIDCRL(section) {
-    if (tokens.webUrl == ""){
+    if (tokens.webUrl == "") {
         await genWebUrl()
     }
 
@@ -438,7 +442,7 @@ async function Setup() {
     //let filesRelativePath = teams['teams'][4].channels[0].defaultFileSettings.filesRelativePath
     //console.log(filesRelativePath)
 
-   // let datastream = await renderListDataAsStream(section, filesRelativePath)
+    // let datastream = await renderListDataAsStream(section, filesRelativePath)
 
     //console.log(datastream)
 
@@ -450,7 +454,7 @@ function isAuthorized() {
     if (tokens.credentials.email == "" || tokens.credentials.password == "") {
         if (tokens["refreshToken"].expires < Math.floor(Date.now() / 1000)) {
             return false
-            
+
         }
     }
     return true
@@ -464,17 +468,17 @@ export async function handle({
     resolve
 }) {
     const url = event.url.pathname.split("/")
-   
+
     await Setup()
 
     if (url[1] != "login" && url[2] != "authorize" && !isAuthorized()) {
-       
+
         return new Response(null, {
             status: 302,
             headers: {
                 'Location': '/login'
             }
-        })  
+        })
     }
 
     if (url[1] === 'api') {
@@ -499,17 +503,17 @@ export async function handle({
                             'Content-Type': 'application/json'
                         }
                     });
-                }       
-            } 
-            
+                }
+            }
+
             else if (url[2] === 'userProperties') {
-                    const properties = await userProperties();
-                    return new Response(JSON.stringify(properties), {
-                        status: 200,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
+                const properties = await userProperties();
+                return new Response(JSON.stringify(properties), {
+                    status: 200,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
             } else if (url[2] === 'userTeams') {
                 const teams = await userTeams();
                 return new Response(JSON.stringify(teams), {
@@ -518,8 +522,8 @@ export async function handle({
                         'Content-Type': 'application/json'
                     }
                 });
-            } 
-            
+            }
+
             else if (url[2] === 'image' && url[3]) {
                 const binaryData = await authorizeImage(url[3]);
 
@@ -541,7 +545,7 @@ export async function handle({
                         'Content-Type': 'image/jpeg'
                     }
                 });
-            } 
+            }
             else if (url[2] === 'teamPicture' && url[3] && url[4] && url[5]) {
                 const binaryData = await authorizeTeamPicture(url[3], url[4], url[4]);
 
@@ -552,8 +556,8 @@ export async function handle({
                         'Content-Type': 'image/jpeg'
                     }
                 });
-            } 
-            
+            }
+
 
             else if (url[2] === 'teamConversation' && url[3] && url[4]) {
                 const conversation = await teamConversation(url[3], url[4]);
@@ -572,7 +576,7 @@ export async function handle({
                     }
                 });
             } else if (url[2] === 'renderListDataAsStream' && url[3]) {
-               
+
                 const section = url[3];
 
                 const parametersArray = event.request.url.split('?')[1].split('&');
@@ -582,7 +586,7 @@ export async function handle({
                     const [key, value] = parameter.split('=');
                     parameters[key] = value;
                 });
-                  
+
                 const conversation = await renderListDataAsStream(section, parameters.filesRelativePath);
                 return new Response(JSON.stringify(conversation), {
                     status: 200,
@@ -593,7 +597,7 @@ export async function handle({
             }
 
         } catch (error) {
-            //console.log(error)
+            console.log(error)
             return new Response(JSON.stringify({
                 error: error.message
             }), {

@@ -347,22 +347,28 @@ span {
     margin-top: 30px;
     margin-right: auto;
     margin-left: auto;
+
     text-align: center;
     display: block;
+
     background-color: var(--accent-color);
     width: 120px;
     padding: 6px;
     color: var(--text-color);
     border-radius: 5px;
     cursor: pointer;
+    height: 30px;
+	
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	user-select: none; 
 }
 
 #error {
-    color: var(--error-color);
     margin-top: 14px;
-    font-size: 14px;
-    display: flex;
-    justify-content: center;
+	text-align: center;
+    color: var(--error-color);
 }
 
 /* Navbar Styles */

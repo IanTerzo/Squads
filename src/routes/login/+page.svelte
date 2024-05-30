@@ -1,5 +1,4 @@
 <script>
-
 	let loader;
 	let continueBtn; 
 	
@@ -50,8 +49,7 @@
 			}
 		}
 	}
-	
-	</script>
+</script>
 	
 	<svelte:head>
 		<title>Home</title>
