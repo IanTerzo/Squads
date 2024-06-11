@@ -11,4 +11,4 @@ microsoft-auth-env/*
 .output
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-tokens/tokens.json
+tokens/*
