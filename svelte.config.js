@@ -11,7 +11,7 @@ const config = {
 		adapter: adapter(),
 		prerender: {
 		crawl: false,
-		entries: ['/', '/login', '/team/[id]', '/team/[id]/[topic]']
+		entries: ['/', '/team/[id]', '/team/[id]/[topic]']
 		}
 	}
 };

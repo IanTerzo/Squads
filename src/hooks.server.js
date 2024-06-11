@@ -4,96 +4,41 @@ import puppeteer from 'puppeteer';
 import fs from 'fs';
 
 let tokens = {}
+let isAuthorizing = false;
 
-async function authorize(email, password) {
-    console.log("Authorizing...")
+async function authorize() {
+    if (isAuthorizing) {
+        return;
+    }
+    isAuthorizing = true;
 
     const browser = await puppeteer.launch({
-        headless: false
-    });
-    const page = await browser.newPage();
-
-    // You will get redirected to the login-in page
-    await page.goto('https://teams.microsoft.com/');
-
-    // Enter email and continue
-
-    await page.waitForSelector('input[name="loginfmt"]', {
-        timeout: 5_000
+        headless: false,
+        args: ["--window-size=600,600", "--hide-scrollbars", "--app=https://teams.microsoft.com"], // You will get redirected to the login-in page
+        defaultViewport: {
+            width: 600,
+            height: 600
+        },
+        userDataDir: "./microsoft-auth-env"
     });
 
-    await page.click('#i0116');
-    await page.type('#i0116', email, {
-        delay: 0
-    });
 
-    var next = await page.$('#idSIButton9[value="Next"]')
-    await next.click()
-
-    // Check if the email is wrong
-
-    try {
-        await page.waitForSelector('#usernameError', {
-            timeout: 5_000
-        });
-        await browser.close();
-        return "Wrong email / username"
-    } catch {
-
-    }
-
-    // Enter password and continue
-    
-    await page.waitForSelector('#i0118', {
-        timeout: 5_000
-    });
-
-    await page.click('#i0118');
-    await page.type('#i0118', password, {
-        delay: 0
-    });
-
-    await page.waitForSelector('#idSIButton9[value="Sign in"]', {
-        timeout: 5_000
-    });
-
-    var next = await page.$('#idSIButton9[value="Sign in"]')
-    await next.click()
-
-    // Check if the password is wrong
-
-    try {
-        await page.waitForSelector('#passwordError', {
-            timeout: 5_000
-        });
-        await browser.close();
-        return "Wrong password"
-    } catch {
-
-    }
-
-    // Say yes to stay signed in (doesn't really matter)
-
-    try {
-        await page.waitForSelector('#idSIButton9[value="Yes"]', {
-            timeout: 5_000
-        });
-
-        var next = await page.$('#idSIButton9[value="Yes"]')
-        await next.click()
-    } catch {
-
-    }
-
-    // Wait for Teams to load
+    const pages = await browser.pages();
+    const page = pages[0];
 
     await page.waitForFunction(() =>
-        document.querySelectorAll('.app-bar-text, .fui-Button__icon').length
+        document.querySelectorAll('.app-bar-text, .fui-Button__icon').length, {
+            timeout: 0 // Disable timeout
+        } 
     );
 
-    // Get the refresh token
-
+   
     const localStorageData = await page.evaluate(() => Object.assign({}, window.localStorage));
+
+    
+    await browser.close();
+    
+    // Get the refresh token
 
     const refreshToken = Object.values(localStorageData).find(item => {
         try {
@@ -104,21 +49,16 @@ async function authorize(email, password) {
         }
     });
 
-    await browser.close();
-
     tokens['refreshToken'] = {
         "secret": JSON.parse(refreshToken).secret,
         "expires": Math.floor(Date.now() / 1000) + 86400
-    }
+    };
 
-    tokens["credentials"].email = email
-    tokens["credentials"].password = password
-
-    const data = JSON.stringify(tokens, null, 2)
+    const data = JSON.stringify(tokens, null, 2);
     fs.writeFileSync('tokens/tokens.json', data);
 
-    console.log("Finished authorizing")
-    return "Success";
+    isAuthorizing = false;
+
 }
 
 async function userProperties() {
@@ -345,7 +285,7 @@ async function genSPOIDCRL(section) {
         await genWebUrl()
     }
 
-    if (tokens[tokens["webUrl"] + "/.default"].expires < Math.floor(Date.now() / 1000)) {
+    if (!tokens[tokens["webUrl"] + "/.default"] || tokens[tokens["webUrl"] + "/.default"].expires < Math.floor(Date.now() / 1000)) {
         await GenTokens(tokens["webUrl"] + "/.default")
     }
 
@@ -396,7 +336,7 @@ async function genSkypetoken() {
 
 async function GenTokens(scope) {
     if (tokens["refreshToken"].expires < Math.floor(Date.now() / 1000)) {
-        await authorize(tokens["credentials"].email, tokens["credentials"].password)
+        await authorize()
     }
 
     const headers = {
@@ -429,39 +369,11 @@ async function GenTokens(scope) {
 }
 
 async function Setup() {
-    if (Object.values(tokens).length === 0) {
-        const data = await fs.promises.readFile('tokens/tokens.json', 'utf8');
-        tokens = JSON.parse(data);
-    }
-
-    //let teams = await userTeams()
-
-    //let section = teams['teams'][4].smtpAddress.split('@')[0]
-    //console.log(section)
-
-    //let filesRelativePath = teams['teams'][4].channels[0].defaultFileSettings.filesRelativePath
-    //console.log(filesRelativePath)
-
-    // let datastream = await renderListDataAsStream(section, filesRelativePath)
-
-    //console.log(datastream)
-
-
+    const data = await fs.promises.readFile('tokens/tokens.json', 'utf8');
+    tokens = JSON.parse(data);
 }
 
-
-function isAuthorized() {
-    if (tokens.credentials.email == "" || tokens.credentials.password == "") {
-        if (tokens["refreshToken"].expires < Math.floor(Date.now() / 1000)) {
-            return false
-
-        }
-    }
-    return true
-
-}
-
-
+await Setup()
 
 export async function handle({
     event,
@@ -469,44 +381,9 @@ export async function handle({
 }) {
     const url = event.url.pathname.split("/")
 
-    await Setup()
-
-    if (url[1] != "login" && url[2] != "authorize" && !isAuthorized()) {
-
-        return new Response(null, {
-            status: 302,
-            headers: {
-                'Location': '/login'
-            }
-        })
-    }
-
     if (url[1] === 'api') {
         try {
-            if (url[2] === 'authorize') {
-                const {
-                    email,
-                    password
-                } = await event.request.json();
-                const authorization = await authorize(email, password);
-
-                if (authorization === "Success") {
-                    return new Response(null, {
-                        status: 200
-                    });
-                } else {
-                    return new Response(JSON.stringify({
-                        message: authorization
-                    }), {
-                        status: 401,
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    });
-                }
-            }
-
-            else if (url[2] === 'userProperties') {
+            if (url[2] === 'userProperties') {
                 const properties = await userProperties();
                 return new Response(JSON.stringify(properties), {
                     status: 200,
@@ -522,9 +399,7 @@ export async function handle({
                         'Content-Type': 'application/json'
                     }
                 });
-            }
-
-            else if (url[2] === 'image' && url[3]) {
+            } else if (url[2] === 'image' && url[3]) {
                 const binaryData = await authorizeImage(url[3]);
 
                 // This is needed
@@ -545,8 +420,7 @@ export async function handle({
                         'Content-Type': 'image/jpeg'
                     }
                 });
-            }
-            else if (url[2] === 'teamPicture' && url[3] && url[4] && url[5]) {
+            } else if (url[2] === 'teamPicture' && url[3] && url[4] && url[5]) {
                 const binaryData = await authorizeTeamPicture(url[3], url[4], url[4]);
 
                 const uint8Array = new Uint8Array(binaryData);
@@ -556,10 +430,7 @@ export async function handle({
                         'Content-Type': 'image/jpeg'
                     }
                 });
-            }
-
-
-            else if (url[2] === 'teamConversation' && url[3] && url[4]) {
+            } else if (url[2] === 'teamConversation' && url[3] && url[4]) {
                 const conversation = await teamConversation(url[3], url[4]);
                 return new Response(JSON.stringify(conversation), {
                     status: 200,

@@ -1,5 +1,6 @@
 .DS_Store
 node_modules
+microsoft-auth-env/*
 /build
 /.svelte-kit
 /package
@@ -10,5 +11,4 @@ node_modules
 .output
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-backend/config.json
-/tokens
+tokens/tokens.json
