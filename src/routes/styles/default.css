@@ -1,0 +1,514 @@
+/* Color constants */
+:root {
+    --background-color: #3c3c3c;
+    --text-color: #ffffff;
+    --link-color: #6698d9;
+    --accent-color: #444;
+    --not-active: #666;
+    --highlight-color: #333;
+    --error-color: red;
+}
+
+/* Root Styles */
+body {
+    font-family: Arial, sans-serif !important;
+    font-optical-sizing: auto;
+    font-style: normal;
+    background-color: var(--background-color);
+    overflow-y: hidden;
+    line-height: 1.52 !important;
+    color: var(--text-color);
+}
+
+main {
+    padding: 2.5vw;
+    padding-top: 80px;
+    margin-top: 25px;
+    display: flex;
+    gap: 30px;
+}
+
+.file {
+    cursor: pointer;
+    background-color: var(--accent-color);
+    width: fit-content;
+    padding: 3.5px 5px;
+    border-radius: 4px;
+    margin-top: 8px;
+}
+
+.fileIcon {
+    margin-right: 3px;
+    transform: translateY(1.3px);
+}
+
+a {
+    color: var(--link-color);
+    word-wrap: break-word;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+u {
+    color: var(--link-color);
+}
+
+span {
+    font-size: 16px;
+    font-family: "Montserrat", sans-serif !important;
+}
+
+.linkPage {
+    margin-top: 8.5px;
+    font-size: 15px;
+    background-color: var(--highlight-color);
+    width: 16.2vw;
+    min-width: 160px;
+    min-height: 37px;
+    padding: 7px;
+    border-radius: 10px;
+    display: block;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+}
+
+.infoText {
+    color: var(--text-color);
+    position: relative;
+}
+
+.activityBox {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--highlight-color);
+    height: fit-content;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--text-color);
+}
+
+.titleSpan {
+    color: var(--text-color);
+    position: relative;
+    font-size: 16.5px;
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+
+.postSenderInfo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.activityBox p {
+    margin: 0px;
+}
+
+.activityBox img {
+    margin-top: 10px;
+    border-radius: 5px;
+    max-width: 100%;
+    height: auto;
+}
+
+.pfpImg {
+    width: 32px;
+    height: 32px;
+    border-radius: 3px;
+}
+
+.showReplies {
+    margin-top: 16px;
+    margin-bottom: -4px;
+    font-size: 14px;
+    color: var(--link-color);
+    cursor: pointer;
+}
+
+[itemtype="http://schema.skype.com/Emoji"]
+{
+    margin-top: 0px !important;
+    margin-bottom: -5px !important;
+}
+
+[itemtype="http://schema.skype.com/Mention"]
+{
+    color: var(--link-color);
+    display: inline-block !important;
+}
+
+.reply {
+    margin-top: 25px;
+}
+
+.teamsSelGroup {
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    overflow-y: scroll;
+    height: calc(100vh - 205px);
+    scrollbar-width: none;
+}
+
+.teamsSelGroup span {
+    color: var(--text-color);
+    vertical-align: super;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.teamsSelGroup a:first-child {
+    margin-top: 0px;
+}
+
+.linkPage img {
+    width: 32px;
+    height: 32px;
+    margin-right: 9px;
+    border-radius: 3px;
+    margin-left: 3px;
+}
+
+.searchTeams {
+    background-color: var(--accent-color);
+    color: white;
+    outline: none;
+    border: none;
+    border-radius: 4px;
+    height: 20px;
+    width: 100%;
+    -webkit-appearance: none;
+    font-size: 14px;
+    padding: 4px;
+    font-family: sans-serif;
+    font-weight: bold;
+}
+
+/* Topic Page Styles */
+
+#teamInfoSection {
+    width: fit-content;
+}
+
+#files {
+    position: relative;
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    overflow-y: scroll;
+    background-color: var(--highlight-color);
+    height: calc(100vh - 158px);
+    width: 20vw;
+    border-radius: 10px;
+    scrollbar-width: none;
+    padding: 14px;
+    cursor: default;
+}
+
+.folder {
+    margin-top: 3px;
+    padding-left: 19px;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 5px;
+}
+
+.folderTitle {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+}
+
+.folderTitle img {
+    height: 18px;
+    width: auto;
+}
+
+#searchFilesDiv {
+    position: relative;
+    margin-bottom: 15px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.searchFiles {
+    background-color: var(--accent-color);
+    color: white;
+    outline: none;
+    border: none;
+    border-radius: 4px;
+    height: 20px;
+    width: 100%;
+    -webkit-appearance: none;
+    font-size: 14px;
+    padding: 4px;
+    font-family: sans-serif;
+    font-weight: bold;
+}
+
+#filesContainer {
+    height: 100%;
+    overflow: scroll;
+}
+
+#fetchingFiles {
+    color: var(--not-active);
+}
+
+.filesFile {
+    padding-right: 4px;
+
+    padding-left: 4px;
+}
+
+.filesFile:hover {
+    background-color: var(--accent-color);
+    border-radius: 3px;
+}
+
+#teamInfo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#teamPfp {
+    border-radius: 4px;
+    width: 50px;
+    height: 50px;
+}
+
+#channelName {
+    color: var(--text-color);
+    font-size: 16px;
+    max-width: 262px;
+    min-width: 108px;
+    width: 12vw;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.selGroup {
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column;
+    overflow-y: scroll;
+    margin-top: 17px;
+    height: calc(100vh - 304px);
+    scrollbar-width: none;
+}
+
+.selGroup span {
+    color: var(--text-color);
+    vertical-align: super;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#pages {
+    display: flex;
+    flex-direction: column;
+    color: var(--text-color);
+    gap: 6px;
+    cursor: pointer;
+    margin-top: 15px;
+    margin-bottom: 18px;
+}
+
+#teamTitle {
+    color: var(--text-color);
+    position: relative;
+    font-size: 16px;
+    font-weight: 600;
+    min-width: 108px;
+    width: 12vw;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+#conversationDiv {
+    color: var(--text-color);
+    display: flex;
+    flex-direction: column-reverse;
+    overflow-y: scroll;
+    height: fit-content;
+    max-height: calc(100vh - 130px);
+    width: 100%;
+    scrollbar-width: none;
+}
+
+#conversationDiv > div:first-child {
+    margin-bottom: 0px;
+}
+
+/* Login Page Styles */
+.loader {
+    width: 42px;
+    aspect-ratio: 4;
+    --_g: no-repeat radial-gradient(circle closest-side, #ececec 90%, #0000);
+    background:
+        var(--_g) 0% 50%,
+        var(--_g) 50% 50%,
+        var(--_g) 100% 50%;
+    background-size: calc(100% / 3) 100%;
+    animation: l7 1s infinite linear;
+}
+
+@keyframes l7 {
+    33% {
+        background-size:
+            calc(100% / 3) 0%,
+            calc(100% / 3) 100%,
+            calc(100% / 3) 100%;
+    }
+    50% {
+        background-size:
+            calc(100% / 3) 100%,
+            calc(100% / 3) 0%,
+            calc(100% / 3) 100%;
+    }
+    66% {
+        background-size:
+            calc(100% / 3) 100%,
+            calc(100% / 3) 100%,
+            calc(100% / 3) 0%;
+    }
+}
+
+#login {
+    position: absolute;
+    right: 50%;
+    transform: translateX(50%);
+    width: 29vw;
+    min-width: 300px;
+    background-color: var(--highlight-color);
+    padding: 14px;
+    border-radius: 8px;
+}
+
+#title {
+    font-size: 22px;
+    text-align: center;
+    width: 100%;
+    color: var(--text-color);
+}
+
+.overInp {
+    color: var(--text-color);
+}
+
+.field {
+    width: calc(100% - 14px);
+    background-color: var(--accent-color);
+    border: none;
+    color: var(--text-color);
+    border-radius: 3px;
+    padding: 8px;
+    font-size: 16px;
+    margin-top: 12px;
+}
+
+.divisor {
+    width: 100%;
+    text-align: center;
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 13.5px;
+}
+
+.field:focus {
+    outline: none;
+}
+
+.group {
+    margin-top: 14px;
+}
+
+#loginButton {
+    margin-top: 30px;
+    margin-right: auto;
+    margin-left: auto;
+
+    text-align: center;
+    display: block;
+
+    background-color: var(--accent-color);
+    width: 120px;
+    padding: 6px;
+    color: var(--text-color);
+    border-radius: 5px;
+    cursor: pointer;
+    height: 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+}
+
+#error {
+    margin-top: 14px;
+    text-align: center;
+    color: var(--error-color);
+}
+
+/* Navbar Styles */
+.navbar {
+    display: flex;
+    background-color: var(--highlight-color);
+    position: fixed;
+    width: 94.3%;
+    height: 50px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 10px;
+    top: 30px;
+    z-index: 1000;
+    align-items: center;
+}
+
+.icon {
+    cursor: pointer;
+}
+
+.iconHome {
+    width: 30.5px;
+    height: 30.5px;
+}
+
+.iconChat {
+    width: 30px;
+    height: 30px;
+    margin-top: 3.5px;
+}
+
+.iconAssignments {
+    width: 30px;
+    height: 30px;
+}
+
+.navbarIcons {
+    position: absolute;
+    right: 9px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.iconSelected {
+    margin-bottom: 2px;
+    border-bottom: 2px solid var(--text-color);
+}
