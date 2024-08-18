@@ -1,7 +1,13 @@
-# Tauri + SvelteKit + TypeScript
+# Squads
 
-This template should help get you started developing with Tauri, SvelteKit and TypeScript in Vite.
+Squads aims to be a minimalist alternative to the official Microsoft Teams client.
 
-## Recommended IDE Setup
+## Build
+Make sure to edit the refresh_token string in src/main.rs with your actual token before building. (A way to automatically get and renew the refresh token will be made soon)
+```
+npm i
+```
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+```
+npm run tauri build && ./src-tauri/target/release/squads
+```
