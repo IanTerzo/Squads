@@ -34,11 +34,14 @@ main {
     width: fit-content;
     padding: 3.5px 5px;
     border-radius: 4px;
+    display:flex;
+    align-items: center;
+    justify-content: center;
     margin-top: 8px;
+    gap: 4px;
 }
 
 .fileIcon {
-    margin-right: 3px;
     transform: translateY(1.3px);
 }
 
@@ -109,7 +112,7 @@ span {
     margin: 0px;
 }
 
-.activityBox img {
+.content img {
     margin-top: 10px;
     border-radius: 5px;
     max-width: 100%;
@@ -204,7 +207,7 @@ span {
     overflow-y: scroll;
     background-color: var(--highlight-color);
     height: calc(100vh - 158px);
-    width: 20vw;
+    width: 30vw;
     border-radius: 10px;
     scrollbar-width: none;
     padding: 14px;

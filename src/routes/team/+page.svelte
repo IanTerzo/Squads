@@ -97,9 +97,14 @@
 
             try {
                 let filesFetched = await collectFiles(dataSream.Row);
-                if (filesFetched.length != 0) {
+                 if (filesFetched.length != 0 || serverFiles != "") {
                     files += `<span>${channel.displayName} </span>`;
+
+                }
+                if (serverFiles != ""){
                     files += serverFiles;
+                }
+                 if (filesFetched.length != 0) {
                     files += '<div class="folder">';
                     files += filesFetched;
                     files += "</div>";
@@ -267,7 +272,6 @@
                 <a
                     class="linkPage"
                     on:click={() => loadConversation(channel.id)}
-                    href="../../team/{id}/{channel.id}"
                     ><span># {channel.displayName}</span></a
                 >
             {/each}
@@ -329,7 +333,7 @@
                         {#if message.properties["systemdelete"] || message.properties["deletetime"]}
                             <i><span>Deleted Message</span></i>
                         {:else}
-                            <div id="content">{@html message.content}</div>
+                            <div class="content">{@html message.content}</div>
                         {/if}
                         {#if replyChain.messages[0].properties["files"] && replyChain.messages[0].properties["files"] != "[]"}
                             {#each JSON.parse(replyChain.messages[0].properties["files"]) as file}

@@ -1529,12 +1529,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "keyring"
-version = "3.0.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c163ef0b9da5ccf44ae4d7c9d24fb1a8750aa1969d484865fc1eedc44b26c09"
-
-[[package]]
 name = "kuchikiki"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2849,14 +2843,12 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
- "keyring",
  "parking_lot",
  "reqwest",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
- "tauri-plugin-store",
 ]
 
 [[package]]
@@ -3168,18 +3160,6 @@ dependencies = [
  "syn 1.0.109",
  "tauri-codegen",
  "tauri-utils",
-]
-
-[[package]]
-name = "tauri-plugin-store"
-version = "0.0.0"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v1#dee5649476cee7c8c2e781ff16207246b6944008"
-dependencies = [
- "log",
- "serde",
- "serde_json",
- "tauri",
- "thiserror",
 ]
 
 [[package]]
