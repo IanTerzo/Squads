@@ -5,7 +5,10 @@
     let teams = [];
     let greetMsg;
 
+    let searchTeams;
     let query = "";
+
+    let selected = 0;
 
     invoke("get_cache_data", {
         key: "teams",
@@ -17,9 +20,8 @@
 
     invoke("user_teams").then((userTeams: any) => {
         teams = userTeams.teams;
-        console.log("teams: " + teams);
     });
-    console.log("teams 222: " + teams);
+
     function authorizeTeamPicture(
         event: any,
         group_id: String,
@@ -27,7 +29,6 @@
         display_name: String,
     ) {
         // Sometimes etag is null. Very weird.
-        console.log("event");
         if (etag != null) {
             invoke("authorize_team_picture", {
                 groupId: group_id,
@@ -38,6 +39,14 @@
             });
         }
     }
+
+
+    function focusSearch(event){
+        if (document.activeElement != searchTeams){
+          searchTeams.focus();
+        }
+    }
+
 </script>
 
 <svelte:head>
@@ -46,11 +55,18 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
 </svelte:head>
 
+
+<svelte:window
+    on:keydown={focusSearch}
+
+/>
+
 <section>
     <div id="searchFilesDiv">
         <input
             class="searchTeams"
             bind:value={query}
+            bind:this={searchTeams}
             placeholder="Search teams"
         />
     </div>
