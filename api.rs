@@ -34,7 +34,7 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         HeaderValue::from_static("https://teams.microsoft.com"),
     );
 
-    let refresh_token = "YOUR REFRESH TOKEN";
+    let refresh_token= "0.AXQAtTAKZi6OaUe560ryi_0SvcDmPF4fK4VCjUt17nh4c0biAPI.AgABAwEAAADW6jl31mB3T7ugrWTT8pFeAwDs_wUA9P-QHiujjen7Y5s70aGqPVOS54Bg2xfe3LuyOOOyAjrgxmSHZrT6Sa-LPXciHlZsrp5MzEI5lBEJvSPotzojIEubDn4vPyGsZIafz9erZN9YmjC9UfbUuKaiUeYdwgeZjOzzdI9V4sJPiY2bzYGZBI4bocq5M9m7uwtxBLNxVS1Z6KEDPNg-bSxjMgKMobLszp5WixSyYUk52DqqbdGOTbmf6Onxwhv9fLdGHBR9ijVIpWrXC4mxn6mOn4f1GIykdc_voDsSmZ3WGSH9Gl1IIDmYaAncUWEoLkgguSEp4ew3_9NjB-xW3nyDcVowzUc4Wgd6MCogSjtbEs0zaR9HfLOpNM9AE6EnozDj2YZ89EQSkwzSmgQlISpeEUP9iUsmUDRkRWPHMSpk7uzDTWhlV4d74qoSaao632p_aj_GlDbTOHXleQSF47UflhRJjQDgh40zDxKJ4I133C78AK5Dk7QQmQyajfsMQ1RC2bFPTy97a-51gEItYZHpvaaEYqhmXF2w7OnRqlWjzWXY1jDH9hvjM-shwfCyAT0LSroHFNmmQ5kJrKDQN0bsdztUOWcs5N8HvSyhHPaZSkxjvlUW8u_-GSpNQwZR7JeT2MUxSMc7zo9L7JXdFgCtN-9qD3wMUdqlHvup7xtsmNgW8wjPyquSogIkZ1NCARZMZ4DiyyMWiR3jhhiGUzjERxIqPbmOUno3xK9TZBIvAT3yUIacU7sDjFR7YRa9xVljMGpjtE4Oks0s0jMfLeB60LV3JaOSTcVneUuMgoLEfFalOoQ9sOEi1WaRU-mMcBRaaijNoJsoCcSncjsd2POtwqshOra-UQkP4v3DBg";
 
     let body = format!(
         "client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&\
@@ -47,17 +47,20 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
         &scope, refresh_token
     );
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
 
-    let client = reqwest::Client::new();
     let res = client
         .post("https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token")
         .headers(headers)
         .body(body)
         .send()
-        .await?;
+        .unwrap();
 
     if res.status().is_success() {
-        let token_data: HashMap<String, Value> = res.json().await?;
+        let token_data: HashMap<String, Value> = res.json().unwrap();
         if let (Some(value), Some(expires_in)) = (
             token_data.get("access_token").and_then(|v| v.as_str()),
             token_data.get("expires_in").and_then(|v| v.as_u64()),
@@ -75,7 +78,7 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         }
     } else {
         let status = res.status();
-        let body = res.text().await?;
+        let body = res.text().unwrap();
         Err(anyhow!("{}: {}", status, body))
     }
 }
@@ -288,7 +291,6 @@ async fn gen_skype_token() -> Result<(), anyhow::Error> {
 }
 
 pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
-    println!("user_teams running here!");
     let store = Store::new(get_config_path());
     let scope = "https://chatsvcagg.teams.microsoft.com/.default".to_string();
 
@@ -313,17 +315,20 @@ pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
         ("enableRC2Fetch", "false"),
     ];
 
-    let client = reqwest::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
     let res = client
         .get("https://teams.microsoft.com/api/csa/emea/api/v2/teams/users/me")
         .headers(headers)
         .query(&params)
         .send()
-        .await
         .unwrap();
 
     if res.status().is_success() {
-        let parsed = res.json::<HashMap<String, Value>>().await.unwrap();
+        let parsed = res.json::<HashMap<String, Value>>().unwrap();
         if let Some(teams) = parsed.get("teams") {
             store.set_data("teams", teams.clone());
         }
@@ -332,7 +337,7 @@ pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().await.unwrap()
+            res.text().unwrap()
         );
         Err(error_message)
     }
@@ -708,7 +713,6 @@ async fn authorize_image(image_id: String) -> Result<String, String> {
     }
 }
 
-
 async fn get_cache_data(key: String) -> Value {
     let store = Store::new(get_config_path());
     match store.get_data(key.as_str()) {
@@ -731,4 +735,3 @@ async fn get_weburl() -> Value {
 
     web_url
 }
-
