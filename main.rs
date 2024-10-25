@@ -1,5 +1,5 @@
-use iced::widget::{button, column, container, row, text, Column, MouseArea, Space, Text, scrollable};
-use iced::{Background, Color, Element, Subscription, Task, Theme, border};
+use iced::widget::{button, column, container, row, text, Column, MouseArea, Space, Text, scrollable, text_input};
+use iced::{Background, Color, Element, Subscription, Task, Theme, border, padding};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::{thread, time};
@@ -15,11 +15,13 @@ enum Page {
 struct Counter {
     page: Page,
     user_teams: HashMap<String, Value>,
+    search_teams_input_value: String
 }
 
 #[derive(Debug, Clone)]
 enum Message {
     Join,
+     ContentChanged(String),
     UserTeams,
     UserTeamsFetched(Result<HashMap<String, Value>, String>),
 }
@@ -45,7 +47,7 @@ fn navbar() -> Element<'static, Message> {
     .into()
 }
 
-fn homepage(user_teams_value: HashMap<String, Value>) -> Element<'static, Message> {
+fn homepage(user_teams_value: HashMap<String, Value>, search_teams_input_value: String) -> Element<'static, Message> {
     let mut teams_column: Column<Message> = column![];
 
     if let Some(Value::Array(teams_array)) = user_teams_value.get("teams") {
@@ -67,12 +69,11 @@ fn homepage(user_teams_value: HashMap<String, Value>) -> Element<'static, Messag
                                 container::Style {
                                     background: Some(Color::parse("#333")
                                         .expect("Background color is invalid.").into()),
-                                    border: border::rounded(8   ),
+                                    border: border::rounded(8),
                                     ..Default::default()
                                 }
                             })
                             .padding(10)
-                            //  .height(30)
                             .center_y(46)
                             .width(200)
                         )
@@ -126,7 +127,24 @@ fn homepage(user_teams_value: HashMap<String, Value>) -> Element<'static, Messag
     )
     .padding(20);
 
-    column![navbar(), team_scrollbar].into()
+    let search_teams = container(text_input("Search teams.. .", &search_teams_input_value)
+                       .on_input(Message::ContentChanged)
+                        .padding(10)
+                        .style(|_, _| {
+                                text_input::Style {
+                                    background:  Color::parse("#333").expect("Background color is invalid.").into(), border: border::rounded(8),
+                                    icon: Color::parse("#444").expect("Background color is invalid."),
+                                    placeholder: Color::parse("#666").expect("Background color is invalid."),
+                                    value: Color::parse("#fff").expect("Background color is invalid."),
+                                    selection: Color::parse("#444").expect("Background color is invalid.") }
+                            })
+                        )
+                       .width(240)
+                       .padding( padding::Padding::from([0, 20]));
+
+
+
+    column![navbar(), search_teams, team_scrollbar].into()
 }
 
 fn team() -> Element<'static, Message> {
@@ -139,6 +157,7 @@ impl Counter {
             Self {
                 page: Page::Homepage,
                 user_teams: HashMap::new(),
+                search_teams_input_value: "".to_string(),
             },
             Task::perform(user_teams(), Message::UserTeamsFetched),
         )
@@ -147,7 +166,7 @@ impl Counter {
     fn view(&self) -> Element<Message> {
         println!("View called");
         match self.page {
-            Page::Homepage => homepage(self.user_teams.clone()),
+            Page::Homepage => homepage(self.user_teams.clone(), self.search_teams_input_value.clone()),
             Page::Team => team(),
         }
     }
@@ -160,6 +179,10 @@ impl Counter {
                 println!("Join button pressed");
                 Task::none()
             }
+            Message::ContentChanged(content) => {
+                self.search_teams_input_value = content;
+                Task::none()
+            },
             Message::UserTeams => Task::perform(user_teams(), Message::UserTeamsFetched),
             Message::UserTeamsFetched(response) => {
                 if let Ok(user_teams) = response {
