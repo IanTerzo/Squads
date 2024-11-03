@@ -5,13 +5,39 @@ use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::engine::Engine as _;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::path::PathBuf;
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
-mod store;
-use store::{AccessToken, Store};
+use std::fmt;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct AccessToken {
+    pub value: String,
+    pub expires: u64,
+}
+
+#[derive(Debug, Clone)]
+pub enum ApiError {
+    RequestFailed(reqwest::StatusCode, String),
+    MissingTokenOrExpiry,
+}
+
+// Display implementation for TokenError for better error messages
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ApiError::RequestFailed(status, body) => {
+                write!(f, "Request failed with status {}: {}", status, body)
+            }
+            ApiError::MissingTokenOrExpiry => write!(f, "Missing refresh_token or expires_in"),
+        }
+    }
+}
+
+impl std::error::Error for ApiError {}
 
 fn get_epoch_s() -> u64 {
     SystemTime::now()
@@ -20,13 +46,10 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-fn get_config_path() -> PathBuf {
-    let store_path = "./cache"; // TEMPORARY !!!!
-    return store_path.into();
-}
-
-async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
-    let store = Store::new(get_config_path());
+pub async fn gen_refresh_token_from_code(
+    code: String,
+    code_verifier: String,
+) -> Result<AccessToken, ApiError> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -34,7 +57,58 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         HeaderValue::from_static("https://teams.microsoft.com"),
     );
 
-    let refresh_token = "YOUR REFRESH TOKEN";
+    let body = format!(
+        "client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&\
+    redirect_uri=https://teams.microsoft.com/v2&\
+    scope=https://ic3.teams.office.com/.default openid profile offline_access&\
+    code={}&\
+    code_verifier={}&\
+    grant_type=authorization_code&\
+    claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
+        code, code_verifier
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .post("https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token")
+        .headers(headers)
+        .body(body)
+        .send()
+        .unwrap();
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().unwrap();
+        return Err(ApiError::RequestFailed(status, body));
+    }
+
+    let token_data: HashMap<String, Value> = res.json().unwrap();
+    if let (Some(value), Some(expires_in)) = (
+        token_data.get("refresh_token").and_then(|v| v.as_str()),
+        token_data.get("expires_in").and_then(|v| v.as_u64()),
+    ) {
+        let refresh_token = AccessToken {
+            value: value.to_string(),
+            expires: get_epoch_s() + expires_in,
+        };
+
+        Ok(refresh_token)
+    } else {
+        Err(ApiError::MissingTokenOrExpiry)
+    }
+}
+
+pub async fn gen_tokens(refresh_token: AccessToken, scope: &str) -> Result<AccessToken, ApiError> {
+    // Generate new refresh token if needed
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("origin"),
+        HeaderValue::from_static("https://teams.microsoft.com"),
+    );
 
     let body = format!(
         "client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&\
@@ -45,7 +119,7 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         x-client-VER=3.7.1&\
         refresh_token={}&\
         claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
-        &scope, refresh_token
+        scope, refresh_token.value
     );
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -59,44 +133,33 @@ async fn gen_tokens(scope: &String) -> Result<(), anyhow::Error> {
         .send()
         .unwrap();
 
-    if res.status().is_success() {
-        let token_data: HashMap<String, Value> = res.json().unwrap();
-        if let (Some(value), Some(expires_in)) = (
-            token_data.get("access_token").and_then(|v| v.as_str()),
-            token_data.get("expires_in").and_then(|v| v.as_u64()),
-        ) {
-            let access_token = AccessToken {
-                value: value.to_string(),
-                expires: get_epoch_s() + expires_in,
-            };
-
-            store.set_token(scope, access_token);
-
-            Ok(())
-        } else {
-            Err(anyhow!("Couldn't get access_token or expires_in"))
-        }
-    } else {
+    if !res.status().is_success() {
         let status = res.status();
         let body = res.text().unwrap();
-        Err(anyhow!("{}: {}", status, body))
+        return Err(ApiError::RequestFailed(status, body));
+    }
+
+    let token_data: HashMap<String, Value> = res.json().unwrap();
+    if let (Some(value), Some(expires_in)) = (
+        token_data.get("access_token").and_then(|v| v.as_str()),
+        token_data.get("expires_in").and_then(|v| v.as_u64()),
+    ) {
+        let access_token = AccessToken {
+            value: value.to_string(),
+            expires: get_epoch_s() + expires_in,
+        };
+        Ok(access_token)
+    } else {
+        Err(ApiError::MissingTokenOrExpiry)
     }
 }
 
 async fn user_aggregate_settings(
+    token: &AccessToken,
     json_body: HashMap<String, bool>,
 ) -> Result<HashMap<String, Value>, anyhow::Error> {
-    let store = Store::new(get_config_path());
-    let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
+    //let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await?;
-        token = store.get_token(&scope);
-    }
-
-    let token =
-        token.ok_or_else(|| anyhow::anyhow!("Failed to retrieve the token after generation"))?;
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -134,48 +197,36 @@ async fn user_aggregate_settings(
     }
 }
 
-async fn gen_web_url() -> Result<(), anyhow::Error> {
-    let mut query = HashMap::new();
-    query.insert("tenantSiteUrl".to_string(), true);
+//async fn gen_web_url(token: &AccessToken) -> Result<(), anyhow::Error> {
+//  let mut query = HashMap::new();
+// query.insert("tenantSiteUrl".to_string(), true);
 
-    let aggregate_settings = user_aggregate_settings(query).await.unwrap();
+//let aggregate_settings = user_aggregate_settings(token, query).await.unwrap();
 
-    let unformatted_web_url = aggregate_settings
-        .get("tenantSiteUrl")
-        .and_then(|tenant_site_url| tenant_site_url.get("value"))
-        .and_then(|value| value.get("webUrl"))
-        .ok_or_else(|| anyhow!("webUrl key is missing"))?;
+//let unformatted_web_url = aggregate_settings
+//        .get("tenantSiteUrl")
+//      .and_then(|tenant_site_url| tenant_site_url.get("value"))
+//    .and_then(|value| value.get("webUrl"))
+//  .ok_or_else(|| anyhow!("webUrl key is missing"))?;
 
-    let web_url = unformatted_web_url
-        .to_string()
-        .replace('\"', "") // Removing any double quotes from the string
-        .replace("/_layouts/15/sharepoint.aspx", ""); // Adjusting the URL to the correct format
+//let web_url = unformatted_web_url
+//  .to_string()
+//.replace('\"', "") // Removing any double quotes from the string
+//.replace("/_layouts/15/sharepoint.aspx", ""); // Adjusting the URL to the correct format
 
-    let store = Store::new(get_config_path());
-    store.set_data("web_url", Value::from(web_url));
+// let store = Store::new(get_config_path());
+// store.set_data("web_url", Value::from(web_url));
 
-    Ok(())
-}
+//Ok(())
+//}
 
-async fn gen_spoidcrl(section: String) -> Result<(), anyhow::Error> {
-    let store = Store::new(get_config_path());
+async fn gen_spoidcrl(
+    token: AccessToken,
+    section: String,
+    web_url: Value,
+) -> Result<AccessToken, anyhow::Error> {
+    //let scope = format!("{}/.default", web_url.to_string().replace('\"', ""));
 
-    let mut web_url = store.get_data("web_url");
-    if web_url.is_none() {
-        gen_web_url().await?;
-        web_url = store.get_data("web_url");
-    }
-    let web_url = web_url.ok_or_else(|| anyhow::anyhow!("Failed to get web_url"))?;
-
-    let scope = format!("{}/.default", web_url.to_string().replace('\"', ""));
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await?;
-        token = store.get_token(&scope);
-    }
-    let token = token
-        .ok_or_else(|| anyhow::anyhow!("Failed to retrieve the token after generation"))
-        .unwrap();
     let access_token = format!("Bearer {}", token.value);
 
     let url = format!(
@@ -213,8 +264,7 @@ async fn gen_spoidcrl(section: String) -> Result<(), anyhow::Error> {
                 value: parsed_cookie,
                 expires: get_epoch_s() + 2628288, // Doesn't change
             };
-            store.set_token("spoidcrl", access_token);
-            Ok(())
+            Ok(access_token)
         } else {
             Err(anyhow!("Couldn't get response cookies"))
         }
@@ -231,20 +281,10 @@ async fn gen_spoidcrl(section: String) -> Result<(), anyhow::Error> {
         ))
     }
 }
-async fn gen_skype_token() -> Result<(), anyhow::Error> {
-    let store = Store::new(get_config_path());
-    let req_scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
+async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Error> {
+    //let req_scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
-    let mut req_token = store.get_token(&req_scope);
-    if req_token.is_none() || req_token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&req_scope).await?;
-        req_token = store.get_token(&req_scope);
-    }
-
-    let req_token = req_token
-        .ok_or_else(|| anyhow::anyhow!("Failed to retrieve the token after generation"))
-        .unwrap();
-    let req_access_token = format!("Bearer {}", req_token.value);
+    let req_access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -273,10 +313,10 @@ async fn gen_skype_token() -> Result<(), anyhow::Error> {
                     expires: get_epoch_s() + expires_in,
                 };
 
-                let scope = "skype_token".to_string();
+                //let scope = "skype_token".to_string();
+                //store.set_token(&scope, access_token);
 
-                store.set_token(&scope, access_token);
-                Ok(())
+                Ok(access_token)
             } else {
                 Err(anyhow!("Couldn't get response skypeToken or expiresIn"))
             }
@@ -290,17 +330,7 @@ async fn gen_skype_token() -> Result<(), anyhow::Error> {
     }
 }
 
-pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
-    let store = Store::new(get_config_path());
-    let scope = "https://chatsvcagg.teams.microsoft.com/.default".to_string();
-
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
+pub async fn user_teams(token: AccessToken) -> Result<HashMap<String, Value>, String> {
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -329,9 +359,6 @@ pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
 
     if res.status().is_success() {
         let parsed = res.json::<HashMap<String, Value>>().unwrap();
-        if let Some(teams) = parsed.get("teams") {
-            store.set_data("teams", teams.clone());
-        }
         Ok(parsed)
     } else {
         let error_message = format!(
@@ -344,19 +371,12 @@ pub async fn user_teams() -> Result<HashMap<String, Value>, String> {
 }
 
 async fn team_conversations(
+    token: AccessToken,
     team_id: String,
     topic_id: String,
 ) -> Result<HashMap<String, Value>, String> {
-    let store = Store::new(get_config_path());
-    let scope = "https://chatsvcagg.teams.microsoft.com/.default".to_string();
+    //let scope = "https://chatsvcagg.teams.microsoft.com/.default".to_string();
 
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -390,19 +410,12 @@ async fn team_conversations(
 }
 
 async fn team_channel_info(
+    token: AccessToken,
     group_id: String,
     topic_id: String,
 ) -> Result<HashMap<String, Value>, String> {
-    let store = Store::new(get_config_path());
-    let scope = "https://graph.microsoft.com/.default".to_string();
+    //let scope = "https://graph.microsoft.com/.default".to_string();
 
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -432,27 +445,14 @@ async fn team_channel_info(
     }
 }
 
-async fn document_libraries(topic_id: String) -> Result<Vec<Value>, String> {
-    let store = Store::new(get_config_path());
-    let mut scope = "https://api.spaces.skype.com/.default".to_string();
+async fn document_libraries(
+    token: AccessToken,
+    skype_token: AccessToken,
+    topic_id: String,
+) -> Result<Vec<Value>, String> {
+    //let mut scope = "https://api.spaces.skype.com/.default".to_string();
 
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
     let access_token = format!("Bearer {}", token.value);
-
-    scope = "skype_token".to_string();
-    let mut skype_token = store.get_token(&scope);
-    if skype_token.is_none() || skype_token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_skype_token().await.unwrap();
-        skype_token = store.get_token(&scope);
-    }
-
-    let skype_token = skype_token.ok_or("Failed to retrieve the token after generation")?;
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -482,25 +482,12 @@ async fn document_libraries(topic_id: String) -> Result<Vec<Value>, String> {
 }
 
 async fn render_list_data_as_stream(
+    token: AccessToken,
+    web_url: String,
     section: String,
     files_relative_path: String,
 ) -> Result<HashMap<String, Value>, String> {
-    let store = Store::new(get_config_path());
-    let scope = "spoidcrl".to_string();
-
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_spoidcrl(section.clone()).await.unwrap();
-        token = store.get_token(&scope);
-    }
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
-
-    let mut web_url = store.get_data("web_url");
-    if web_url.is_none() {
-        gen_web_url().await.unwrap();
-        web_url = store.get_data("web_url");
-    }
-    let web_url = web_url.ok_or("Failed to get web_url")?;
+    //let scope = "spoidcrl".to_string();
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -550,19 +537,12 @@ async fn render_list_data_as_stream(
 }
 
 async fn authorize_team_picture(
+    token: AccessToken,
     group_id: String,
     etag: String,
     display_name: String,
 ) -> Result<String, String> {
-    let store = Store::new(get_config_path());
-    let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
+    //let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -609,18 +589,11 @@ async fn authorize_team_picture(
 }
 
 async fn authorize_profile_picture(
+    token: AccessToken,
     user_id: String,
     display_name: String,
 ) -> Result<String, String> {
-    let store = Store::new(get_config_path());
-    let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_tokens(&scope).await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
+    // let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -669,17 +642,9 @@ async fn authorize_profile_picture(
     }
 }
 
-async fn authorize_image(image_id: String) -> Result<String, String> {
-    let store = Store::new(get_config_path());
+async fn authorize_image(token: AccessToken, image_id: String) -> Result<String, String> {
+    //let scope = "skype_token".to_string();
 
-    let scope = "skype_token".to_string();
-    let mut token = store.get_token(&scope);
-    if token.is_none() || token.as_ref().unwrap().expires <= get_epoch_s() {
-        gen_skype_token().await.unwrap();
-        token = store.get_token(&scope);
-    }
-
-    let token = token.ok_or("Failed to retrieve the token after generation")?;
     let access_token = format!("skype_token {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -711,27 +676,4 @@ async fn authorize_image(image_id: String) -> Result<String, String> {
         );
         Err(error_message)
     }
-}
-
-async fn get_cache_data(key: String) -> Value {
-    let store = Store::new(get_config_path());
-    match store.get_data(key.as_str()) {
-        Some(data) => data,
-        None => Value::Null,
-    }
-}
-
-async fn get_weburl() -> Value {
-    let store = Store::new(get_config_path());
-
-    let mut web_url = store.get_data("web_url");
-    if web_url.is_none() {
-        gen_web_url().await.unwrap();
-        web_url = store.get_data("web_url");
-    }
-    let web_url = web_url
-        .ok_or_else(|| anyhow::anyhow!("Failed to get web_url"))
-        .unwrap();
-
-    web_url
 }
