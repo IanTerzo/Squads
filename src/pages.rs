@@ -10,26 +10,26 @@ use crate::Message;
 use navbar::navbar;
 
 pub fn homepage(
-    user_teams_value: HashMap<String, Value>,
+    teams: Vec<HashMap<String, Value>>,
     search_teams_input_value: String,
 ) -> Element<'static, Message> {
     let mut teams_column: Column<Message> = column![];
 
-    if let Some(Value::Array(teams_array)) = user_teams_value.get("teams") {
-        for team in teams_array {
-            if let Value::Object(team_obj) = team {
-                if let Some(Value::String(display_name)) = team_obj.get("displayName") {
+ 
+        for team in teams {
+                if let Some(Value::String(display_name)) = team.get("displayName") {
                     let mut overflow_display_name = display_name.clone();
                     if overflow_display_name.len() > 16 {
                         overflow_display_name
                             .replace_range(16 - 3..overflow_display_name.len(), "...");
                     }
 
+        
                     teams_column = teams_column.push(
                         MouseArea::new(
                             container(
                                 row![
-                                      Element::new(Image::new(image::Handle::from_path("ferris.png"))
+                                      Element::new(Image::new(image::Handle::from_path(search_teams_input_value.clone())) //  get id is maybe not a string. TODO
                                         .width(50)
                                         .height(50)),
                                     text(overflow_display_name),
@@ -54,9 +54,8 @@ pub fn homepage(
                     );
                     teams_column = teams_column.push(Space::new(10, 8.5));
                 }
-            }
         }
-    }
+    
 
     let team_scrollbar = container(
         scrollable(teams_column)

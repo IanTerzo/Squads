@@ -25,6 +25,20 @@ pub enum ApiError {
     MissingTokenOrExpiry,
 }
 
+
+#[derive(Debug, Deserialize)]
+struct Team {
+    id: u32,
+    name: String,
+    members: Vec<String>,
+    status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UserDetails{
+    pub teams: Vec<HashMap<String, Value>>,
+}
+
 // Display implementation for TokenError for better error messages
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -102,7 +116,7 @@ pub async fn gen_refresh_token_from_code(
     }
 }
 
-pub async fn gen_tokens(refresh_token: AccessToken, scope: &str) -> Result<AccessToken, ApiError> {
+pub async fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessToken, ApiError> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -330,7 +344,7 @@ async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Erro
     }
 }
 
-pub async fn user_teams(token: AccessToken) -> Result<HashMap<String, Value>, String> {
+pub async fn user_details(token: AccessToken) -> Result<UserDetails, String> {
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -358,7 +372,7 @@ pub async fn user_teams(token: AccessToken) -> Result<HashMap<String, Value>, St
         .unwrap();
 
     if res.status().is_success() {
-        let parsed = res.json::<HashMap<String, Value>>().unwrap();
+        let parsed = res.json::<UserDetails>().unwrap();
         Ok(parsed)
     } else {
         let error_message = format!(
@@ -536,7 +550,7 @@ async fn render_list_data_as_stream(
     }
 }
 
-async fn authorize_team_picture(
+pub async fn authorize_team_picture(
     token: AccessToken,
     group_id: String,
     etag: String,
@@ -562,7 +576,12 @@ async fn authorize_team_picture(
     );
 
     let params = [("etag", etag), ("displayName", display_name)];
-    let client = reqwest::Client::new();
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
     let res = client
         .get(format!(
             "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/{}",
@@ -571,18 +590,18 @@ async fn authorize_team_picture(
         .headers(headers)
         .query(&params)
         .send()
-        .await
         .unwrap();
 
     if res.status().is_success() {
-        let bytes = res.bytes().await.unwrap();
+        let bytes = res.bytes().unwrap();
         let parsed = BASE64.encode(&bytes);
+        println!("{}", parsed);
         Ok(parsed)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().await.unwrap()
+            res.text().unwrap()
         );
         Err(error_message)
     }
