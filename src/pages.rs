@@ -1,61 +1,61 @@
+use iced::widget::image::Handle;
 use iced::widget::{
     column, container, image, row, scrollable, text, text_input, Column, Image, MouseArea, Space,
 };
-use iced::{border, padding, Color, Element};
+use iced::{border, padding, Color, ContentFit, Element};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::path::Path;
 mod navbar;
+use crate::api::Team;
 use crate::Message;
 
 use navbar::navbar;
 
-pub fn homepage(
-    teams: Vec<HashMap<String, Value>>,
-    search_teams_input_value: String,
-) -> Element<'static, Message> {
+pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'static, Message> {
     let mut teams_column: Column<Message> = column![];
 
- 
-        for team in teams {
-                if let Some(Value::String(display_name)) = team.get("displayName") {
-                    let mut overflow_display_name = display_name.clone();
-                    if overflow_display_name.len() > 16 {
-                        overflow_display_name
-                            .replace_range(16 - 3..overflow_display_name.len(), "...");
-                    }
-
-        
-                    teams_column = teams_column.push(
-                        MouseArea::new(
-                            container(
-                                row![
-                                      Element::new(Image::new(image::Handle::from_path(search_teams_input_value.clone())) //  get id is maybe not a string. TODO
-                                        .width(50)
-                                        .height(50)),
-                                    text(overflow_display_name),
-
-                                ]
-                                .spacing(10),
-                            )
-                            .style(|_| container::Style {
-                                background: Some(
-                                    Color::parse("#333")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(8),
-                                ..Default::default()
-                            })
-                            .padding(10)
-                            .center_y(46)
-                            .width(200),
-                        )
-                        .on_press(Message::Join.clone()),
-                    );
-                    teams_column = teams_column.push(Space::new(10, 8.5));
-                }
+    for team in teams {
+        let display_name = team.display_name;
+        let mut overflow_display_name = display_name.clone();
+        if overflow_display_name.len() > 16 {
+            overflow_display_name.replace_range(16 - 3..overflow_display_name.len(), "...");
         }
-    
+
+        let mut team_picture = image("images/error.jpeg")
+            .width(26)
+            .height(26)
+            .content_fit(ContentFit::Contain);
+
+        let image_path = format!("images/{}.jpeg", team.picture_e_tag);
+
+        if Path::new(&image_path).exists() {
+            team_picture = image(image_path)
+                .width(25)
+                .height(25)
+                .content_fit(ContentFit::Contain);
+        }
+
+        teams_column = teams_column.push(
+            MouseArea::new(
+                container(row![team_picture, text(overflow_display_name),].spacing(10))
+                    .style(|_| container::Style {
+                        background: Some(
+                            Color::parse("#333")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+                        border: border::rounded(8),
+                        ..Default::default()
+                    })
+                    .padding(10)
+                    .center_y(46)
+                    .width(200),
+            )
+            .on_press(Message::Join.clone()),
+        );
+        teams_column = teams_column.push(Space::new(10, 8.5));
+    }
 
     let team_scrollbar = container(
         scrollable(teams_column)

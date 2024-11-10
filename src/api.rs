@@ -4,8 +4,9 @@
 use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::engine::Engine as _;
+use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
@@ -25,21 +26,27 @@ pub enum ApiError {
     MissingTokenOrExpiry,
 }
 
-
-#[derive(Debug, Deserialize)]
-struct Team {
-    id: u32,
-    name: String,
-    members: Vec<String>,
-    status: String,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamSiteInformation {
+    pub group_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct UserDetails{
-    pub teams: Vec<HashMap<String, Value>>,
+#[serde(rename_all = "camelCase")]
+pub struct Team {
+    // id ? (String)
+    pub team_site_information: TeamSiteInformation,
+    pub display_name: String,
+    #[serde(deserialize_with = "trim_quotes")]
+    pub picture_e_tag: String,
 }
 
-// Display implementation for TokenError for better error messages
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UserDetails {
+    pub teams: Vec<Team>,
+}
+
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -51,6 +58,13 @@ impl fmt::Display for ApiError {
     }
 }
 
+fn trim_quotes<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer)?;
+    Ok(s.trim_matches('"').to_string())
+}
 impl std::error::Error for ApiError {}
 
 fn get_epoch_s() -> u64 {
@@ -88,7 +102,7 @@ pub async fn gen_refresh_token_from_code(
         .unwrap();
 
     let res = client
-        .post("https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token")
+        .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
         .headers(headers)
         .body(body)
         .send()
@@ -116,7 +130,10 @@ pub async fn gen_refresh_token_from_code(
     }
 }
 
-pub async fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessToken, ApiError> {
+pub async fn gen_tokens(
+    refresh_token: AccessToken,
+    scope: String,
+) -> Result<AccessToken, ApiError> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -141,7 +158,7 @@ pub async fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<Acc
         .unwrap();
 
     let res = client
-        .post("https://login.microsoftonline.com/660a30b5-8e2e-4769-b9eb-4af28bfd12bd/oauth2/v2.0/token")
+        .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
         .headers(headers)
         .body(body)
         .send()
@@ -555,7 +572,7 @@ pub async fn authorize_team_picture(
     group_id: String,
     etag: String,
     display_name: String,
-) -> Result<String, String> {
+) -> Result<Bytes, String> {
     //let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
     let mut headers = HeaderMap::new();
@@ -594,9 +611,7 @@ pub async fn authorize_team_picture(
 
     if res.status().is_success() {
         let bytes = res.bytes().unwrap();
-        let parsed = BASE64.encode(&bytes);
-        println!("{}", parsed);
-        Ok(parsed)
+        Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",

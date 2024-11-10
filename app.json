@@ -1,0 +1,214 @@
+{
+  "refresh_token": {
+    "value": "1.AXQAtTAKZi6OaUe560ryi_0SvcDmPF4fK4VCjUt17nh4c0biAPJ0AA.AgABAwEAAADW6jl31mB3T7ugrWTT8pFeAwDs_wUA9P-Pq6PGcPhXJLiKWtXrpl2m1vHgnP2lqwzvzL6-Nb_aVMnT-tHf-KSaymvz2qYuxE4NGW75Ft1cvoElG1epwnXdEz_BM8kAwI-9z4U7NXYeZYATKS_8usoUBaVvUn9CCV-qyA0eeJ5dzP5K-FFHq6g73L_YcF2m_5TTGX1_-xwhB_4Sv4w12qGw7WhbSO2jxCelkRtQlzoJ_rHtSigwmhF_T4jH6CKYm8MxYgKZx9BHNmjzshcHuCPjvwZJMUbgIhUjrxgZ5m99Lt_EMoHgeyiUR_EoYhF-wiiTiJ7P2rh2ED83IikhY2JI1BNsosjojw7pzfAekuxs5bf3jePLYaFjXZtll0ShfWtvRIgMBhpswnLr9jkGP5_uROCqZivAc1WnUxji1f4XKHjo1pOEvfNmcaY1iASn4Xo_7KfEeKIFEiWJEWFUX-cB8aElcWHXrULfT4YUOnOHCtjRI-xnloFFg8svOmmKZcgUytEb5gBrVX9twYgdWmYdUTr3CTWdMuxN-xySWbxG4xVLtomuBbWxToF21jToj_rHaMjLLYxIxKtM0QjlKYTurbdovZO3_nzhu3koCUBQ_VlZecm95GWRUep1ahC887kQfhrOR7_PmgZEMsBtBA9YIcZTUvkLzZGtpSSuNOa4x2OB5mVO7v9Er8Y-c6F35wbhwTQo9sxBEbTSl-bcHgX34Fi41tfyh_iOWeDWd1TLWWQdpTn5XdnfpPBJhzLsbG9XoY3e0Ay9hXBUbw",
+    "expires": 1731356610
+  },
+  "access_tokens": {
+    "https://api.spaces.skype.com/Authorization.ReadWrite": {
+      "value": "eyJ0eXAiOiJKV1QiLCJub25jZSI6IjdxS0dBWENNaENFVnRod0REYVRwRDNCTlBJYnpDUWlaOEVldUVXbEVTaVUiLCJhbGciOiJSUzI1NiIsIng1dCI6IjNQYUs0RWZ5Qk5RdTNDdGpZc2EzWW1oUTVFMCIsImtpZCI6IjNQYUs0RWZ5Qk5RdTNDdGpZc2EzWW1oUTVFMCJ9.eyJhdWQiOiJodHRwczovL2FwaS5zcGFjZXMuc2t5cGUuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkLyIsImlhdCI6MTczMTI3MTI0NywibmJmIjoxNzMxMjcxMjQ3LCJleHAiOjE3MzEzNTM3MzEsImFjY3QiOjAsImFjciI6IjEiLCJhaW8iOiJBU1FBMi84WUFBQUE4cG5PMEk3bGw4MUJzUHhMeDNZR21HeVFFbEV1b3RFRDVCTkJOdXZUb2lBPSIsImFtciI6WyJwd2QiXSwiYXBwaWQiOiI1ZTNjZTZjMC0yYjFmLTQyODUtOGQ0Yi03NWVlNzg3ODczNDYiLCJhcHBpZGFjciI6IjAiLCJhdXRoX3RpbWUiOjE3MzEyNzAyMDEsImZhbWlseV9uYW1lIjoiQmFsZGVsbGkiLCJnaXZlbl9uYW1lIjoiSWFuIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiODEuMTYuMTYzLjE3NCIsIm5hbWUiOiJJYW4gQmFsZGVsbGkiLCJvaWQiOiIxNWRlNDI0MS1lOWJlLTQ5MTAtYTYwZi0zZjM3ZGQ4NjUyYjgiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMTQwOTA4MjIzMy00NDg1Mzk3MjMtNjgyMDAzMzMwLTE3MDM2IiwicHVpZCI6IjEwMDMyMDAyQ0RENEIxQjciLCJyaCI6IjEuQVhRQXRUQUtaaTZPYVVlNTYwcnlpXzBTdlZmOUZjeHNMQmRCcUl5RHNkVnJTNzdpQVBKMEFBLiIsInNjcCI6IkF1dGhvcml6YXRpb24uUmVhZFdyaXRlIFJlZ2lvbi5SZWFkV3JpdGUgdXNlcl9pbXBlcnNvbmF0aW9uIiwic2lkIjoiZDQwZjcyODktNDk2Yi00NzE5LThkYWEtMGI1NTM2MjVmODc2Iiwic3ViIjoiTHFlWU94UHgwWXRIY2pRUkFLNWZqTE00VWVJWmRtUkZLTmhFTXF3eU9nNCIsInRlbmFudF9jdHJ5IjoiU0UiLCJ0aWQiOiI2NjBhMzBiNS04ZTJlLTQ3NjktYjllYi00YWYyOGJmZDEyYmQiLCJ1bmlxdWVfbmFtZSI6Imlhbi5iYWxkZWxsaUBoaXRhY2hpZ3ltbmFzaWV0LnNlIiwidXBuIjoiaWFuLmJhbGRlbGxpQGhpdGFjaGlneW1uYXNpZXQuc2UiLCJ1dGkiOiIxQVVhSE5iUW8wLU5zSzNUYnAwMUFRIiwidmVyIjoiMS4wIiwid2lkcyI6WyJiNzlmYmY0ZC0zZWY5LTQ2ODktODE0My03NmIxOTRlODU1MDkiXSwieG1zX2NjIjpbIkNQMSJdLCJ4bXNfaWRyZWwiOiIxIDI2IiwieG1zX3NzbSI6IjEifQ.GQTFgxl1wJpmvlnothWuXwoKFaKtgJutURuQrl0h3fiiXr24QWTa7PQu6lSKTrntiw4lkpziYikxhOoHUwBb_gaNIvc_OWzVhKB_TKHXsltuBXtVCeZwwZVOlNIwD3kTJjq-PaXVGxK1nZqM7Cf8DzOkIg4kFVQ7ZlU04_N7sAlm084BcCatXH9jQDo6CsZqifgtOqhTWrNk5aLNPY_PSXJmOWWbMCCQLfQHvrSbzOz8BlfjdQEx6xSeEDF8xkuuUS97lWic-fSMrM_hopP1qdrvEE0O6bjCjLBjVVR7QsggOQr0HJRb7xY7SXBvVcSXkQX5J6nQsukxnIY380WiMw",
+      "expires": 1731353730
+    },
+    "https://chatsvcagg.teams.microsoft.com/.default": {
+      "value": "eyJ0eXAiOiJKV1QiLCJub25jZSI6Il9YTnZraVZqTXBjckRIUHctWjRpbXVTN2J3eUE2STRsa29KZWJIdm5OZmciLCJhbGciOiJSUzI1NiIsIng1dCI6IjNQYUs0RWZ5Qk5RdTNDdGpZc2EzWW1oUTVFMCIsImtpZCI6IjNQYUs0RWZ5Qk5RdTNDdGpZc2EzWW1oUTVFMCJ9.eyJhdWQiOiJodHRwczovL2NoYXRzdmNhZ2cudGVhbXMubWljcm9zb2Z0LmNvbSIsImlzcyI6Imh0dHBzOi8vc3RzLndpbmRvd3MubmV0LzY2MGEzMGI1LThlMmUtNDc2OS1iOWViLTRhZjI4YmZkMTJiZC8iLCJpYXQiOjE3MzEyNzEyNDcsIm5iZiI6MTczMTI3MTI0NywiZXhwIjoxNzMxMzQ5OTQwLCJhY2N0IjowLCJhY3IiOiIxIiwiYWlvIjoiQVRRQXkvOFlBQUFBaTJwTXRYV3FzZkMyNnBMUDBjbnNnUFdqbFExNi94TEE1VE5UMG5LTlVZME9ySm40N3ZFRlQ4anVuUVFNTkFaaiIsImFtciI6WyJwd2QiXSwiYXBwaWQiOiI1ZTNjZTZjMC0yYjFmLTQyODUtOGQ0Yi03NWVlNzg3ODczNDYiLCJhcHBpZGFjciI6IjAiLCJmYW1pbHlfbmFtZSI6IkJhbGRlbGxpIiwiZ2l2ZW5fbmFtZSI6IklhbiIsImlkdHlwIjoidXNlciIsImlwYWRkciI6IjgxLjE2LjE2My4xNzQiLCJuYW1lIjoiSWFuIEJhbGRlbGxpIiwib2lkIjoiMTVkZTQyNDEtZTliZS00OTEwLWE2MGYtM2YzN2RkODY1MmI4Iiwib25wcmVtX3NpZCI6IlMtMS01LTIxLTE0MDkwODIyMzMtNDQ4NTM5NzIzLTY4MjAwMzMzMC0xNzAzNiIsInB1aWQiOiIxMDAzMjAwMkNERDRCMUI3IiwicmgiOiIxLkFYUUF0VEFLWmk2T2FVZTU2MHJ5aV8wU3ZYV2FON0ZlenFOUGdNYUp1em1fWkd6aUFQSjBBQS4iLCJzY3AiOiJ1c2VyX2ltcGVyc29uYXRpb24iLCJzdWIiOiJjZ0xfbkF4X1hsR3YwSk5zQjlSUXk4ZzBDVGlteXV6eXhoREFaUU9ITmp3IiwidGVuYW50X3JlZ2lvbl9zY29wZSI6IkVVIiwidGlkIjoiNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkIiwidW5pcXVlX25hbWUiOiJpYW4uYmFsZGVsbGlAaGl0YWNoaWd5bW5hc2lldC5zZSIsInVwbiI6Imlhbi5iYWxkZWxsaUBoaXRhY2hpZ3ltbmFzaWV0LnNlIiwidXRpIjoiLUtEaHB0UlNSRWU5U1RNVlRUZ1NBUSIsInZlciI6IjEuMCIsIndpZHMiOlsiYjc5ZmJmNGQtM2VmOS00Njg5LTgxNDMtNzZiMTk0ZTg1NTA5Il0sInhtc19jYyI6WyJDUDEiXSwieG1zX2lkcmVsIjoiMSAxOCIsInhtc19zc20iOiIxIn0.U5O38Fa-QD80OdwfE3vkzbNttIVvLWZnIcnQA1HWmeMBDm5shVwuItyDGD2ZR-YawcuGoIVgLlEWjlBHvKGSbixBQjlVG7e3ETh0Oz_-9czXFgzrznvJ2xcMo_5x-_xu7eBo96K9s6CMVmlT1xV_GDgtV7Fs9Df1quM7zUjTne0YJfAw9lNV0uLcU2UtB6zwYmf_IyF5PLoXFTVYmlxmdqT_nZ7J-ekBphkne_1-gK_nQ_NohtPcLuN8W4b2mrVYFSZnMKRe8UKQp0ZmvNVZiUJF-1smS5IEypPysE1lIwtb6ubbACksBe2N9dbtK7bv_OUm9wlhU5hBDkBPA2cfoQ",
+      "expires": 1731349939
+    }
+  },
+  "teams": [
+    {
+      "teamSiteInformation": {
+        "groupId": "5a808ceb-d290-4195-84b6-61a2e45a3363"
+      },
+      "displayName": "Elever och personal HIGY Västerås",
+      "pictureETag": "8b52138f08dc5fab00960e83cae31b5af445c9f56ea15c8a7e420be4fe9be253"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "84e888dd-8c52-4d54-9d77-b15e545c5f1e"
+      },
+      "displayName": "Elever utan personal",
+      "pictureETag": "4b0bd88f11971e50cf0e4ffc93161dd1e22f3ed21483769ac047d74bfad32402"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "c9cd57f9-9682-4c8b-a007-d25a20f6bad1"
+      },
+      "displayName": "Mspr 4 Spa _V23_230S",
+      "pictureETag": "90656f480d7ec15b57c40dc325c652ee78e0c320a881819a22059ee0aa24d988"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "51a7ff9a-956f-497c-bfd3-e67915433d67"
+      },
+      "displayName": "Idh1_V230S",
+      "pictureETag": "20fd3582b2b10b8f98ba0793a9a09fc6d64ff2fc32e89184bf83a631e72492ca"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "e7eb4f83-bfce-4438-bc30-07a1b61035a9"
+      },
+      "displayName": "TES V230S",
+      "pictureETag": "2fdd80fc202b63ec58fa6b8c9503c2c954268c84a519eb39c9f07c84da14305d"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "0535367e-c769-4434-9a36-36d4c8e44d38"
+      },
+      "displayName": "Ma3c_V230S",
+      "pictureETag": "37524685d3ea1972cfae56ce9cc161722c853d6e43b69d171123ee41419a22c0"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "3118a574-c940-463d-90a5-05a90a4dd2d4"
+      },
+      "displayName": "Sve2_V230S",
+      "pictureETag": "e35bb565890fa6c3576ca61e8f883410bea345a6933f2f6afbe23b1c0fd76f7b"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "06f56691-eb1d-4c7b-8c6d-99e5bc2c4d3b"
+      },
+      "displayName": "Spetselever och -personal",
+      "pictureETag": "e57969134409db0d38577677835933406dcf52bb1e43826d8069c21645b6e806"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "4093d438-34ee-4aff-9966-d7dc00367b28"
+      },
+      "displayName": "TEBLOCK_V230S",
+      "pictureETag": "a74685fc953dc2d893be2553008757d2afb3bd8f4ec280c662f18aee063e8542"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "d4334fc4-b588-498e-8f7d-d4488b2cbf30"
+      },
+      "displayName": "Eng6_V230S",
+      "pictureETag": "aa73b7483ad761d62ded5ef2035f8266dba32dd9b3591583bdf560fc0f5271e0"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "40f46229-67c1-422b-aa41-d86c1d51d83f"
+      },
+      "displayName": "Fy1_V230S",
+      "pictureETag": "5507d33e9077d28bfce420951817c4b0d9ab49c815e94b8a234e201de1ab02d4"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "f93971e3-de09-4ef0-98d2-6e88a2315c77"
+      },
+      "displayName": "Squads",
+      "pictureETag": "55d9b3929ef2b24fbeabf691a5c35196b8638b613b261f18d31a4b70c09493fd"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "e6144059-0064-4c9e-9976-b0334a2cb879"
+      },
+      "displayName": "Exp0724_Sam1b_V230S",
+      "pictureETag": "3208a19e090c672f96405740d45c6e54a6e0b29a2472e8e1d7cd222c9d70defd"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "89aacf24-afa5-4885-8201-42f36c919710"
+      },
+      "displayName": "Exp0724_Sve1_V230S",
+      "pictureETag": "5450e81c25dca6cb0a9bcba1de87fe3115f168e661882b3d50530eaa1c77b9f0"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "01615cbb-bd62-4f2a-80bf-a0a5e3a190dd"
+      },
+      "displayName": "Exp0724_Ke1_V230S",
+      "pictureETag": "5e25111b9d76715dfd2e78524a46b8303867a3fc014a9029917680d9b5abcfb1"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "cb58a298-a734-42f6-99ef-0b43438591a4"
+      },
+      "displayName": "Exp0724_Ma2c_V230S",
+      "pictureETag": "d840c6b3ef1089c151235b465fe06472a40b176a05b648fd2c199c308cdd074f"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "87c1f692-3326-4a45-bd93-fa378f64b10b"
+      },
+      "displayName": "Grind Team 2",
+      "pictureETag": "afd98e0c222391ee3f8d0362bd41347b1d65d1ca55d83660fc8802da9072b965"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "5e66b978-4573-4278-b3cb-3200882b0422"
+      },
+      "displayName": "Exp0724_TEBLOCK_V230S",
+      "pictureETag": "9f197f2ad8d2a1a89609c99b62ef5989eae3b6e820014c104842101f117f3a26"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "c25058c5-c42d-4f71-b4ee-e1be58391cd4"
+      },
+      "displayName": "Exp0724_Mspr 3 Spa_grA_ V2301_230S",
+      "pictureETag": "253cdfd8348ea6d343ec34c902260901bfcdefcd8d54ee6997ae8d72fe6cbe42"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "0b3efce9-db0d-4881-8eaa-03bec72d6047"
+      },
+      "displayName": "Exp0724_Eng5_V230S",
+      "pictureETag": "9d749597cd75501329de9ed250abdefa970cc7c6fe5282cf38a832cd2086b4de"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "6250e193-518b-4090-9231-95265d4ec3c5"
+      },
+      "displayName": "230S",
+      "pictureETag": "15212a4901488ede89d2da5bd26775e94be9d1a53eeb27e3eb2f0d7b19ff685c"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "f21cb51d-e345-4446-86ce-d90770946b78"
+      },
+      "displayName": "230s Grupp_5",
+      "pictureETag": "e35405ef5ac1da60a0493d377c2461bb5cc539de278f51e54bd5b0000472c18c"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "750b2505-c2fe-4bba-9f68-ad9f66b4fcb7"
+      },
+      "displayName": "Exp0724_Ma1c_V230S",
+      "pictureETag": "f4759faea287d5d7b15a3131aaf50bdeeccf23b9c23d38d931ab13930e46bc17"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "6670708a-26c3-4163-98bb-45db53a0aba0"
+      },
+      "displayName": "Programmerings Olympiaden 2025",
+      "pictureETag": "5d5236e242c4b471975e89ed66ad605b72d4e46d7c8c7d66e10a7cb4e536e524"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "e9c74afe-a908-437c-ab90-f0a901e90a4b"
+      },
+      "displayName": "test 4",
+      "pictureETag": "3f7c32a77eca990443c41b110d4c18d4640da5a7d2502c801cbeb400f8ab8865"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "152a3fa8-1038-4e05-be4e-805bfd538fa1"
+      },
+      "displayName": "Ma4_V230S",
+      "pictureETag": "efeb4374e3762cd35635eab50bcb9e31a95fb8173be9a1197a44e0de49130be0"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "5c3ff3fb-fc47-4084-a1b4-37ff80174b97"
+      },
+      "displayName": "test 3",
+      "pictureETag": "f5659a915b89dc2d8a8b85a00c94638506ed2941dce4ed64e62420b33ace8f88"
+    },
+    {
+      "teamSiteInformation": {
+        "groupId": "38954028-0f18-4d41-af8e-6eea0244d8f1"
+      },
+      "displayName": "test 5",
+      "pictureETag": "61ad8532fd64e136cfef26fafa219c2bf5e22c9da6cae62335d4ce1c2b3e8f62"
+    }
+  ]
+}
