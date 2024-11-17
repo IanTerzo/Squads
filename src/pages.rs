@@ -1,19 +1,32 @@
 use bytes::Bytes;
+use iced::futures::channel;
 use iced::widget::image::Handle;
 use iced::widget::{
     column, container, image, row, scrollable, svg, text, text_input, Column, Image, MouseArea,
     Space,
 };
-use iced::{border, padding, Padding, Color, ContentFit, Element};
+use iced::{border, font, padding, Color, ContentFit, Element, Padding};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 mod navbar;
-use crate::api::Team;
+use crate::api::{Channel, Team};
 use crate::Message;
 
 use navbar::navbar;
 
+// helper functions
+fn truncate_name(name: &str, max_length: usize) -> String {
+    if name.len() > max_length {
+        let mut truncated = name.to_string();
+        truncated.replace_range(max_length - 3.., "...");
+        truncated
+    } else {
+        name.to_string()
+    }
+}
+
+// UI functions
 pub fn app(content: Element<'static, Message>) -> Element<'static, Message> {
     column![navbar(), container(content).padding(20)].into()
 }
@@ -22,12 +35,6 @@ pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
     let mut teams_column: Column<Message> = column![];
 
     for team in teams {
-        let display_name = team.display_name;
-        let mut overflow_display_name = display_name.clone();
-        if overflow_display_name.len() > 16 {
-            overflow_display_name.replace_range(16 - 3..overflow_display_name.len(), "...");
-        }
-
         let mut team_picture = container(Space::new(0, 0))
             .style(|_| container::Style {
                 background: Some(
@@ -59,7 +66,7 @@ pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                 container(
                     row![
                         container(team_picture).padding(padding::left(10)),
-                        text(overflow_display_name),
+                        text(truncate_name(&team.display_name, 16)),
                     ]
                     .spacing(10),
                 )
@@ -152,110 +159,121 @@ pub fn login() -> Element<'static, Message> {
     text("Sign in to your account on the browser window").into()
 }
 
+pub fn team_page(team: Team, page_channel: Channel) -> Element<'static, Message> {
+    let image_path = format!("image-cache/{}.jpeg", team.picture_e_tag);
 
+    let team_picture = image(image_path)
+        .content_fit(ContentFit::Cover)
+        .width(45)
+        .height(45);
 
-pub fn team_page(team: Team) -> Element<'static, Message> {
+    let name_row = row![
+        team_picture,
+        column![
+            text!("{}", truncate_name(&team.display_name, 16)).font(font::Font {
+                weight: font::Weight::Bold,
+                ..Default::default()
+            }),
+            text!("{}", truncate_name(&page_channel.display_name, 16))
+        ]
+        .spacing(5)
+    ]
+    .spacing(10);
 
-    let containerstyle = container::Style {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(8),
-                    ..Default::default()
-                };
+    let sidetabs = column![text!("Class Notebook"), text!("Assignments")].spacing(8);
 
     let mut channels_coloumn: Column<Message> = column![];
 
+    let channel_count = team.channels.len();
+
     for channel in team.channels.clone() {
-        let mut overflow_display_name = channel.display_name;
-        if overflow_display_name.len() > 16 {
-            overflow_display_name.replace_range(16 - 3..overflow_display_name.len(), "...");
-        }
-
-
-
+        let page_channel_cloned = page_channel.clone();
         channels_coloumn = channels_coloumn.push(
             MouseArea::new(
-                container(
-                        text(overflow_display_name),
-                )
-                .style(|_| container::Style {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(8),
-                    ..Default::default()
-                })
-                .padding(Padding::from([0,8]))
-                .center_y(47)
-                .width(220),
+                container(text(truncate_name(&channel.display_name, 16)))
+                    .style(move |_| {
+                        if channel.id == page_channel_cloned.id {
+                            container::Style {
+                                background: Some(
+                                    Color::parse("#4c4c4c")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
+                                border: border::rounded(8),
+                                ..Default::default()
+                            }
+                        } else {
+                            container::Style {
+                                background: Some(
+                                    Color::parse("#333")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
+                                border: border::rounded(8),
+                                ..Default::default()
+                            }
+                        }
+                    })
+                    .padding(Padding::from([0, 8]))
+                    .center_y(47)
+                    .width(if channel_count <= 13 { 220 } else { 185 }),
             )
             .on_press(Message::Join.clone()),
         );
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
-
     }
 
-    let channel_count = team.channels.len();
     if channel_count >= 13 {
-
-
-            let team_scrollbar = container(
-        scrollable(channels_coloumn)
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(10)
-                    .spacing(10)
-                    .scroller_width(10),
-            ))
-            .style(|_, _| scrollable::Style {
-                container: container::Style {
-                    background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
-                    border: border::rounded(10),
-                    ..Default::default()
-                },
-                vertical_rail: scrollable::Rail {
-                    background: Some(
+        let team_scrollbar = container(
+            scrollable(channels_coloumn)
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new()
+                        .width(10)
+                        .spacing(10)
+                        .scroller_width(10),
+                ))
+                .style(|_, _| scrollable::Style {
+                    container: container::Style {
+                        background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
+                        border: border::rounded(10),
+                        ..Default::default()
+                    },
+                    vertical_rail: scrollable::Rail {
+                        background: Some(
+                            Color::parse("#333")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+                        border: border::rounded(10),
+                        scroller: scrollable::Scroller {
+                            color: Color::parse("#444").expect("Background color is invalid."),
+                            border: border::rounded(10),
+                        },
+                    },
+                    horizontal_rail: scrollable::Rail {
+                        background: Some(
+                            Color::parse("#333")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+                        border: border::rounded(10),
+                        scroller: scrollable::Scroller {
+                            color: Color::parse("#666").expect("Background color is invalid."),
+                            border: border::rounded(10),
+                        },
+                    },
+                    gap: Some(
                         Color::parse("#333")
                             .expect("Background color is invalid.")
                             .into(),
                     ),
-                    border: border::rounded(10),
-                    scroller: scrollable::Scroller {
-                        color: Color::parse("#444").expect("Background color is invalid."),
-                        border: border::rounded(10),
-                    },
-                },
-                horizontal_rail: scrollable::Rail {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(10),
-                    scroller: scrollable::Scroller {
-                        color: Color::parse("#666").expect("Background color is invalid."),
-                        border: border::rounded(10),
-                    },
-                },
-                gap: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-            }),
-    );
+                }),
+        );
 
-     return row![team_scrollbar].into()
+        let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
+        return row![team_info_column].into();
+    }
 
-}
-
-row![channels_coloumn].into()
-
-
-
+    let team_info_column = column![name_row, sidetabs, channels_coloumn].spacing(18);
+    row![team_info_column].into()
 }

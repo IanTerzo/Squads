@@ -34,16 +34,16 @@ pub struct TeamSiteInformation {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct channel {
+pub struct Channel {
     pub id: String,
-    pub display_name: String
+    pub display_name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Team {
     pub id: String,
-    pub channels: Vec<channel>,
+    pub channels: Vec<Channel>,
     pub smtp_address: String,
     pub team_site_information: TeamSiteInformation,
     pub display_name: String,
