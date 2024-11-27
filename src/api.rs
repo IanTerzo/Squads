@@ -1,6 +1,3 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 use anyhow::{anyhow, Context, Result};
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::engine::Engine as _;
@@ -8,11 +5,11 @@ use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
+
 use std::collections::HashMap;
-
 use std::time::{SystemTime, UNIX_EPOCH};
-
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccessToken {
@@ -51,6 +48,50 @@ pub struct Team {
     pub picture_e_tag: String,
 }
 
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageProperties {
+    #[serde(default)]
+    #[serde(deserialize_with = "string_to_i64")]
+    pub edittime: i64,
+    #[serde(default)]
+    pub subject: String,
+    #[serde(default)]
+    pub files: String, // vec of files actually
+    #[serde(default)]
+    #[serde(deserialize_with = "string_to_i64")]
+    pub deletetime: i64,
+    #[serde(default)]
+    #[serde(deserialize_with = "string_to_bool")]
+    pub systemdelete: bool
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Message {
+    pub content: Option<String>,
+    pub from: Option<String>,
+    pub im_display_name: Option<String>,
+    pub message_type: String,
+    pub properties: MessageProperties
+
+
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Conversation {
+    pub messages: Vec<Message>
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TeamConversations {
+    pub reply_chains: Vec<Conversation>
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserDetails {
     pub teams: Vec<Team>,
@@ -75,6 +116,41 @@ where
     Ok(s.trim_matches('"').to_string())
 }
 impl std::error::Error for ApiError {}
+
+
+fn string_to_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::String(s) => i64::from_str(&s).map_err(serde::de::Error::custom),
+        serde_json::Value::Number(n) => n
+            .as_i64()
+            .ok_or_else(|| serde::de::Error::custom("Number is not a valid i64")),
+        _ => Err(serde::de::Error::custom("Unexpected type")),
+    }
+}
+
+fn string_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Bool(b) => Ok(b),
+        serde_json::Value::String(s) => {
+            match s.as_str() {
+                "true" => Ok(true),
+                "false" => Ok(false),
+                _ => Err(serde::de::Error::custom(format!("Invalid boolean string: {}", s))),
+            }
+        }
+        _ => Err(serde::de::Error::custom("Unexpected type")),
+    }
+
+}
+
 
 fn get_epoch_s() -> u64 {
     SystemTime::now()
@@ -139,7 +215,7 @@ pub async fn gen_refresh_token_from_code(
     }
 }
 
-pub async fn gen_tokens(
+pub fn gen_tokens(
     refresh_token: AccessToken,
     scope: String,
 ) -> Result<AccessToken, ApiError> {
@@ -410,11 +486,11 @@ pub async fn user_details(token: AccessToken) -> Result<UserDetails, String> {
     }
 }
 
-async fn team_conversations(
+pub async fn team_conversations(
     token: AccessToken,
     team_id: String,
     topic_id: String,
-) -> Result<HashMap<String, Value>, String> {
+) -> Result<TeamConversations, String> {
     //let scope = "https://chatsvcagg.teams.microsoft.com/.default".to_string();
 
     let access_token = format!("Bearer {}", token.value);
@@ -425,7 +501,11 @@ async fn team_conversations(
         HeaderValue::from_str(&access_token).unwrap(),
     );
 
-    let client = reqwest::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
     let res = client
         .get(format!(
             "https://teams.microsoft.com/api/csa/emea/api/v2/teams/{}/channels/{}?filterSystemMessage=true&pageSize=20",
@@ -433,17 +513,18 @@ async fn team_conversations(
         ))
         .headers(headers)
         .send()
-        .await
         .unwrap();
 
     if res.status().is_success() {
-        let parsed = res.json::<HashMap<String, Value>>().await.unwrap();
+
+        let body = res.text().unwrap();
+        let parsed: TeamConversations = serde_json::from_str(&body).unwrap();
         Ok(parsed)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().await.unwrap()
+            res.text().unwrap()
         );
         Err(error_message)
     }

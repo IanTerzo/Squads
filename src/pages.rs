@@ -10,8 +10,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
 mod navbar;
-use crate::api::{Channel, Team};
+use crate::api::{Channel, Team, TeamConversations};
 use crate::Message;
+use htmd::convert;
 
 use navbar::navbar;
 
@@ -82,7 +83,10 @@ pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                 .center_y(47)
                 .width(220),
             )
-            .on_press(Message::OpenTeam(team.id.to_string())),
+            .on_press(Message::OpenTeam(
+                team.id.clone().to_string(),
+                team.id.to_string(),
+            )),
         );
         teams_column = teams_column.push(Space::new(10, 8.5));
     }
@@ -159,7 +163,107 @@ pub fn login() -> Element<'static, Message> {
     text("Sign in to your account on the browser window").into()
 }
 
-pub fn team_page(team: Team, page_channel: Channel) -> Element<'static, Message> {
+pub fn team_page(
+    team: Team,
+    page_channel: Channel,
+    conversations: Option<TeamConversations>,
+) -> Element<'static, Message> {
+    let mut conversation_column = column![].spacing(10);
+
+    if let Some(conversations) = conversations {
+        for conversation in conversations.reply_chains {
+            let mut message_chain = column![];
+
+            for message in conversation.messages {
+                if !message.properties.systemdelete {
+                    let mut message_column = column![].padding(20).spacing(20);
+
+                    let message_info = row![
+                        image("images/icons8-chat-96.png").width(25).height(25),
+                        text!("{}", message.im_display_name.unwrap_or_default())
+                    ]
+                    .spacing(20);
+
+                    message_column = message_column.push(message_info);
+
+                    if message.properties.subject != "".to_string() {
+                        message_column = message_column.push(
+                            text(message.properties.subject).size(18).font(font::Font {
+                                weight: font::Weight::Bold,
+                                ..Default::default()
+                            }),
+                        );
+                    }
+
+                    if let Some(content) = message.content {
+                        let md = convert(&content).unwrap();
+                        message_column = message_column.push(text(md));
+                    }
+
+                    message_chain = message_chain.push(message_column);
+                }
+            }
+            conversation_column = conversation_column.push(
+                container(message_chain)
+                    .style(|_| container::Style {
+                        background: Some(
+                            Color::parse("#333")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+                        border: border::rounded(8),
+                        ..Default::default()
+                    })
+                    .width(iced::Length::Fill),
+            );
+        }
+    }
+
+    // TODO make it into a component
+    let conversation_scrollbar = scrollable(conversation_column)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(10)
+                .spacing(10)
+                .scroller_width(10),
+        ))
+        .style(|_, _| scrollable::Style {
+            container: container::Style {
+                background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
+                border: border::rounded(10),
+                ..Default::default()
+            },
+            vertical_rail: scrollable::Rail {
+                background: Some(
+                    Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: Color::parse("#444").expect("Background color is invalid."),
+                    border: border::rounded(10),
+                },
+            },
+            horizontal_rail: scrollable::Rail {
+                background: Some(
+                    Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: Color::parse("#666").expect("Background color is invalid."),
+                    border: border::rounded(10),
+                },
+            },
+            gap: Some(
+                Color::parse("#333")
+                    .expect("Background color is invalid.")
+                    .into(),
+            ),
+        });
+
     let image_path = format!("image-cache/{}.jpeg", team.picture_e_tag);
 
     let team_picture = image(image_path)
@@ -188,11 +292,12 @@ pub fn team_page(team: Team, page_channel: Channel) -> Element<'static, Message>
 
     for channel in team.channels.clone() {
         let page_channel_cloned = page_channel.clone();
+        let channel_cloned = channel.clone();
         channels_coloumn = channels_coloumn.push(
             MouseArea::new(
                 container(text(truncate_name(&channel.display_name, 16)))
                     .style(move |_| {
-                        if channel.id == page_channel_cloned.id {
+                        if channel_cloned.id == page_channel_cloned.id {
                             container::Style {
                                 background: Some(
                                     Color::parse("#4c4c4c")
@@ -218,62 +323,55 @@ pub fn team_page(team: Team, page_channel: Channel) -> Element<'static, Message>
                     .center_y(47)
                     .width(if channel_count <= 13 { 220 } else { 185 }),
             )
-            .on_press(Message::Join.clone()),
+            .on_press(Message::OpenTeam(team.clone().id, channel.id)),
         );
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }
 
-    if channel_count >= 13 {
-        let team_scrollbar = container(
-            scrollable(channels_coloumn)
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new()
-                        .width(10)
-                        .spacing(10)
-                        .scroller_width(10),
-                ))
-                .style(|_, _| scrollable::Style {
-                    container: container::Style {
-                        background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
-                        border: border::rounded(10),
-                        ..Default::default()
-                    },
-                    vertical_rail: scrollable::Rail {
-                        background: Some(
-                            Color::parse("#333")
-                                .expect("Background color is invalid.")
-                                .into(),
-                        ),
-                        border: border::rounded(10),
-                        scroller: scrollable::Scroller {
-                            color: Color::parse("#444").expect("Background color is invalid."),
-                            border: border::rounded(10),
-                        },
-                    },
-                    horizontal_rail: scrollable::Rail {
-                        background: Some(
-                            Color::parse("#333")
-                                .expect("Background color is invalid.")
-                                .into(),
-                        ),
-                        border: border::rounded(10),
-                        scroller: scrollable::Scroller {
-                            color: Color::parse("#666").expect("Background color is invalid."),
-                            border: border::rounded(10),
-                        },
-                    },
-                    gap: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                }),
-        );
+    let team_scrollbar = scrollable(channels_coloumn)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(10)
+                .spacing(10)
+                .scroller_width(10),
+        ))
+        .style(|_, _| scrollable::Style {
+            container: container::Style {
+                background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
+                border: border::rounded(10),
+                ..Default::default()
+            },
+            vertical_rail: scrollable::Rail {
+                background: Some(
+                    Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: Color::parse("#444").expect("Background color is invalid."),
+                    border: border::rounded(10),
+                },
+            },
+            horizontal_rail: scrollable::Rail {
+                background: Some(
+                    Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: Color::parse("#666").expect("Background color is invalid."),
+                    border: border::rounded(10),
+                },
+            },
+            gap: Some(
+                Color::parse("#333")
+                    .expect("Background color is invalid.")
+                    .into(),
+            ),
+        });
 
-        let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
-        return row![team_info_column].into();
-    }
-
-    let team_info_column = column![name_row, sidetabs, channels_coloumn].spacing(18);
-    row![team_info_column].into()
+    let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
+    row![team_info_column, conversation_scrollbar].into()
 }

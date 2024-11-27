@@ -1,7 +1,9 @@
 use bytes::Bytes;
 use iced::{Color, Element, Task, Theme};
+use iced::widget::markdown;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use htmd::HtmlToMarkdown;
 
 use std::sync::{Arc, Mutex};
 use std::{
@@ -17,7 +19,7 @@ use std::{
 mod api;
 use api::{
     authorize_team_picture, gen_refresh_token_from_code, gen_tokens, user_details, AccessToken,
-    ApiError, Team, UserDetails,
+    ApiError, Team, UserDetails, team_conversations, TeamConversations
 };
 
 mod pages;
@@ -43,6 +45,7 @@ struct AppCache {
     refresh_token: AccessToken,
     access_tokens: HashMap<String, AccessToken>,
     teams: Vec<Team>,
+    team_conversations: HashMap<String, TeamConversations> // String is the team id
 }
 
 #[derive(Debug, Clone)]
@@ -58,11 +61,12 @@ pub enum Message {
     TeamPictureFetched(Bytes, String),
     Authorized(UserDetails),
     SavedCache(()),
+    LinkClicked(markdown::Url),
     UserDetailsFetched(Result<UserDetails, String>),
     Join,
     HistoryBack,
-    OpenTeam(String),
-    ChangeChannel(String),
+    OpenTeam(String, String),
+    GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
 }
 
@@ -96,6 +100,19 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
+
+fn get_or_gen_token(mut cache: Arc<Mutex<AppCache>>, scope: String) -> AccessToken{
+    let refresh_token = cache.lock().unwrap().refresh_token.clone();
+
+    cache.lock().unwrap().access_tokens.entry(scope.to_string()).and_modify(|token| {
+        if token.expires <  get_epoch_s(){
+            *token = gen_tokens(refresh_token.clone(), scope.to_string()).unwrap();
+        }
+    }).or_insert_with(|| {
+        gen_tokens(refresh_token, scope.to_string()).unwrap()
+    }).clone()
+}
+
 impl Counter {
     fn new() -> (Self, Task<Message>) {
         let mut cache = AppCache {
@@ -105,6 +122,7 @@ impl Counter {
             },
             access_tokens: HashMap::new(),
             teams: Vec::new(),
+            team_conversations: HashMap::new()
         };
 
         let file_path = "app.json";
@@ -146,7 +164,7 @@ impl Counter {
 
                         let scope = "https://chatsvcagg.teams.microsoft.com/.default";
                         let teams_token =
-                            gen_tokens(refresh_token, scope.to_string()).await.unwrap();
+                            gen_tokens(refresh_token, scope.to_string()).unwrap();
 
                         cache_mutex
                             .lock()
@@ -174,18 +192,10 @@ impl Counter {
                 async move {
                     let cache_mutex = Arc::clone(&cache_mutex);
 
-                    let refresh_token = cache_mutex.lock().unwrap().refresh_token.clone();
+                    let access_token = get_or_gen_token(cache_mutex.clone(), "https://chatsvcagg.teams.microsoft.com/.default".to_string());
 
-                    let scope = "https://chatsvcagg.teams.microsoft.com/.default";
-                    let teams_token = gen_tokens(refresh_token, scope.to_string()).await.unwrap();
 
-                    cache_mutex
-                        .lock()
-                        .unwrap()
-                        .access_tokens
-                        .insert(scope.to_string(), teams_token.clone());
-
-                    let user_details = user_details(teams_token.clone()).await.unwrap();
+                    let user_details = user_details(access_token.clone()).await.unwrap();
 
                     cache_mutex.lock().unwrap().teams = user_details.clone().teams;
 
@@ -205,19 +215,23 @@ impl Counter {
                 self.search_teams_input_value.clone(),
             )),
             View::Team => {
-                let team = self
+                let cache = self
                     .cache
                     .lock()
-                    .unwrap()
+                    .unwrap();
+
+                let team =
+                    cache
                     .teams
                     .iter()
                     .find(|team| team.id == self.page.current_team_id)
                     .unwrap()
                     .clone();
 
-                let channel = team.channels[0].clone();
+                let channel = team.channels.iter().find(|channel| channel.id == self.page.current_channel_id).unwrap().clone();
 
-                app(team_page(team, channel))
+                let conversation = cache.team_conversations.get(&self.page.current_team_id);
+                app(team_page(team, channel, conversation.cloned()))
             }
         }
     }
@@ -240,7 +254,7 @@ impl Counter {
 
                             let scope = "https://api.spaces.skype.com/Authorization.ReadWrite";
                             let teams_token =
-                                gen_tokens(refresh_token, scope.to_string()).await.unwrap();
+                                gen_tokens(refresh_token, scope.to_string()).unwrap();
 
                             cache_mutex
                                 .lock()
@@ -321,31 +335,41 @@ impl Counter {
                 println!("Join button pressed");
                 Task::none()
             }
+            Message::LinkClicked(url) => {
+                println!("The following url was clicked: {url}");
+                Task::none()
+            }
             Message::HistoryBack => {
                 self.page = self.history[0].clone(); // WILL FIX SOON!
                 Task::none()
             }
-            Message::OpenTeam(id) => {
+            Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
                     view: View::Team,
-                    current_team_id: id.clone(),
-                    current_channel_id: id,
+                    current_team_id: team_id.clone(),
+                    current_channel_id: channel_id.clone(),
                 };
                 self.page = team_page.clone();
                 self.history.push(team_page);
                 println!("OpenTeam button pressed");
-                Task::none()
+
+
+                let cache_mutex = self.cache.clone();
+
+                let team_id_clone = team_id.clone();
+                Task::perform(async move {
+                    let access_token = get_or_gen_token(cache_mutex, "https://chatsvcagg.teams.microsoft.com/.default".to_string());
+                    team_conversations(access_token, team_id, channel_id).await
+                }, move |result| Message::GotConversations(team_id_clone.clone(), result))
+
             }
-            Message::ChangeChannel(id) => {
-                let team_page = Page {
-                    view: View::Team,
-                    current_team_id: id.clone(),
-                    current_channel_id: id,
-                };
-                self.page = team_page.clone();
-                self.history.push(team_page);
-                println!("OpenTeam button pressed");
-                Task::none()
+            Message::GotConversations(team_id, conversations) => {
+                let mut cache_mutex = self.cache.lock().unwrap();
+                cache_mutex.team_conversations.insert(team_id, conversations.unwrap());
+                Task::perform(
+                    save_cache(cache_mutex.clone()),
+                    Message::SavedCache,
+                )
             }
             Message::ContentChanged(content) => {
                 self.search_teams_input_value = content;
