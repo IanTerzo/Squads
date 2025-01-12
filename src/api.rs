@@ -7,9 +7,9 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH};
 use std::fmt;
 use std::str::FromStr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccessToken {
@@ -48,8 +48,6 @@ pub struct Team {
     pub picture_e_tag: String,
 }
 
-
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageProperties {
@@ -65,7 +63,7 @@ pub struct MessageProperties {
     pub deletetime: i64,
     #[serde(default)]
     #[serde(deserialize_with = "string_to_bool")]
-    pub systemdelete: bool
+    pub systemdelete: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -75,21 +73,19 @@ pub struct Message {
     pub from: Option<String>,
     pub im_display_name: Option<String>,
     pub message_type: String,
-    pub properties: MessageProperties
-
-
+    pub properties: MessageProperties,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
-    pub messages: Vec<Message>
+    pub messages: Vec<Message>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamConversations {
-    pub reply_chains: Vec<Conversation>
+    pub reply_chains: Vec<Conversation>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -117,7 +113,6 @@ where
 }
 impl std::error::Error for ApiError {}
 
-
 fn string_to_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where
     D: Deserializer<'de>,
@@ -139,18 +134,17 @@ where
     let value = serde_json::Value::deserialize(deserializer)?;
     match value {
         serde_json::Value::Bool(b) => Ok(b),
-        serde_json::Value::String(s) => {
-            match s.as_str() {
-                "true" => Ok(true),
-                "false" => Ok(false),
-                _ => Err(serde::de::Error::custom(format!("Invalid boolean string: {}", s))),
-            }
-        }
+        serde_json::Value::String(s) => match s.as_str() {
+            "true" => Ok(true),
+            "false" => Ok(false),
+            _ => Err(serde::de::Error::custom(format!(
+                "Invalid boolean string: {}",
+                s
+            ))),
+        },
         _ => Err(serde::de::Error::custom("Unexpected type")),
     }
-
 }
-
 
 fn get_epoch_s() -> u64 {
     SystemTime::now()
@@ -215,10 +209,7 @@ pub async fn gen_refresh_token_from_code(
     }
 }
 
-pub fn gen_tokens(
-    refresh_token: AccessToken,
-    scope: String,
-) -> Result<AccessToken, ApiError> {
+pub fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessToken, ApiError> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -508,7 +499,7 @@ pub async fn team_conversations(
 
     let res = client
         .get(format!(
-            "https://teams.microsoft.com/api/csa/emea/api/v2/teams/{}/channels/{}?filterSystemMessage=true&pageSize=20",
+            "https://teams.microsoft.com/api/csa/emea/api/v2/teams/{}/channels/{}",
             team_id, topic_id
         ))
         .headers(headers)
@@ -516,7 +507,6 @@ pub async fn team_conversations(
         .unwrap();
 
     if res.status().is_success() {
-
         let body = res.text().unwrap();
         let parsed: TeamConversations = serde_json::from_str(&body).unwrap();
         Ok(parsed)

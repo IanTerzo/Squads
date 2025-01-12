@@ -1,20 +1,23 @@
+use crate::api::{Channel, Team, TeamConversations};
+use crate::Message;
 use bytes::Bytes;
+use htmd::HtmlToMarkdown;
 use iced::futures::channel;
 use iced::widget::image::Handle;
 use iced::widget::{
     column, container, image, row, scrollable, svg, text, text_input, Column, Image, MouseArea,
-    Space,
+    Space, TextInput,
 };
 use iced::{border, font, padding, Color, ContentFit, Element, Padding};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::path::Path;
-mod navbar;
-use crate::api::{Channel, Team, TeamConversations};
-use crate::Message;
-use htmd::convert;
 
+mod navbar;
 use navbar::navbar;
+
+mod viewport;
+use viewport::ViewportHandler;
 
 // helper functions
 fn truncate_name(name: &str, max_length: usize) -> String {
@@ -36,27 +39,44 @@ pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
     let mut teams_column: Column<Message> = column![];
 
     for team in teams {
-        let mut team_picture = container(Space::new(0, 0))
-            .style(|_| container::Style {
-                background: Some(
-                    Color::parse("#b8b4b4")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
+        let mut team_picture = container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
+            team.id.clone(),
+            Message::FetchTeamImage(
+                team.picture_e_tag.clone(),
+                team.team_site_information.group_id.clone(),
+                team.display_name.clone(),
+            ),
+        ))
+        .style(|_| container::Style {
+            background: Some(
+                Color::parse("#b8b4b4")
+                    .expect("Background color is invalid.")
+                    .into(),
+            ),
 
-                ..Default::default()
-            })
-            .height(28)
-            .width(28);
+            ..Default::default()
+        })
+        .height(28)
+        .width(28);
 
         let image_path = format!("image-cache/{}.jpeg", team.picture_e_tag);
 
         if Path::new(&image_path).exists() {
             team_picture = container(
-                image(image_path)
-                    .content_fit(ContentFit::Cover)
-                    .width(28)
-                    .height(28),
+                ViewportHandler::new(
+                    image(image_path)
+                        .content_fit(ContentFit::Cover)
+                        .width(28)
+                        .height(28),
+                )
+                .on_enter_unique(
+                    team.id.clone(),
+                    Message::FetchTeamImage(
+                        team.picture_e_tag,
+                        team.team_site_information.group_id,
+                        team.display_name.clone(),
+                    ),
+                ),
             )
             .height(28)
             .width(28)
@@ -171,10 +191,15 @@ pub fn team_page(
     let mut conversation_column = column![].spacing(10);
 
     if let Some(conversations) = conversations {
-        for conversation in conversations.reply_chains {
+        let ordered_conversations: Vec<_> =
+            conversations.reply_chains.iter().rev().cloned().collect();
+
+        for conversation in ordered_conversations {
             let mut message_chain = column![];
 
-            for message in conversation.messages {
+            let ordered_messages: Vec<_> = conversation.messages.iter().rev().cloned().collect();
+
+            for message in ordered_messages {
                 if !message.properties.systemdelete {
                     let mut message_column = column![].padding(20).spacing(20);
 
@@ -196,7 +221,21 @@ pub fn team_page(
                     }
 
                     if let Some(content) = message.content {
-                        let md = convert(&content).unwrap();
+                        let converter = HtmlToMarkdown::builder()
+                            .add_handler(vec!["span"], |elem: htmd::Element| {
+                                if elem.attrs[0].value.to_string()
+                                    == "http://schema.skype.com/Mention".to_string()
+                                {
+                                    return Some(format!("[{}](link)", elem.content).to_string());
+                                }
+                                //
+                                Some("INVALID".to_string())
+                                //
+                                //  ==
+                            })
+                            .build();
+
+                        let md = converter.convert(&content).unwrap();
                         message_column = message_column.push(text(md));
                     }
 
@@ -373,5 +412,7 @@ pub fn team_page(
         });
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
-    row![team_info_column, conversation_scrollbar].into()
+    row![team_info_column, conversation_scrollbar]
+        .spacing(10)
+        .into()
 }
