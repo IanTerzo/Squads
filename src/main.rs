@@ -18,8 +18,8 @@ use std::{
 
 mod api;
 use api::{
-    authorize_team_picture, gen_refresh_token_from_code, gen_tokens, team_conversations,
-    user_details, AccessToken, ApiError, Team, TeamConversations, UserDetails,
+    authorize_profile_picture, authorize_team_picture, gen_refresh_token_from_code, gen_tokens,
+    team_conversations, user_details, AccessToken, ApiError, Team, TeamConversations, UserDetails,
 };
 
 mod pages;
@@ -58,15 +58,15 @@ struct Counter {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    TeamPictureFetched(Bytes, String),
     Authorized(()),
-    SavedCache(()),
+    DoNothing(()),
     LinkClicked(markdown::Url),
     UserDetailsFetched(Result<UserDetails, String>),
     Join,
     HistoryBack,
     OpenTeam(String, String),
     FetchTeamImage(String, String, String),
+    FetchUserImage(String, String),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
 }
@@ -242,16 +242,16 @@ impl Counter {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::DoNothing(_response) => Task::none(),
+
             Message::Authorized(_response) => {
                 self.page.view = View::Homepage;
                 self.history.push(self.page.clone());
                 Task::perform(
                     save_cache(self.cache.lock().unwrap().clone()),
-                    Message::SavedCache,
+                    Message::DoNothing,
                 )
             }
-
-            Message::SavedCache(_response) => Task::none(),
 
             Message::UserDetailsFetched(response) => {
                 if let Ok(user_details) = response {
@@ -261,7 +261,7 @@ impl Counter {
                 }
                 Task::perform(
                     save_cache(self.cache.lock().unwrap().clone()),
-                    Message::SavedCache,
+                    Message::DoNothing,
                 )
             }
 
@@ -278,17 +278,6 @@ impl Counter {
                 Task::none()
             }
 
-            Message::TeamPictureFetched(bytes, picture_e_tag) => {
-                let filename = format!("image-cache/{}.jpeg", picture_e_tag);
-
-                if !Path::new(&filename).exists() {
-                    let mut file = File::create(filename).unwrap();
-                    let _ = file.write_all(&bytes);
-                }
-
-                Task::none()
-            }
-
             Message::FetchTeamImage(picture_e_tag, group_id, display_name) => {
                 let cache_mutex = self.cache.clone();
 
@@ -300,22 +289,59 @@ impl Counter {
                         );
                         async {
                             let picture_e_tag = picture_e_tag;
-                            (
-                                authorize_team_picture(
-                                    access_token,
-                                    group_id,
-                                    picture_e_tag.clone(),
-                                    display_name,
-                                )
-                                .await
-                                .unwrap(),
-                                picture_e_tag,
+
+                            let bytes = authorize_team_picture(
+                                access_token,
+                                group_id,
+                                picture_e_tag.clone(),
+                                display_name,
                             )
+                            .await
+                            .unwrap();
+
+                            let filename = format!("image-cache/{}.jpeg", picture_e_tag);
+
+                            if !Path::new(&filename).exists() {
+                                let mut file = File::create(filename).unwrap();
+                                let _ = file.write_all(&bytes);
+                            }
                         }
                     },
-                    |(bytes, picture_e_tag)| Message::TeamPictureFetched(bytes, picture_e_tag),
+                    Message::DoNothing,
                 )
             }
+
+            Message::FetchUserImage(user_id, display_name) => {
+                let cache_mutex = self.cache.clone();
+                Task::perform(
+                    {
+                        let access_token = get_or_gen_token(
+                            cache_mutex,
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                        );
+                        async {
+                            let user_id = user_id;
+
+                            let bytes = authorize_profile_picture(
+                                access_token,
+                                user_id.clone(),
+                                display_name,
+                            )
+                            .await
+                            .unwrap();
+
+                            let filename = format!("image-cache/user-{}.jpeg", user_id);
+
+                            if !Path::new(&filename).exists() {
+                                let mut file = File::create(filename).unwrap();
+                                let _ = file.write_all(&bytes);
+                            }
+                        }
+                    },
+                    Message::DoNothing,
+                )
+            }
+
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
                     view: View::Team,
@@ -345,7 +371,7 @@ impl Counter {
                 cache_mutex
                     .team_conversations
                     .insert(team_id, conversations.unwrap());
-                Task::perform(save_cache(cache_mutex.clone()), Message::SavedCache)
+                Task::perform(save_cache(cache_mutex.clone()), Message::DoNothing)
             }
             Message::ContentChanged(content) => {
                 self.search_teams_input_value = content;

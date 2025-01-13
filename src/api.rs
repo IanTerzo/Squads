@@ -5,7 +5,6 @@ use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
@@ -702,11 +701,11 @@ pub async fn authorize_team_picture(
     }
 }
 
-async fn authorize_profile_picture(
+pub async fn authorize_profile_picture(
     token: AccessToken,
     user_id: String,
     display_name: String,
-) -> Result<String, String> {
+) -> Result<Bytes, String> {
     // let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
     let mut headers = HeaderMap::new();
@@ -730,7 +729,12 @@ async fn authorize_profile_picture(
         ("displayname", display_name),
         ("size", "HR64x64".to_string()),
     ];
-    let client = reqwest::Client::new();
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
     let res = client
         .get(format!(
             "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{}/profilepicturev2",
@@ -739,18 +743,16 @@ async fn authorize_profile_picture(
         .headers(headers)
         .query(&params)
         .send()
-        .await
         .unwrap();
 
     if res.status().is_success() {
-        let bytes = res.bytes().await.unwrap();
-        let parsed = BASE64.encode(&bytes);
-        Ok(parsed)
+        let bytes = res.bytes().unwrap();
+        Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().await.unwrap()
+            res.text().unwrap()
         );
         Err(error_message)
     }

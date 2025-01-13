@@ -202,14 +202,53 @@ pub fn team_page(
             for message in ordered_messages {
                 if !message.properties.systemdelete {
                     let mut message_column = column![].padding(20).spacing(20);
+                    if message.message_type == "RichText/Html" {
+                        let im_display_name = message.im_display_name.unwrap();
+                        let user_id = message.from.unwrap();
 
-                    let message_info = row![
-                        image("images/icons8-chat-96.png").width(25).height(25),
-                        text!("{}", message.im_display_name.unwrap_or_default())
-                    ]
-                    .spacing(20);
+                        let mut user_picture =
+                            container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
+                                user_id.clone(),
+                                Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
+                            ))
+                            .style(|_| container::Style {
+                                background: Some(
+                                    Color::parse("#b8b4b4")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
 
-                    message_column = message_column.push(message_info);
+                                ..Default::default()
+                            })
+                            .height(31)
+                            .width(31);
+
+                        let image_path = format!("image-cache/user-{}.jpeg", user_id.clone());
+
+                        if Path::new(&image_path).exists() {
+                            user_picture = container(
+                                ViewportHandler::new(
+                                    image(image_path)
+                                        .content_fit(ContentFit::Cover)
+                                        .width(31)
+                                        .height(31),
+                                )
+                                .on_enter_unique(
+                                    user_id.clone(),
+                                    Message::FetchUserImage(
+                                        user_id.clone(),
+                                        im_display_name.clone(),
+                                    ),
+                                ),
+                            )
+                            .height(31)
+                            .width(31)
+                        }
+                        let message_info =
+                            row![user_picture, text!("{}", im_display_name)].spacing(10);
+
+                        message_column = message_column.push(message_info);
+                    }
 
                     if message.properties.subject != "".to_string() {
                         message_column = message_column.push(
@@ -223,15 +262,25 @@ pub fn team_page(
                     if let Some(content) = message.content {
                         let converter = HtmlToMarkdown::builder()
                             .add_handler(vec!["span"], |elem: htmd::Element| {
+                                if elem.attrs.len() <= 0 {
+                                    println!("{:#?}", elem.attrs);
+
+                                    return Some("INVALID".to_string());
+                                }
                                 if elem.attrs[0].value.to_string()
                                     == "http://schema.skype.com/Mention".to_string()
                                 {
                                     return Some(format!("[{}](link)", elem.content).to_string());
+                                } else if elem.attrs[0].value.to_string()
+                                    == "animated-emoticon-20".to_string()
+                                {
+                                    println!("{:#?}", elem.content);
+
+                                    return Some(elem.content.to_string());
                                 }
-                                //
-                                Some("INVALID".to_string())
-                                //
-                                //  ==
+                                println!("{:#?}", elem.attrs);
+
+                                Some(elem.content.to_string())
                             })
                             .build();
 
