@@ -9,3 +9,6 @@ Squads aims to be a minimalist alternative to the official Microsoft Teams clien
 cargo run 
 ```
 
+## Preview
+
+![squads](https://github.com/IanTerzo/Squads/blob/master/images/preview.png?raw=true)
