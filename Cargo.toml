@@ -12,6 +12,8 @@ anyhow = "1.0"
 base64 = "0.22.1"
 bytes = "1"
 htmd = "0.1.6"
+scraper = "0.22.0"
+iced_widget = "0.13.4"
 
 [[bin]]
 name = "squads-iced"

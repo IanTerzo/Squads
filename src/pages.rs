@@ -1,16 +1,14 @@
 use crate::api::{Channel, Team, TeamConversations};
 use crate::Message;
-use bytes::Bytes;
-use htmd::HtmlToMarkdown;
-use iced::futures::channel;
-use iced::widget::image::Handle;
+
+use iced::font::Weight;
 use iced::widget::{
-    column, container, image, row, scrollable, svg, text, text_input, Column, Image, MouseArea,
-    Space, TextInput,
+    column, container, image, rich_text, row, scrollable, svg, text, text::Rich, text::Span,
+    text_input, Column, Image, MouseArea, Row, Space, TextInput,
 };
-use iced::{border, font, padding, Color, ContentFit, Element, Padding};
-use serde_json::Value;
-use std::collections::HashMap;
+use iced::{border, font, padding, Color, ContentFit, Element, Font, Padding};
+use iced_widget::Container;
+
 use std::path::Path;
 
 mod navbar;
@@ -18,6 +16,129 @@ use navbar::navbar;
 
 mod viewport;
 use viewport::ViewportHandler;
+
+use scraper::{Html, Selector};
+
+enum DynamicContainer {
+    Row(Row<'static, Message>),
+    RowWrapping(Container<'static, Message>), // I must put it in a container since iced_widget:row:Wrapping is not public
+    Column(Column<'static, Message>),
+}
+
+impl DynamicContainer {
+    fn push(self, element: Element<'static, Message>) -> Self {
+        match self {
+            DynamicContainer::Row(mut row) => {
+                row = row.push(element);
+                DynamicContainer::Row(row)
+            }
+            DynamicContainer::RowWrapping(row_container) => {
+                DynamicContainer::RowWrapping(row_container)
+            }
+            DynamicContainer::Column(mut column) => {
+                column = column.push(element);
+                DynamicContainer::Column(column)
+            }
+        }
+    }
+
+    fn into_element(self) -> Element<'static, Message> {
+        match self {
+            DynamicContainer::Row(row) => row.into(),
+            DynamicContainer::RowWrapping(row_container) => row_container.into(),
+            DynamicContainer::Column(column) => column.into(),
+        }
+    }
+
+    fn wrap(self) -> Self {
+        match self {
+            DynamicContainer::Row(row) => {
+                let wrapped = row.wrap(); // `row.wrap()` moves `row`, so capture the result
+                DynamicContainer::RowWrapping(container(wrapped))
+            }
+            DynamicContainer::RowWrapping(row_container) => {
+                DynamicContainer::RowWrapping(row_container)
+            }
+
+            DynamicContainer::Column(column) => DynamicContainer::Column(column),
+        }
+    }
+}
+
+fn transform_html(
+    element: scraper::ElementRef,
+    mut cascading_properties: Vec<String>,
+) -> DynamicContainer {
+    let element_tagname = element.value().name();
+
+    // Initialize container as either row or column based on the tag name
+    let mut container = if element_tagname == "body" || element_tagname == "div" {
+        DynamicContainer::Column(column![])
+    } else if element_tagname == "p" {
+        DynamicContainer::Row(row![])
+    } else {
+        // Default to a row if no specific tag matches
+        DynamicContainer::Row(row![])
+    };
+
+    if matches!(element_tagname, "strong" | "u" | "s") {
+        cascading_properties.push(element_tagname.to_string());
+    }
+
+    for child in element.children() {
+        if child.has_children() {
+            if let Some(child_element) = scraper::ElementRef::wrap(child) {
+                container = container.push(
+                    transform_html(child_element, cascading_properties.clone()).into_element(),
+                );
+            }
+        } else if child.value().is_text() {
+            let text_content = child.value().as_text().unwrap().text.to_string();
+
+            let words = text_content.split_inclusive(" ");
+
+            // Turn every word into its own rich text (not ideal but necessary to mantain correct wrapping)
+            for word in words {
+                let mut text_span = Span::new(word.to_string());
+
+                for property in &cascading_properties {
+                    if property == "strong" {
+                        let font_bold = Font {
+                            weight: Weight::Bold,
+                            ..Default::default()
+                        };
+                        text_span = text_span.font(font_bold);
+                    }
+                    if property == "s" {
+                        text_span = text_span.strikethrough(true);
+                    }
+                    if property == "u" {
+                        text_span = text_span.underline(true);
+                    }
+                }
+
+                // Wrap in rich_text and push to container
+                let text = rich_text![text_span];
+                container = container.push(text.into());
+            }
+        }
+    }
+
+    container.wrap() // If it is a row, it needs to be wrapping
+}
+
+fn parse_message_html(content: String) -> Element<'static, Message> {
+    // Remove things like newlines to avoid them being treated as text during the parsing
+    let content = content.replace("\n", "").replace("\r", "");
+    let document = Html::parse_document(content.as_str());
+
+    let selector = Selector::parse("body").unwrap();
+    if let Some(root_element) = document.select(&selector).next() {
+        transform_html(root_element, vec![]).into_element()
+    } else {
+        text("").into()
+    }
+}
 
 // helper functions
 fn truncate_name(name: &str, max_length: usize) -> String {
@@ -31,11 +152,11 @@ fn truncate_name(name: &str, max_length: usize) -> String {
 }
 
 // UI functions
-pub fn app(content: Element<'static, Message>) -> Element<'static, Message> {
+pub fn app<'a>(content: Element<'a, Message>) -> Element<'a, Message> {
     column![navbar(), container(content).padding(20)].into()
 }
 
-pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'static, Message> {
+pub fn homepage<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'a, Message> {
     let mut teams_column: Column<Message> = column![];
 
     for team in teams {
@@ -179,15 +300,15 @@ pub fn homepage(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
     column![search_teams, team_scrollbar].into()
 }
 
-pub fn login() -> Element<'static, Message> {
+pub fn login<'a>() -> Element<'a, Message> {
     text("Sign in to your account on the browser window").into()
 }
 
-pub fn team_page(
+pub fn team_page<'a>(
     team: Team,
     page_channel: Channel,
     conversations: Option<TeamConversations>,
-) -> Element<'static, Message> {
+) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
     if let Some(conversations) = conversations {
@@ -244,8 +365,9 @@ pub fn team_page(
                             .height(31)
                             .width(31)
                         }
-                        let message_info =
-                            row![user_picture, text!("{}", im_display_name)].spacing(10);
+                        let message_info = row![user_picture, text!("{}", im_display_name)]
+                            .spacing(10)
+                            .wrap();
 
                         message_column = message_column.push(message_info);
                     }
@@ -258,36 +380,15 @@ pub fn team_page(
                             }),
                         );
                     }
-
-                    if let Some(content) = message.content {
-                        let converter = HtmlToMarkdown::builder()
-                            .add_handler(vec!["span"], |elem: htmd::Element| {
-                                if elem.attrs.len() <= 0 {
-                                    println!("{:#?}", elem.attrs);
-
-                                    return Some("INVALID".to_string());
-                                }
-                                if elem.attrs[0].value.to_string()
-                                    == "http://schema.skype.com/Mention".to_string()
-                                {
-                                    return Some(format!("[{}](link)", elem.content).to_string());
-                                } else if elem.attrs[0].value.to_string()
-                                    == "animated-emoticon-20".to_string()
-                                {
-                                    println!("{:#?}", elem.content);
-
-                                    return Some(elem.content.to_string());
-                                }
-                                println!("{:#?}", elem.attrs);
-
-                                Some(elem.content.to_string())
-                            })
-                            .build();
-
-                        let md = converter.convert(&content).unwrap();
-                        message_column = message_column.push(text(md));
+                    if message.message_type == "RichText/Html" {
+                        if let Some(content) = message.content {
+                            message_column = message_column.push(parse_message_html(content));
+                        }
+                    } else {
+                        if let Some(content) = message.content {
+                            message_column = message_column.push(text(content));
+                        }
                     }
-
                     message_chain = message_chain.push(message_column);
                 }
             }
