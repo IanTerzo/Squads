@@ -12,6 +12,8 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use webbrowser;
+
 mod components;
 mod utils;
 mod widgets;
@@ -41,6 +43,7 @@ struct Page {
     view: View,
     current_team_id: String,
     current_channel_id: String,
+    show_conversations: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -70,6 +73,7 @@ pub enum Message {
     OpenTeam(String, String),
     FetchTeamImage(String, String, String),
     FetchUserImage(String, String),
+    ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
 }
@@ -147,6 +151,7 @@ impl Counter {
                 view: View::Login,
                 current_team_id: "0".to_string(),
                 current_channel_id: "0".to_string(),
+                show_conversations: false,
             },
             history: Vec::new(),
             cache: cache_mutex.clone(),
@@ -213,6 +218,8 @@ impl Counter {
     }
 
     fn view(&self) -> Element<Message> {
+        println!("view called");
+
         match self.page.view {
             View::Login => app(login()),
             View::Homepage => app(home(
@@ -236,15 +243,22 @@ impl Counter {
                     .unwrap()
                     .clone();
 
-                let conversation = cache.team_conversations.get(&self.page.current_team_id);
-                app(team(current_team, current_channel, conversation.cloned()))
+                // NOTE: We need to open the team page withou any conversations first, and the load the conversations, otherwise the app would feel unresposive if it froze until the conversations where loaded (and rendered into iced components)
+                // That's why this exists. Better solutions are welcome.
+
+                if self.page.show_conversations {
+                    let conversation = cache.team_conversations.get(&self.page.current_team_id);
+                    app(team(current_team, current_channel, conversation.cloned()))
+                } else {
+                    app(team(current_team, current_channel, None))
+                }
             }
         }
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::DoNothing(_response) => Task::none(),
+            Message::DoNothing(_) => Task::none(),
 
             Message::Authorized(_response) => {
                 self.page.view = View::Homepage;
@@ -268,11 +282,14 @@ impl Counter {
             }
 
             Message::Join => {
-                println!("Join button pressed");
+                println!("Join message called!");
                 Task::none()
             }
             Message::LinkClicked(url) => {
-                println!("The following url was clicked: {url}");
+                if !webbrowser::open(url.as_str()).is_ok() {
+                    println!("Failed to open link : {}", url);
+                }
+
                 Task::none()
             }
             Message::HistoryBack => {
@@ -349,14 +366,29 @@ impl Counter {
                     view: View::Team,
                     current_team_id: team_id.clone(),
                     current_channel_id: channel_id.clone(),
+                    show_conversations: false,
+                };
+                self.page = team_page.clone();
+
+                Task::perform(async {}, Message::ShowConversations)
+            }
+
+            Message::ShowConversations(_) => {
+                let team_page = Page {
+                    view: View::Team,
+                    current_team_id: self.page.current_team_id.clone(),
+                    current_channel_id: self.page.current_channel_id.clone(),
+                    show_conversations: true,
                 };
                 self.page = team_page.clone();
                 self.history.push(team_page);
-                println!("OpenTeam button pressed");
 
                 let cache_mutex = self.cache.clone();
 
-                let team_id_clone = team_id.clone();
+                let team_id = self.page.current_team_id.clone();
+                let channel_id = self.page.current_channel_id.clone();
+                let team_id_clone = self.page.current_team_id.clone();
+
                 Task::perform(
                     async move {
                         let access_token = get_or_gen_token(

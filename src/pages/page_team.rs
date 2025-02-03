@@ -24,7 +24,9 @@ pub fn team<'a>(
             let ordered_messages: Vec<_> = conversation.messages.iter().rev().cloned().collect();
 
             for conversation_message in ordered_messages {
-                message_chain = message_chain.push(message(conversation_message));
+                if let Some(message_element) = message(conversation_message) {
+                    message_chain = message_chain.push(message_element);
+                }
             }
             conversation_column = conversation_column.push(
                 container(message_chain)

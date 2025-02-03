@@ -2,7 +2,8 @@ use crate::widgets::viewport::ViewportHandler;
 use iced::widget::{
     column, container, image, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
-use iced::{font, Color, ContentFit, Element, Font};
+use iced::{alignment, font, Color, ContentFit, Element, Font};
+use std::collections::HashMap;
 use std::path::Path;
 
 use crate::Message;
@@ -54,14 +55,14 @@ impl DynamicContainer {
     }
 }
 
-fn transform_html(
-    element: scraper::ElementRef,
-    mut cascading_properties: Vec<String>,
+fn transform_html<'a>(
+    element: scraper::ElementRef<'a>,
+    mut cascading_properties: HashMap<&'a str, String>,
 ) -> DynamicContainer {
     let element_tagname = element.value().name();
 
     // Initialize container as either row or column based on the tag name
-    let mut container = if element_tagname == "body" || element_tagname == "div" {
+    let mut container = if element_tagname == "body" {
         DynamicContainer::Column(column![])
     } else if element_tagname == "p" {
         DynamicContainer::Row(row![])
@@ -71,39 +72,83 @@ fn transform_html(
     };
 
     if matches!(element_tagname, "strong" | "u" | "s") {
-        cascading_properties.push(element_tagname.to_string());
+        cascading_properties.insert(element_tagname, element_tagname.to_string());
+    } else if element_tagname == "span" {
+        if let Some(attr) = element.attr("itemtype") {
+            if attr == "http://schema.skype.com/Mention" {
+                cascading_properties.insert("span", attr.to_string());
+            }
+        }
+    } else if element_tagname == "a" {
+        if let Some(attr) = element.attr("href") {
+            cascading_properties.insert("a", attr.to_string());
+        }
     }
 
     for child in element.children() {
-        if child.has_children() {
-            if let Some(child_element) = scraper::ElementRef::wrap(child) {
+        if let Some(child_element) = scraper::ElementRef::wrap(child) {
+            if child.has_children() {
                 container = container.push(
                     transform_html(child_element, cascading_properties.clone()).into_element(),
                 );
+            }
+            // Special case
+            else if child_element.value().name() == "br" {
+                container = container.push(Space::new(10000, 0).into());
             }
         } else if child.value().is_text() {
             let text_content = child.value().as_text().unwrap().text.to_string();
 
             let words = text_content.split_inclusive(" ");
 
+            let mut font = Font {
+                ..Default::default()
+            };
+            let mut color = Color::from_rgb(1.0, 1.0, 1.0);
+            let mut underline = false;
+            let mut strikethrough = false;
+            let mut link_href: Option<String> = None;
+
+            if let Some(property) = cascading_properties.get("strong") {
+                // check for consistency
+                if property == "strong" {
+                    font = Font {
+                        weight: font::Weight::Bold,
+                        ..Default::default()
+                    };
+                }
+            }
+            if let Some(property) = cascading_properties.get("u") {
+                if property == "u" {
+                    underline = true;
+                }
+            }
+            if let Some(property) = cascading_properties.get("s") {
+                if property == "s" {
+                    strikethrough = true;
+                }
+            }
+            if let Some(value) = cascading_properties.get("a") {
+                link_href = Some(value.clone());
+                color = Color::from_rgb(0.4, 0.5961, 0.851);
+            }
+            if let Some(property) = cascading_properties.get("span") {
+                if property == "http://schema.skype.com/Mention" {
+                    color = Color::from_rgb(0.4, 0.5961, 0.851);
+                }
+            }
+
             // Turn every word into its own rich text (not ideal but necessary to mantain correct wrapping)
             for word in words {
                 let mut text_span = Span::new(word.to_string());
+                text_span = text_span
+                    .font(font)
+                    .color(color)
+                    .underline(underline)
+                    .strikethrough(strikethrough);
 
-                for property in &cascading_properties {
-                    if property == "strong" {
-                        let font_bold = Font {
-                            weight: font::Weight::Bold,
-                            ..Default::default()
-                        };
-                        text_span = text_span.font(font_bold);
-                    }
-                    if property == "s" {
-                        text_span = text_span.strikethrough(true);
-                    }
-                    if property == "u" {
-                        text_span = text_span.underline(true);
-                    }
+                if let Some(ref link) = link_href {
+                    text_span = text_span.link(Message::LinkClicked(link.clone()));
                 }
 
                 // Wrap in rich_text and push to container
@@ -118,18 +163,19 @@ fn transform_html(
 
 fn parse_message_html(content: String) -> Element<'static, Message> {
     // Remove things like newlines to avoid them being treated as text during the parsing
+    // replace <br> as newlines (hotfix?)
     let content = content.replace("\n", "").replace("\r", "");
     let document = Html::parse_document(content.as_str());
 
     let selector = Selector::parse("body").unwrap();
     if let Some(root_element) = document.select(&selector).next() {
-        transform_html(root_element, vec![]).into_element()
+        transform_html(root_element, HashMap::new()).into_element()
     } else {
         text("").into()
     }
 }
 
-pub fn message<'a>(message: crate::api::Message) -> Element<'a, Message> {
+pub fn message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
     let mut message_column = column![].padding(20).spacing(20);
 
     if !message.properties.systemdelete {
@@ -195,6 +241,9 @@ pub fn message<'a>(message: crate::api::Message) -> Element<'a, Message> {
                 message_column = message_column.push(text(content));
             }
         }
+
+        return Some(message_column.into());
     }
-    message_column.into()
+
+    None
 }
