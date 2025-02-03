@@ -1,29 +1,32 @@
-use bytes::Bytes;
-use htmd::HtmlToMarkdown;
-use iced::widget::markdown;
 use iced::{Color, Element, Task, Theme};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use std::sync::{Arc, Mutex};
 use std::{
     collections::HashMap,
     fs,
-    fs::{File, OpenOptions},
-    io::{Read, Write},
+    fs::File,
+    io::Write,
     path::Path,
     process::Command,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+mod components;
+mod utils;
+mod widgets;
+
 mod api;
 use api::{
     authorize_profile_picture, authorize_team_picture, gen_refresh_token_from_code, gen_tokens,
-    team_conversations, user_details, AccessToken, ApiError, Team, TeamConversations, UserDetails,
+    team_conversations, user_details, AccessToken, Team, TeamConversations, UserDetails,
 };
 
 mod pages;
-use pages::{app, homepage, login, team_page};
+use pages::app;
+use pages::page_home::home;
+use pages::page_login::login;
+use pages::page_team::team;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum View {
@@ -60,7 +63,7 @@ struct Counter {
 pub enum Message {
     Authorized(()),
     DoNothing(()),
-    LinkClicked(markdown::Url),
+    LinkClicked(String),
     UserDetailsFetched(Result<UserDetails, String>),
     Join,
     HistoryBack,
@@ -101,7 +104,7 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-fn get_or_gen_token(mut cache: Arc<Mutex<AppCache>>, scope: String) -> AccessToken {
+fn get_or_gen_token(cache: Arc<Mutex<AppCache>>, scope: String) -> AccessToken {
     let refresh_token = cache.lock().unwrap().refresh_token.clone();
 
     cache
@@ -210,24 +213,23 @@ impl Counter {
     }
 
     fn view(&self) -> Element<Message> {
-        println!("view called");
         match self.page.view {
             View::Login => app(login()),
-            View::Homepage => app(homepage(
+            View::Homepage => app(home(
                 self.cache.lock().unwrap().teams.clone(),
                 self.search_teams_input_value.clone(),
             )),
             View::Team => {
                 let cache = self.cache.lock().unwrap();
 
-                let team = cache
+                let current_team = cache
                     .teams
                     .iter()
                     .find(|team| team.id == self.page.current_team_id)
                     .unwrap()
                     .clone();
 
-                let channel = team
+                let current_channel = current_team
                     .channels
                     .iter()
                     .find(|channel| channel.id == self.page.current_channel_id)
@@ -235,7 +237,7 @@ impl Counter {
                     .clone();
 
                 let conversation = cache.team_conversations.get(&self.page.current_team_id);
-                app(team_page(team, channel, conversation.cloned()))
+                app(team(current_team, current_channel, conversation.cloned()))
             }
         }
     }

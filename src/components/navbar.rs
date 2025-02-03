@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use iced::widget::{container, image, row, svg, MouseArea};
-use iced::{border, padding, Color, Element, Fill, Padding, Rotation};
+use iced::{Color, Element, Fill, Padding, Rotation};
 
 use crate::Message;
 
