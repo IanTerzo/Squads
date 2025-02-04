@@ -84,15 +84,23 @@ pub struct AuthorizationCodes {
     code_verifier: String,
 }
 
-async fn authorize() -> AuthorizationCodes {
+async fn authorize() -> Result<AuthorizationCodes, String> {
     let output = Command::new("python3")
         .arg("auth.py")
         .output()
-        .expect("Failed to execute command");
+        .map_err(|e| format!("Failed to execute command: {}", e))?;
 
-    let json_data = String::from_utf8(output.stdout).expect("Found invalid UTF-8");
-    let codes_parsed: AuthorizationCodes = serde_json::from_str(json_data.as_str()).unwrap();
-    codes_parsed
+    let json_data = String::from_utf8(output.stdout.clone()).map_err(|_| {
+        format!(
+            "Invalid UTF-8 sequence in stdout:\n{}",
+            String::from_utf8_lossy(&output.stdout)
+        )
+    })?;
+
+    let codes_parsed: AuthorizationCodes = serde_json::from_str(&json_data)
+        .map_err(|err| format!("JSON parsing error: {}\nRaw output:\n{}", err, json_data))?;
+
+    Ok(codes_parsed)
 }
 
 async fn save_cache(cache: AppCache) {
@@ -166,7 +174,7 @@ impl Counter {
                     async move {
                         let cache_mutex = Arc::clone(&cache_mutex);
 
-                        let authorization_codes = authorize().await;
+                        let authorization_codes = authorize().await.unwrap();
                         let refresh_token = gen_refresh_token_from_code(
                             authorization_codes.code,
                             authorization_codes.code_verifier,

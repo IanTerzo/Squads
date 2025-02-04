@@ -5,7 +5,7 @@ use iced::{Color, Element, Fill, Padding, Rotation};
 
 use crate::Message;
 
-pub fn navbar() -> Element<'static, Message> {
+pub fn c_navbar() -> Element<'static, Message> {
     container(row![
         row![
             MouseArea::new(image("images/icons8-back-64.png").width(31).height(31))

@@ -175,8 +175,8 @@ fn parse_message_html(content: String) -> Element<'static, Message> {
     }
 }
 
-pub fn message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
-    let mut message_column = column![].padding(20).spacing(20);
+pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
+    let mut message_column = column![].spacing(20);
 
     if !message.properties.systemdelete {
         if message.message_type == "RichText/Html" {

@@ -1,5 +1,5 @@
 use crate::api::{Channel, Team, TeamConversations};
-use crate::components::message::message;
+use crate::components::conversation::c_conversation;
 use crate::utils::truncate_name;
 use crate::Message;
 
@@ -19,32 +19,12 @@ pub fn team<'a>(
             conversations.reply_chains.iter().rev().cloned().collect();
 
         for conversation in ordered_conversations {
-            let mut message_chain = column![];
-
-            let ordered_messages: Vec<_> = conversation.messages.iter().rev().cloned().collect();
-
-            for conversation_message in ordered_messages {
-                if let Some(message_element) = message(conversation_message) {
-                    message_chain = message_chain.push(message_element);
-                }
-            }
-            conversation_column = conversation_column.push(
-                container(message_chain)
-                    .style(|_| container::Style {
-                        background: Some(
-                            Color::parse("#333")
-                                .expect("Background color is invalid.")
-                                .into(),
-                        ),
-                        border: border::rounded(8),
-                        ..Default::default()
-                    })
-                    .width(iced::Length::Fill),
-            );
+            let conversaton_element = c_conversation(conversation, true);
+            conversation_column = conversation_column.push(conversaton_element)
         }
     }
 
-    // TODO make it into a component
+    // TODO: make it into a component
     let conversation_scrollbar = scrollable(conversation_column)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()

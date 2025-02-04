@@ -63,6 +63,7 @@ pub struct MessageProperties {
     #[serde(default)]
     #[serde(deserialize_with = "string_to_bool")]
     pub systemdelete: bool,
+    pub title: Option<String>, // pub emotions: Vec<>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -73,12 +74,19 @@ pub struct Message {
     pub im_display_name: Option<String>,
     pub message_type: String,
     pub properties: MessageProperties,
+    pub compose_time: Option<String>,
+    pub original_arrival_time: Option<String>,
+    pub id: String,
+    pub container_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversation {
     pub messages: Vec<Message>,
+    pub container_id: String,
+    pub id: String,
+    pub latest_delivery_time: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
