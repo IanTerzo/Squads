@@ -16,16 +16,22 @@ pub fn c_conversation<'a>(conversation: Conversation, show_replies: bool) -> Ele
         message_chain = message_chain.push(message_element);
     }
 
-    if show_replies && ordered_conversation.len() > 1 {
+    if ordered_conversation.len() > 1 {
         message_chain = message_chain.push(
             mouse_area(
-                text("show replies")
-                    .color(Color::from_rgb(0.4, 0.5961, 0.851))
-                    .size(14),
+                text(if show_replies {
+                    "Hide replies"
+                } else {
+                    "Show replies"
+                })
+                .color(Color::from_rgb(0.4, 0.5961, 0.851))
+                .size(14),
             )
-            .on_release(Message::Join),
+            .on_release(Message::ToggleReplyOptions(conversation.id)),
         );
+    }
 
+    if show_replies && ordered_conversation.len() > 1 {
         for message in ordered_conversation.iter().skip(1).cloned() {
             if let Some(message_element) = c_message(message) {
                 message_chain = message_chain.push(message_element);

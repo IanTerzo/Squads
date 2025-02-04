@@ -56,8 +56,9 @@ struct AppCache {
 
 #[derive(Debug, Clone)]
 struct Counter {
-    cache: Arc<Mutex<AppCache>>,
     page: Page,
+    reply_options: HashMap<String, bool>, // String is the conversation id
+    cache: Arc<Mutex<AppCache>>,
     history: Vec<Page>,
     search_teams_input_value: String,
 }
@@ -69,6 +70,7 @@ pub enum Message {
     LinkClicked(String),
     UserDetailsFetched(Result<UserDetails, String>),
     Join,
+    ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
     FetchTeamImage(String, String, String),
@@ -161,6 +163,7 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
+            reply_options: HashMap::new(),
             history: Vec::new(),
             cache: cache_mutex.clone(),
             search_teams_input_value: "".to_string(),
@@ -251,14 +254,20 @@ impl Counter {
                     .unwrap()
                     .clone();
 
+                let reply_options = self.reply_options.clone();
                 // NOTE: We need to open the team page withou any conversations first, and the load the conversations, otherwise the app would feel unresposive if it froze until the conversations where loaded (and rendered into iced components)
                 // That's why this exists. Better solutions are welcome.
 
                 if self.page.show_conversations {
                     let conversation = cache.team_conversations.get(&self.page.current_team_id);
-                    app(team(current_team, current_channel, conversation.cloned()))
+                    app(team(
+                        current_team,
+                        current_channel,
+                        conversation.cloned(),
+                        reply_options,
+                    ))
                 } else {
-                    app(team(current_team, current_channel, None))
+                    app(team(current_team, current_channel, None, reply_options))
                 }
             }
         }
@@ -300,6 +309,14 @@ impl Counter {
 
                 Task::none()
             }
+            Message::ToggleReplyOptions(conversation_id) => {
+                let reply_options = &mut self.reply_options;
+                let option = reply_options.entry(conversation_id).or_insert(false);
+                *option = !*option;
+
+                Task::none()
+            }
+
             Message::HistoryBack => {
                 self.page = self.history[0].clone(); // WILL FIX SOON!
                 Task::none()

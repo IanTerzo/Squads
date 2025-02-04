@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::api::{Channel, Team, TeamConversations};
 use crate::components::conversation::c_conversation;
 use crate::utils::truncate_name;
@@ -11,6 +13,7 @@ pub fn team<'a>(
     team: Team,
     page_channel: Channel,
     conversations: Option<TeamConversations>,
+    reply_options: HashMap<String, bool>,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
@@ -19,7 +22,11 @@ pub fn team<'a>(
             conversations.reply_chains.iter().rev().cloned().collect();
 
         for conversation in ordered_conversations {
-            let conversaton_element = c_conversation(conversation, true);
+            let mut show_replies = false;
+            if let Some(option) = reply_options.get(&conversation.id) {
+                show_replies = option.clone();
+            }
+            let conversaton_element = c_conversation(conversation, show_replies);
             conversation_column = conversation_column.push(conversaton_element)
         }
     }

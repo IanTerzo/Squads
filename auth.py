@@ -28,6 +28,9 @@ auth_url = f"{base_url}?{encoded_params}"
 chrome_options = Options()
 chrome_options.add_argument(f"--app={auth_url}")
 chrome_options.add_argument("--user-data-dir=./user-data-dir")
+chrome_options.add_argument("--window-size=550,500")
+chrome_options.add_argument("--disable-infobars")  # Disable the infobar
+chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])  # Disable "Chr
 
 driver = webdriver.Chrome(options=chrome_options)
 
