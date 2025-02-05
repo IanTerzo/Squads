@@ -62,7 +62,7 @@ fn transform_html<'a>(
     let element_tagname = element.value().name();
 
     // Initialize container as either row or column based on the tag name
-    let mut container = if element_tagname == "body" {
+    let mut dynamic_container = if element_tagname == "body" {
         DynamicContainer::Column(column![])
     } else if element_tagname == "p" {
         DynamicContainer::Row(row![])
@@ -88,13 +88,54 @@ fn transform_html<'a>(
     for child in element.children() {
         if let Some(child_element) = scraper::ElementRef::wrap(child) {
             if child.has_children() {
-                container = container.push(
+                dynamic_container = dynamic_container.push(
                     transform_html(child_element, cascading_properties.clone()).into_element(),
                 );
             }
-            // Special case
+            // Special cases
             else if child_element.value().name() == "br" {
-                container = container.push(Space::new(10000, 0).into());
+                dynamic_container = dynamic_container.push(Space::new(10000, 0).into());
+            } else if child_element.value().name() == "img" {
+                let itemtype = child_element.attr("itemtype").unwrap();
+
+                if itemtype == "http://schema.skype.com/Emoji" {
+                    if let Some(alt) = child_element.attr("alt") {
+                        dynamic_container =
+                            dynamic_container.push(rich_text![Span::new(alt.to_string())].into());
+                    }
+                } else if itemtype == "http://schema.skype.com/AMSImage" {
+                    let mut image_width = 20.0;
+                    let mut image_height = 20.0;
+
+                    if let Some(width) = child_element.attr("width") {
+                        let width = width.parse::<f32>().unwrap();
+                        image_width = width;
+                    }
+
+                    if let Some(height) = child_element.attr("height") {
+                        let height = height.parse().unwrap();
+                        image_height = height;
+                    }
+
+                    println!("{}", child_element.html());
+                    let team_picture = container(
+                        ViewportHandler::new(Space::new(0, 0))
+                            .on_enter_unique("id".to_string(), Message::Join),
+                    )
+                    .style(|_| container::Style {
+                        background: Some(
+                            Color::parse("#b8b4b4")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+
+                        ..Default::default()
+                    })
+                    .width(image_width)
+                    .height(image_height);
+
+                    dynamic_container = dynamic_container.push(team_picture.into());
+                }
             }
         } else if child.value().is_text() {
             let text_content = child.value().as_text().unwrap().text.to_string();
@@ -153,12 +194,12 @@ fn transform_html<'a>(
 
                 // Wrap in rich_text and push to container
                 let text = rich_text![text_span];
-                container = container.push(text.into());
+                dynamic_container = dynamic_container.push(text.into());
             }
         }
     }
 
-    container.wrap() // If it is a row, it needs to be wrapping
+    dynamic_container.wrap() // If it is a row, it needs to be wrapping
 }
 
 fn parse_message_html(content: String) -> Element<'static, Message> {
@@ -178,72 +219,77 @@ fn parse_message_html(content: String) -> Element<'static, Message> {
 pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
     let mut message_column = column![].spacing(20);
 
-    if !message.properties.systemdelete {
-        if message.message_type == "RichText/Html" {
-            let im_display_name = message.im_display_name.unwrap();
-            let user_id = message.from.unwrap();
-
-            let mut user_picture =
-                container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
-                    user_id.clone(),
-                    Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
-                ))
-                .style(|_| container::Style {
-                    background: Some(
-                        Color::parse("#b8b4b4")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-
-                    ..Default::default()
-                })
-                .height(31)
-                .width(31);
-
-            let image_path = format!("image-cache/user-{}.jpeg", user_id.clone());
-
-            if Path::new(&image_path).exists() {
-                user_picture = container(
-                    ViewportHandler::new(
-                        image(image_path)
-                            .content_fit(ContentFit::Cover)
-                            .width(31)
-                            .height(31),
-                    )
-                    .on_enter_unique(
-                        user_id.clone(),
-                        Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
-                    ),
-                )
-                .height(31)
-                .width(31)
-            }
-            let message_info = row![user_picture, text!("{}", im_display_name)]
-                .spacing(10)
-                .wrap();
-
-            message_column = message_column.push(message_info);
-        }
-
-        if message.properties.subject != "".to_string() {
-            message_column =
-                message_column.push(text(message.properties.subject).size(18).font(font::Font {
-                    weight: font::Weight::Bold,
-                    ..Default::default()
-                }));
-        }
-        if message.message_type == "RichText/Html" {
-            if let Some(content) = message.content {
-                message_column = message_column.push(parse_message_html(content));
-            }
-        } else {
-            if let Some(content) = message.content {
-                message_column = message_column.push(text(content));
-            }
-        }
-
-        return Some(message_column.into());
+    if message.properties.is_none() {
+        return None;
     }
 
-    None
+    if message.properties.clone().unwrap().systemdelete {
+        return None;
+    }
+
+    if message.message_type == "RichText/Html" {
+        let im_display_name = message.im_display_name.unwrap();
+        let user_id = message.from.unwrap();
+
+        let mut user_picture = container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
+            user_id.clone(),
+            Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
+        ))
+        .style(|_| container::Style {
+            background: Some(
+                Color::parse("#b8b4b4")
+                    .expect("Background color is invalid.")
+                    .into(),
+            ),
+
+            ..Default::default()
+        })
+        .height(31)
+        .width(31);
+
+        let image_path = format!("image-cache/user-{}.jpeg", user_id.clone());
+
+        if Path::new(&image_path).exists() {
+            user_picture = container(
+                ViewportHandler::new(
+                    image(image_path)
+                        .content_fit(ContentFit::Cover)
+                        .width(31)
+                        .height(31),
+                )
+                .on_enter_unique(
+                    user_id.clone(),
+                    Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
+                ),
+            )
+            .height(31)
+            .width(31)
+        }
+        let message_info = row![user_picture, text!("{}", im_display_name)]
+            .spacing(10)
+            .wrap();
+
+        message_column = message_column.push(message_info);
+    }
+
+    if message.properties.clone().unwrap().subject != "".to_string() {
+        message_column =
+            message_column.push(text(message.properties.unwrap().subject).size(18).font(
+                font::Font {
+                    weight: font::Weight::Bold,
+                    ..Default::default()
+                },
+            ));
+    }
+    if message.message_type == "RichText/Html" {
+        if let Some(content) = message.content {
+            message_column = message_column.push(parse_message_html(content));
+        }
+    } else {
+        if let Some(content) = message.content {
+            message_column = message_column.push(text(content));
+        }
+    }
+
+    return Some(message_column.into());
 }

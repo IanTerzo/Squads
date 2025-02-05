@@ -21,11 +21,12 @@ mod widgets;
 mod api;
 use api::{
     authorize_profile_picture, authorize_team_picture, gen_refresh_token_from_code, gen_tokens,
-    team_conversations, user_details, AccessToken, Team, TeamConversations, UserDetails,
+    team_conversations, user_details, AccessToken, Chat, Team, TeamConversations, UserDetails,
 };
 
 mod pages;
 use pages::app;
+use pages::page_chat::chat;
 use pages::page_home::home;
 use pages::page_login::login;
 use pages::page_team::team;
@@ -35,6 +36,7 @@ enum View {
     Login,
     Homepage,
     Team,
+    Chat,
 }
 
 // Any information needed to display the current page
@@ -51,6 +53,7 @@ struct AppCache {
     refresh_token: AccessToken,
     access_tokens: HashMap<String, AccessToken>,
     teams: Vec<Team>,
+    chats: Vec<Chat>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
 }
 
@@ -70,6 +73,7 @@ pub enum Message {
     LinkClicked(String),
     UserDetailsFetched(Result<UserDetails, String>),
     Join,
+    Jump(Page),
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
@@ -144,6 +148,7 @@ impl Counter {
             },
             access_tokens: HashMap::new(),
             teams: Vec::new(),
+            chats: Vec::new(),
             team_conversations: HashMap::new(),
         };
 
@@ -270,6 +275,7 @@ impl Counter {
                     app(team(current_team, current_channel, None, reply_options))
                 }
             }
+            View::Chat => app(chat()),
         }
     }
 
@@ -289,6 +295,7 @@ impl Counter {
             Message::UserDetailsFetched(response) => {
                 if let Ok(user_details) = response {
                     self.cache.lock().unwrap().teams = user_details.teams;
+                    self.cache.lock().unwrap().chats = user_details.chats;
                 } else {
                     println!("Error occurred fetching user teams");
                 }
@@ -300,6 +307,10 @@ impl Counter {
 
             Message::Join => {
                 println!("Join message called!");
+                Task::none()
+            }
+            Message::Jump(page) => {
+                self.page = page;
                 Task::none()
             }
             Message::LinkClicked(url) => {

@@ -47,6 +47,24 @@ pub struct Team {
     pub picture_e_tag: String,
 }
 
+pub struct FileInfo {
+    item_id: Option<String>,
+    file_url: String,
+    site_url: String,
+    server_relative_url: String,
+    share_url: Option<String>,
+    share_id: Option<String>,
+}
+
+pub struct File {
+    pub id: String,
+    pub itemid: String,
+    pub file_name: String,
+    pub file_type: String,
+    pub file_info: FileInfo,
+    pub state: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageProperties {
@@ -56,7 +74,7 @@ pub struct MessageProperties {
     #[serde(default)]
     pub subject: String,
     #[serde(default)]
-    pub files: String, // vec of files actually
+    pub files: String, // is string that should be parsed to vec of File
     #[serde(default)]
     #[serde(deserialize_with = "string_to_i64")]
     pub deletetime: i64,
@@ -73,11 +91,11 @@ pub struct Message {
     pub from: Option<String>,
     pub im_display_name: Option<String>,
     pub message_type: String,
-    pub properties: MessageProperties,
+    pub properties: Option<MessageProperties>,
     pub compose_time: Option<String>,
     pub original_arrival_time: Option<String>,
     pub id: String,
-    pub container_id: String,
+    pub container_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -96,8 +114,25 @@ pub struct TeamConversations {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Chat {
+    pub id: String,
+    pub title: Option<String>,
+    pub last_message: Option<Message>,
+    pub is_last_message_from_me: Option<bool>,
+    pub chat_sub_type: Option<u64>,
+    pub last_join_at: Option<String>,
+    pub created_at: Option<String>,
+    pub creator: String,
+    pub hidden: bool,
+    pub added_by: Option<String>,
+    pub chat_type: Option<String>,
+    pub picture: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UserDetails {
     pub teams: Vec<Team>,
+    pub chats: Vec<Chat>,
 }
 
 impl fmt::Display for ApiError {

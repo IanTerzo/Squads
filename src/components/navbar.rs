@@ -3,7 +3,7 @@ use std::f32::consts::PI;
 use iced::widget::{container, image, row, svg, MouseArea};
 use iced::{Color, Element, Fill, Padding, Rotation};
 
-use crate::Message;
+use crate::{Message, Page, View};
 
 pub fn c_navbar() -> Element<'static, Message> {
     container(row![
@@ -17,8 +17,22 @@ pub fn c_navbar() -> Element<'static, Message> {
         ],
         container(
             row![
-                svg("images/icons8-home.svg").width(31).height(31),
-                image("images/icons8-chat-96.png").width(31).height(31)
+                MouseArea::new(svg("images/icons8-home.svg").width(31).height(31)).on_press(
+                    Message::Jump(Page {
+                        view: View::Homepage,
+                        current_team_id: "0".to_string(),
+                        current_channel_id: "0".to_string(),
+                        show_conversations: false,
+                    })
+                ),
+                MouseArea::new(image("images/icons8-chat-96.png").width(31).height(31)).on_press(
+                    Message::Jump(Page {
+                        view: View::Chat,
+                        current_team_id: "0".to_string(),
+                        current_channel_id: "0".to_string(),
+                        show_conversations: false,
+                    })
+                )
             ]
             .spacing(5)
         )

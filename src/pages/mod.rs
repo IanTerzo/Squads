@@ -1,3 +1,4 @@
+pub mod page_chat;
 pub mod page_home;
 pub mod page_login;
 pub mod page_team;
