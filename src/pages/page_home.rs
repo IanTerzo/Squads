@@ -2,61 +2,27 @@ use crate::api::Team;
 use crate::Message;
 
 use iced::widget::{
-    column, container, image, row, scrollable, text,
-    text_input, Column, MouseArea, Space,
+    column, container, row, scrollable, text, text_input, Column, MouseArea, Space,
 };
-use iced::{border, padding, Color, ContentFit, Element};
+use iced::{border, padding, Color, Element};
 
+use crate::components::cached_image::c_cached_image;
 use crate::utils::truncate_name;
-use crate::widgets::viewport::ViewportHandler;
-use std::path::Path;
 
 pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'a, Message> {
     let mut teams_column: Column<Message> = column![];
 
     for team in teams {
-        let mut team_picture = container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
-            team.id.clone(),
+        let team_picture = c_cached_image(
+            team.picture_e_tag.clone(),
             Message::FetchTeamImage(
-                team.picture_e_tag.clone(),
+                team.picture_e_tag,
                 team.team_site_information.group_id.clone(),
                 team.display_name.clone(),
             ),
-        ))
-        .style(|_| container::Style {
-            background: Some(
-                Color::parse("#b8b4b4")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-
-            ..Default::default()
-        })
-        .height(28)
-        .width(28);
-
-        let image_path = format!("image-cache/{}.jpeg", team.picture_e_tag);
-
-        if Path::new(&image_path).exists() {
-            team_picture = container(
-                ViewportHandler::new(
-                    image(image_path)
-                        .content_fit(ContentFit::Cover)
-                        .width(28)
-                        .height(28),
-                )
-                .on_enter_unique(
-                    team.id.clone(),
-                    Message::FetchTeamImage(
-                        team.picture_e_tag,
-                        team.team_site_information.group_id,
-                        team.display_name.clone(),
-                    ),
-                ),
-            )
-            .height(28)
-            .width(28)
-        }
+            28.0,
+            28.0,
+        );
 
         teams_column = teams_column.push(
             MouseArea::new(

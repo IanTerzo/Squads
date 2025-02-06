@@ -1,12 +1,13 @@
-use crate::widgets::viewport::ViewportHandler;
 use iced::widget::{
-    column, container, image, rich_text, row, text, text::Span, Column, Container, Row, Space,
+    column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
-use iced::{alignment, font, Color, ContentFit, Element, Font};
+use iced::{font, Color, Element, Font};
 use std::collections::HashMap;
-use std::path::Path;
 
+use crate::components::cached_image::c_cached_image;
+use crate::widgets::viewport::ViewportHandler;
 use crate::Message;
+
 use scraper::{Html, Selector};
 
 enum DynamicContainer {
@@ -104,6 +105,18 @@ fn transform_html<'a>(
                             dynamic_container.push(rich_text![Span::new(alt.to_string())].into());
                     }
                 } else if itemtype == "http://schema.skype.com/AMSImage" {
+                    // most consistent way to get the image id
+                    let image_id = child_element
+                        .attr("src")
+                        .unwrap()
+                        .replace("https://eu-api.asm.skype.com/v1/objects/", "")
+                        .replace(
+                            "https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/",
+                            "",
+                        )
+                        .replace("/views/imgo", "");
+
+                    println!("{}", image_id);
                     let mut image_width = 20.0;
                     let mut image_height = 20.0;
 
@@ -117,7 +130,6 @@ fn transform_html<'a>(
                         image_height = height;
                     }
 
-                    println!("{}", child_element.html());
                     let team_picture = container(
                         ViewportHandler::new(Space::new(0, 0))
                             .on_enter_unique("id".to_string(), Message::Join),
@@ -231,40 +243,13 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
         let im_display_name = message.im_display_name.unwrap();
         let user_id = message.from.unwrap();
 
-        let mut user_picture = container(ViewportHandler::new(Space::new(0, 0)).on_enter_unique(
+        let user_picture = c_cached_image(
             user_id.clone(),
             Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
-        ))
-        .style(|_| container::Style {
-            background: Some(
-                Color::parse("#b8b4b4")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
+            31.0,
+            31.0,
+        );
 
-            ..Default::default()
-        })
-        .height(31)
-        .width(31);
-
-        let image_path = format!("image-cache/user-{}.jpeg", user_id.clone());
-
-        if Path::new(&image_path).exists() {
-            user_picture = container(
-                ViewportHandler::new(
-                    image(image_path)
-                        .content_fit(ContentFit::Cover)
-                        .width(31)
-                        .height(31),
-                )
-                .on_enter_unique(
-                    user_id.clone(),
-                    Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
-                ),
-            )
-            .height(31)
-            .width(31)
-        }
         let message_info = row![user_picture, text!("{}", im_display_name)]
             .spacing(10)
             .wrap();

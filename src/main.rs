@@ -5,7 +5,6 @@ use std::sync::{Arc, Mutex};
 use std::{
     collections::HashMap,
     fs,
-    fs::File,
     io::Write,
     path::Path,
     process::Command,
@@ -15,6 +14,8 @@ use std::{
 use webbrowser;
 
 mod components;
+use components::cached_image::save_cached_image;
+
 mod utils;
 mod widgets;
 
@@ -354,12 +355,7 @@ impl Counter {
                             .await
                             .unwrap();
 
-                            let filename = format!("image-cache/{}.jpeg", picture_e_tag);
-
-                            if !Path::new(&filename).exists() {
-                                let mut file = File::create(filename).unwrap();
-                                let _ = file.write_all(&bytes);
-                            }
+                            save_cached_image(picture_e_tag, bytes);
                         }
                     },
                     Message::DoNothing,
@@ -367,6 +363,7 @@ impl Counter {
             }
 
             Message::FetchUserImage(user_id, display_name) => {
+                println!("fetching..");
                 let cache_mutex = self.cache.clone();
                 Task::perform(
                     {
@@ -385,12 +382,7 @@ impl Counter {
                             .await
                             .unwrap();
 
-                            let filename = format!("image-cache/user-{}.jpeg", user_id);
-
-                            if !Path::new(&filename).exists() {
-                                let mut file = File::create(filename).unwrap();
-                                let _ = file.write_all(&bytes);
-                            }
+                            save_cached_image(user_id, bytes);
                         }
                     },
                     Message::DoNothing,
