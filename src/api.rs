@@ -430,7 +430,7 @@ async fn gen_spoidcrl(
         ))
     }
 }
-async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Error> {
+pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Error> {
     //let req_scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
 
     let req_access_token = format!("Bearer {}", token.value);
@@ -440,17 +440,19 @@ async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Erro
         HeaderName::from_static("authorization"),
         HeaderValue::from_str(&req_access_token)?,
     );
-    headers.insert("Content-Length", "0".parse().unwrap());
+    headers.insert("Content-Length", "0".parse()?);
 
-    let client = reqwest::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
     let res = client
         .post("https://teams.microsoft.com/api/authsvc/v1.0/authz")
         .headers(headers)
-        .send()
-        .await?;
+        .send()?;
 
     if res.status().is_success() {
-        let token_data: HashMap<String, Value> = res.json().await?;
+        let token_data: HashMap<String, Value> = res.json()?;
 
         if let Some(tokens) = token_data.get("tokens").and_then(|v| v.as_object()) {
             if let (Some(value), Some(expires_in)) = (
@@ -462,9 +464,6 @@ async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Erro
                     expires: get_epoch_s() + expires_in,
                 };
 
-                //let scope = "skype_token".to_string();
-                //store.set_token(&scope, access_token);
-
                 Ok(access_token)
             } else {
                 Err(anyhow!("Couldn't get response skypeToken or expiresIn"))
@@ -474,12 +473,12 @@ async fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Erro
         }
     } else {
         let status = res.status();
-        let body = res.text().await?;
+        let body = res.text()?;
         Err(anyhow!("{}: {}", status, body))
     }
 }
 
-pub async fn user_details(token: AccessToken) -> Result<UserDetails, String> {
+pub fn user_details(token: AccessToken) -> Result<UserDetails, String> {
     let access_token = format!("Bearer {}", token.value);
 
     let mut headers = HeaderMap::new();
@@ -519,7 +518,7 @@ pub async fn user_details(token: AccessToken) -> Result<UserDetails, String> {
     }
 }
 
-pub async fn team_conversations(
+pub fn team_conversations(
     token: AccessToken,
     team_id: String,
     topic_id: String,
@@ -689,7 +688,7 @@ async fn render_list_data_as_stream(
     }
 }
 
-pub async fn authorize_team_picture(
+pub fn authorize_team_picture(
     token: AccessToken,
     group_id: String,
     etag: String,
@@ -744,7 +743,7 @@ pub async fn authorize_team_picture(
     }
 }
 
-pub async fn authorize_profile_picture(
+pub fn authorize_profile_picture(
     token: AccessToken,
     user_id: String,
     display_name: String,
@@ -801,7 +800,7 @@ pub async fn authorize_profile_picture(
     }
 }
 
-async fn authorize_image(token: AccessToken, image_id: String) -> Result<String, String> {
+pub fn authorize_image(token: AccessToken, image_id: String) -> Result<Bytes, String> {
     //let scope = "skype_token".to_string();
 
     let access_token = format!("skype_token {}", token.value);
@@ -812,7 +811,11 @@ async fn authorize_image(token: AccessToken, image_id: String) -> Result<String,
         HeaderValue::from_str(&access_token).unwrap(),
     );
 
-    let client = reqwest::Client::new();
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
     let res = client
         .get(format!(
             "https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/{}/views/imgo?v=1",
@@ -820,18 +823,16 @@ async fn authorize_image(token: AccessToken, image_id: String) -> Result<String,
         ))
         .headers(headers)
         .send()
-        .await
         .unwrap();
 
     if res.status().is_success() {
-        let bytes = res.bytes().await.unwrap();
-        let parsed = BASE64.encode(&bytes);
-        Ok(parsed)
+        let bytes = res.bytes().unwrap();
+        Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().await.unwrap()
+            res.text().unwrap()
         );
         Err(error_message)
     }

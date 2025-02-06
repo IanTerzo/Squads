@@ -21,8 +21,9 @@ mod widgets;
 
 mod api;
 use api::{
-    authorize_profile_picture, authorize_team_picture, gen_refresh_token_from_code, gen_tokens,
-    team_conversations, user_details, AccessToken, Chat, Team, TeamConversations, UserDetails,
+    authorize_image, authorize_profile_picture, authorize_team_picture,
+    gen_refresh_token_from_code, gen_skype_token, gen_tokens, team_conversations, user_details,
+    AccessToken, Chat, Team, TeamConversations, UserDetails,
 };
 
 mod pages;
@@ -79,6 +80,7 @@ pub enum Message {
     OpenTeam(String, String),
     FetchTeamImage(String, String, String),
     FetchUserImage(String, String),
+    AuthorizeImage(String),
     ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
@@ -136,6 +138,21 @@ fn get_or_gen_token(cache: Arc<Mutex<AppCache>>, scope: String) -> AccessToken {
             }
         })
         .or_insert_with(|| gen_tokens(refresh_token, scope.to_string()).unwrap())
+        .clone()
+}
+
+fn get_or_gen_skype_token(cache: Arc<Mutex<AppCache>>, access_token: AccessToken) -> AccessToken {
+    cache
+        .lock()
+        .unwrap()
+        .access_tokens
+        .entry("skype_token".to_string())
+        .and_modify(|token| {
+            if token.expires < get_epoch_s() {
+                *token = gen_skype_token(access_token.clone()).unwrap();
+            }
+        })
+        .or_insert_with(|| gen_skype_token(access_token).unwrap())
         .clone()
 }
 
@@ -201,7 +218,7 @@ impl Counter {
                             .access_tokens
                             .insert(scope.to_string(), teams_token.clone());
 
-                        let user_details = user_details(teams_token.clone()).await.unwrap();
+                        let user_details = user_details(teams_token.clone()).unwrap();
 
                         cache_mutex.lock().unwrap().teams = user_details.clone().teams;
                         cache_mutex.lock().unwrap().chats = user_details.chats;
@@ -225,7 +242,7 @@ impl Counter {
                         "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                     );
 
-                    let user_details = user_details(access_token.clone()).await.unwrap();
+                    let user_details = user_details(access_token.clone()).unwrap();
 
                     cache_mutex.lock().unwrap().teams = user_details.clone().teams;
                 },
@@ -339,7 +356,6 @@ impl Counter {
                                 picture_e_tag.clone(),
                                 display_name,
                             )
-                            .await
                             .unwrap();
 
                             save_cached_image(picture_e_tag, bytes);
@@ -366,10 +382,33 @@ impl Counter {
                                 user_id.clone(),
                                 display_name,
                             )
-                            .await
                             .unwrap();
 
                             save_cached_image(user_id, bytes);
+                        }
+                    },
+                    Message::DoNothing,
+                )
+            }
+
+            Message::AuthorizeImage(image_id) => {
+                let cache_mutex = self.cache.clone();
+
+                Task::perform(
+                    {
+                        let access_token = get_or_gen_token(
+                            cache_mutex.clone(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                        );
+
+                        let skype_token = get_or_gen_skype_token(cache_mutex, access_token);
+
+                        async {
+                            let image_id = image_id;
+
+                            let bytes = authorize_image(skype_token, image_id.clone()).unwrap();
+
+                            save_cached_image(image_id, bytes);
                         }
                     },
                     Message::DoNothing,
@@ -410,7 +449,7 @@ impl Counter {
                             cache_mutex,
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                         );
-                        team_conversations(access_token, team_id, channel_id).await
+                        team_conversations(access_token, team_id, channel_id)
                     },
                     move |result| Message::GotConversations(team_id_clone.clone(), result),
                 )

@@ -116,12 +116,11 @@ fn transform_html<'a>(
                         )
                         .replace("/views/imgo", "");
 
-                    println!("{}", image_id);
                     let mut image_width = 20.0;
                     let mut image_height = 20.0;
 
                     if let Some(width) = child_element.attr("width") {
-                        let width = width.parse::<f32>().unwrap();
+                        let width = width.parse().unwrap();
                         image_width = width;
                     }
 
@@ -130,21 +129,15 @@ fn transform_html<'a>(
                         image_height = height;
                     }
 
-                    let team_picture = container(
-                        ViewportHandler::new(Space::new(0, 0))
-                            .on_enter_unique("id".to_string(), Message::Join),
-                    )
-                    .style(|_| container::Style {
-                        background: Some(
-                            Color::parse("#b8b4b4")
-                                .expect("Background color is invalid.")
-                                .into(),
-                        ),
+                    println!("width: {}", image_width);
+                    println!("height: {}", image_height);
 
-                        ..Default::default()
-                    })
-                    .width(image_width)
-                    .height(image_height);
+                    let team_picture = c_cached_image(
+                        image_id.clone(),
+                        Message::AuthorizeImage(image_id.clone()),
+                        image_width,
+                        image_height,
+                    );
 
                     dynamic_container = dynamic_container.push(team_picture.into());
                 }

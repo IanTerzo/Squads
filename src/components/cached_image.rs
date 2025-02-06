@@ -34,8 +34,8 @@ pub fn c_cached_image<'a>(
 
         ..Default::default()
     })
-    .height(image_width)
-    .width(image_height);
+    .width(image_width)
+    .height(image_height);
 
     let image_path = format!("image-cache/{}.jpeg", identifier);
 
@@ -44,13 +44,13 @@ pub fn c_cached_image<'a>(
             ViewportHandler::new(
                 image(image_path)
                     .content_fit(ContentFit::Cover)
-                    .width(28)
-                    .height(28),
+                    .width(image_width)
+                    .height(image_height),
             )
             .on_enter_unique(identifier, on_enter_unique),
         )
-        .height(image_width)
-        .width(image_height)
+        .width(image_width)
+        .height(image_height)
     }
 
     team_picture.into()
