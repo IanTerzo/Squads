@@ -12,3 +12,9 @@ cargo run
 ## Preview
 
 ![squads](https://github.com/IanTerzo/Squads/blob/master/images/preview.png?raw=true)
+
+![squads](https://github.com/IanTerzo/Squads/blob/master/images/preview2.png?raw=true)
+
+The official client for comparison...
+
+![squads](https://github.com/IanTerzo/Squads/blob/master/images/teams_preview.png?raw=true)
