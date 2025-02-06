@@ -72,7 +72,6 @@ pub enum Message {
     Authorized(()),
     DoNothing(()),
     LinkClicked(String),
-    UserDetailsFetched(Result<UserDetails, String>),
     Join,
     Jump(Page),
     ToggleReplyOptions(String),
@@ -205,6 +204,7 @@ impl Counter {
                         let user_details = user_details(teams_token.clone()).await.unwrap();
 
                         cache_mutex.lock().unwrap().teams = user_details.clone().teams;
+                        cache_mutex.lock().unwrap().chats = user_details.chats;
                     },
                     Message::Authorized,
                 ),
@@ -276,7 +276,7 @@ impl Counter {
                     app(team(current_team, current_channel, None, reply_options))
                 }
             }
-            View::Chat => app(chat()),
+            View::Chat => app(chat(self.cache.lock().unwrap().chats.clone())),
         }
     }
 
@@ -287,19 +287,6 @@ impl Counter {
             Message::Authorized(_response) => {
                 self.page.view = View::Homepage;
                 self.history.push(self.page.clone());
-                Task::perform(
-                    save_cache(self.cache.lock().unwrap().clone()),
-                    Message::DoNothing,
-                )
-            }
-
-            Message::UserDetailsFetched(response) => {
-                if let Ok(user_details) = response {
-                    self.cache.lock().unwrap().teams = user_details.teams;
-                    self.cache.lock().unwrap().chats = user_details.chats;
-                } else {
-                    println!("Error occurred fetching user teams");
-                }
                 Task::perform(
                     save_cache(self.cache.lock().unwrap().clone()),
                     Message::DoNothing,
