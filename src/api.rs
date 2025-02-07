@@ -112,8 +112,18 @@ pub struct Conversation {
 pub struct TeamConversations {
     pub reply_chains: Vec<Conversation>,
 }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatMember {
+    pub is_muted: bool,
+    pub mri: String,
+    pub object_id: String,
+    pub role: String,
+    pub is_identity_masked: bool,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: String,
     pub title: Option<String>,
@@ -123,6 +133,7 @@ pub struct Chat {
     pub last_join_at: Option<String>,
     pub created_at: Option<String>,
     pub creator: String,
+    pub members: Vec<ChatMember>,
     pub hidden: bool,
     pub added_by: Option<String>,
     pub chat_type: Option<String>,
