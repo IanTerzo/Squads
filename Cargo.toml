@@ -15,6 +15,9 @@ htmd = "0.1.6"
 scraper = "0.22.0"
 iced_widget = "0.13.4"
 webbrowser = "1.0.3"
+thirtyfour = "0.35.0"
+tokio = "1.43.0"
+url = "2.5.4"
 
 [[bin]]
 name = "squads-iced"
