@@ -1,16 +1,28 @@
-use bytes::Bytes;
-use iced::widget::{container, image, Space};
-use iced::{Color, ContentFit, Element};
-use std::{fs::File, io::Write, path::Path};
-
 use crate::widgets::viewport::ViewportHandler;
 use crate::Message;
+use bytes::Bytes;
+use directories::ProjectDirs;
+use iced::widget::{container, image, Space};
+use iced::{Color, ContentFit, Element};
+use std::{
+    fs::{create_dir_all, File},
+    io::Write,
+    path::Path,
+};
 
 pub fn save_cached_image(identifier: String, bytes: Bytes) {
-    let filename = format!("image-cache/{}.jpeg", identifier);
+    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
-    if !Path::new(&filename).exists() {
-        let mut file = File::create(filename).unwrap();
+    let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
+    cache_dir.push("image-cache");
+
+    if !cache_dir.exists() {
+        create_dir_all(&cache_dir).expect("Failed to create image-cache directory");
+    }
+
+    cache_dir.push(format!("{}.jpeg", identifier));
+    if !cache_dir.exists() {
+        let mut file = File::create(cache_dir).unwrap();
         let _ = file.write_all(&bytes);
     }
 }
@@ -37,7 +49,11 @@ pub fn c_cached_image<'a>(
     .width(image_width)
     .height(image_height);
 
-    let image_path = format!("image-cache/{}.jpeg", identifier);
+    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
+
+    let mut image_path = project_dirs.unwrap().cache_dir().to_path_buf();
+    image_path.push("image-cache");
+    image_path.push(format!("{}.jpeg", identifier));
 
     if Path::new(&image_path).exists() {
         team_picture = container(

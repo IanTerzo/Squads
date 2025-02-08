@@ -18,6 +18,7 @@ webbrowser = "1.0.3"
 thirtyfour = "0.35.0"
 tokio = "1.43.0"
 url = "2.5.4"
+directories = "6.0.0"
 
 [[bin]]
 name = "squads-iced"

@@ -1,13 +1,11 @@
-use std::collections::HashMap;
-
 use crate::api::{Channel, Team, TeamConversations};
 use crate::components::conversation::c_conversation;
 use crate::utils::truncate_name;
 use crate::Message;
-
+use directories::ProjectDirs;
 use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
-
 use iced::{border, font, Color, ContentFit, Element, Padding};
+use std::collections::HashMap;
 
 pub fn team<'a>(
     team: Team,
@@ -76,7 +74,11 @@ pub fn team<'a>(
             ),
         });
 
-    let image_path = format!("image-cache/{}.jpeg", team.picture_e_tag);
+    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
+
+    let mut image_path = project_dirs.unwrap().cache_dir().to_path_buf();
+    image_path.push("image-cache");
+    image_path.push(format!("{}.jpeg", team.picture_e_tag));
 
     let team_picture = image(image_path)
         .content_fit(ContentFit::Cover)
