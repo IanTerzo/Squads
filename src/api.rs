@@ -146,6 +146,33 @@ pub struct UserDetails {
     pub chats: Vec<Chat>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortProfile {
+    pub user_principal_name: Option<String>,
+    pub given_name: Option<String>,
+    pub surname: Option<String>,
+    pub job_title: Option<String>,
+    pub department: Option<String>,
+    pub user_location: Option<String>,
+    pub email: Option<String>,
+    pub user_type: Option<String>,
+    pub is_short_profile: Option<bool>,
+    pub tenant_name: Option<String>,
+    pub company_name: Option<String>,
+    pub display_name: Option<String>,
+    pub r#type: Option<String>,
+    pub mri: String,
+    pub object_id: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FetchShortProfile {
+    pub r#type: Option<String>,
+    pub value: Vec<ShortProfile>,
+}
+
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -518,6 +545,61 @@ pub fn user_details(token: AccessToken) -> Result<UserDetails, String> {
 
     if res.status().is_success() {
         let parsed = res.json::<UserDetails>().unwrap();
+        Ok(parsed)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn fetch_short_profile(
+    token: AccessToken,
+    user_ids: Vec<String>,
+) -> Result<FetchShortProfile, String> {
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let params = [
+        ("isMailAddress", "false"),
+        ("enableGuest", "true"),
+        ("skypeTeamsInfo", "true"),
+        ("canBeSmtpAddress", "false"),
+        ("includeIBBarredUsers", "true"),
+        ("includeDisabledAccounts", "true"),
+        ("useSkypeNameIfMissing", "false"),
+    ];
+
+    let body = format!("[\"{}\"]", user_ids.join("\",\""));
+
+    let res = client
+        .post("https://teams.microsoft.com/api/mt/part/emea-02/beta/users/fetchShortProfile")
+        .headers(headers)
+        .query(&params)
+        .body(body)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let parsed = res.json::<FetchShortProfile>().unwrap();
         Ok(parsed)
     } else {
         let error_message = format!(

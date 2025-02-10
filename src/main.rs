@@ -2,6 +2,7 @@ use iced::{Color, Element, Task, Theme};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::{
     collections::HashMap,
@@ -22,9 +23,9 @@ mod widgets;
 
 mod api;
 use api::{
-    authorize_image, authorize_profile_picture, authorize_team_picture,
+    authorize_image, authorize_profile_picture, authorize_team_picture, fetch_short_profile,
     gen_refresh_token_from_code, gen_skype_token, gen_tokens, team_conversations, user_details,
-    AccessToken, Chat, Team, TeamConversations, UserDetails,
+    AccessToken, Chat, ShortProfile, Team, TeamConversations,
 };
 
 mod pages;
@@ -55,6 +56,7 @@ struct Page {
 struct AppCache {
     refresh_token: AccessToken,
     access_tokens: HashMap<String, AccessToken>,
+    org_users: HashMap<String, ShortProfile>,
     teams: Vec<Team>,
     chats: Vec<Chat>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
@@ -97,6 +99,16 @@ use std::time::Duration;
 use thirtyfour::{common::capabilities::chrome::ChromeCapabilities, prelude::*};
 use tokio::runtime::Builder;
 use url::form_urlencoded;
+
+fn get_chat_users_mri(chats: Vec<Chat>) -> Vec<String> {
+    let mut user_mri = HashSet::new();
+    for chat in chats {
+        for member in chat.members {
+            user_mri.insert(member.mri);
+        }
+    }
+    user_mri.into_iter().collect()
+}
 
 const CHROMEDRIVER_PORT: u16 = 35101;
 
@@ -246,6 +258,7 @@ impl Counter {
                 expires: 0,
             },
             access_tokens: HashMap::new(),
+            org_users: HashMap::new(),
             teams: Vec::new(),
             chats: Vec::new(),
             team_conversations: HashMap::new(),
@@ -320,7 +333,20 @@ impl Counter {
                         let user_details = user_details(teams_token.clone()).unwrap();
 
                         cache_mutex.lock().unwrap().teams = user_details.clone().teams;
-                        cache_mutex.lock().unwrap().chats = user_details.chats;
+                        cache_mutex.lock().unwrap().chats = user_details.clone().chats;
+
+                        let user_mris = get_chat_users_mri(user_details.chats);
+
+                        let user_short_profiles =
+                            fetch_short_profile(teams_token.clone(), user_mris);
+
+                        let mut profile_map = HashMap::new();
+
+                        for short_profile in user_short_profiles.unwrap().value {
+                            profile_map.insert(short_profile.clone().mri, short_profile);
+                        }
+
+                        cache_mutex.lock().unwrap().org_users = profile_map;
                     },
                     Message::Authorized,
                 ),
@@ -342,8 +368,20 @@ impl Counter {
                     );
 
                     let user_details = user_details(access_token.clone()).unwrap();
-
                     cache_mutex.lock().unwrap().teams = user_details.clone().teams;
+                    cache_mutex.lock().unwrap().chats = user_details.clone().chats;
+
+                    let user_mris = get_chat_users_mri(user_details.chats);
+
+                    let user_short_profiles = fetch_short_profile(access_token.clone(), user_mris);
+
+                    let mut profile_map = HashMap::new();
+
+                    for short_profile in user_short_profiles.unwrap().value {
+                        profile_map.insert(short_profile.clone().mri, short_profile);
+                    }
+
+                    cache_mutex.lock().unwrap().org_users = profile_map;
                 },
                 Message::Authorized,
             ),
@@ -392,7 +430,10 @@ impl Counter {
                     app(team(current_team, current_channel, None, reply_options))
                 }
             }
-            View::Chat => app(chat(self.cache.lock().unwrap().chats.clone())),
+            View::Chat => {
+                let cache = self.cache.clone().lock().unwrap().clone();
+                app(chat(cache.chats, cache.org_users))
+            }
         }
     }
 
