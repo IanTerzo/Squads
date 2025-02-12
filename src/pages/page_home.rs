@@ -1,12 +1,10 @@
 use crate::api::Team;
 use crate::Message;
 
-use iced::widget::{
-    column, container, row, scrollable, text, text_input, Column, MouseArea, Space,
-};
+use iced::widget::{column, container, row, text, text_input, Column, MouseArea, Space};
 use iced::{border, padding, Color, Element};
 
-use crate::components::cached_image::c_cached_image;
+use crate::components::{cached_image::c_cached_image, styled_scrollbar::c_styled_scrollbar};
 use crate::utils::truncate_name;
 
 pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'a, Message> {
@@ -53,51 +51,7 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
         teams_column = teams_column.push(Space::new(10, 8.5));
     }
 
-    let team_scrollbar = container(
-        scrollable(teams_column)
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(10)
-                    .spacing(10)
-                    .scroller_width(10),
-            ))
-            .style(|_, _| scrollable::Style {
-                container: container::Style {
-                    background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
-                    border: border::rounded(10),
-                    ..Default::default()
-                },
-                vertical_rail: scrollable::Rail {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(10),
-                    scroller: scrollable::Scroller {
-                        color: Color::parse("#444").expect("Background color is invalid."),
-                        border: border::rounded(10),
-                    },
-                },
-                horizontal_rail: scrollable::Rail {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(10),
-                    scroller: scrollable::Scroller {
-                        color: Color::parse("#666").expect("Background color is invalid."),
-                        border: border::rounded(10),
-                    },
-                },
-                gap: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-            }),
-    );
+    let team_scrollbar = container(c_styled_scrollbar(teams_column));
     //.padding(20);
 
     let search_teams = container(

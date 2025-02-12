@@ -1,9 +1,9 @@
 use crate::api::{Channel, Team, TeamConversations};
-use crate::components::conversation::c_conversation;
+use crate::components::{conversation::c_conversation, styled_scrollbar::c_styled_scrollbar};
 use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
-use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
+use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
 use iced::{border, font, Color, ContentFit, Element, Padding};
 use std::collections::HashMap;
 
@@ -29,50 +29,7 @@ pub fn team<'a>(
         }
     }
 
-    // TODO: make it into a component
-    let conversation_scrollbar = scrollable(conversation_column)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(10)
-                .spacing(10)
-                .scroller_width(10),
-        ))
-        .style(|_, _| scrollable::Style {
-            container: container::Style {
-                background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
-                border: border::rounded(10),
-                ..Default::default()
-            },
-            vertical_rail: scrollable::Rail {
-                background: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    color: Color::parse("#444").expect("Background color is invalid."),
-                    border: border::rounded(10),
-                },
-            },
-            horizontal_rail: scrollable::Rail {
-                background: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    color: Color::parse("#666").expect("Background color is invalid."),
-                    border: border::rounded(10),
-                },
-            },
-            gap: Some(
-                Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-        });
+    let conversation_scrollbar = c_styled_scrollbar(conversation_column);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -142,49 +99,7 @@ pub fn team<'a>(
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }
 
-    let team_scrollbar = scrollable(channels_coloumn)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(10)
-                .spacing(10)
-                .scroller_width(10),
-        ))
-        .style(|_, _| scrollable::Style {
-            container: container::Style {
-                background: Some(Color::from_rgba(0.0, 0.0, 0.0, 0.0).into()),
-                border: border::rounded(10),
-                ..Default::default()
-            },
-            vertical_rail: scrollable::Rail {
-                background: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    color: Color::parse("#444").expect("Background color is invalid."),
-                    border: border::rounded(10),
-                },
-            },
-            horizontal_rail: scrollable::Rail {
-                background: Some(
-                    Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    color: Color::parse("#666").expect("Background color is invalid."),
-                    border: border::rounded(10),
-                },
-            },
-            gap: Some(
-                Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-        });
+    let team_scrollbar = c_styled_scrollbar(channels_coloumn);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
     row![team_info_column, conversation_scrollbar]
