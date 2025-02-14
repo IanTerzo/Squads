@@ -16,8 +16,9 @@ mod widgets;
 
 mod api;
 use api::{
-    authorize_image, authorize_profile_picture, authorize_team_picture, fetch_short_profile,
-    team_conversations, user_details, AccessToken, Chat, ShortProfile, Team, TeamConversations,
+    authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture,
+    fetch_short_profile, team_conversations, user_details, user_properties, AccessToken, Chat,
+    ShortProfile, Team, TeamConversations,
 };
 
 mod auth;
@@ -48,8 +49,8 @@ struct Page {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct AppCache {
-    refresh_token: AccessToken,
     access_tokens: HashMap<String, AccessToken>,
+    user_id: String,
     org_users: HashMap<String, ShortProfile>,
     teams: Vec<Team>,
     chats: Vec<Chat>,
@@ -77,6 +78,7 @@ pub enum Message {
     OpenTeam(String, String),
     FetchTeamImage(String, String, String),
     FetchUserImage(String, String),
+    FetchAvatar(String),
     AuthorizeImage(String),
     ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
@@ -102,11 +104,8 @@ async fn save_cache(cache: AppCache) {
 impl Counter {
     fn new() -> (Self, Task<Message>) {
         let mut cache = AppCache {
-            refresh_token: AccessToken {
-                value: "".to_string(),
-                expires: 0,
-            },
             access_tokens: HashMap::new(),
+            user_id: "".to_string(),
             org_users: HashMap::new(),
             teams: Vec::new(),
             chats: Vec::new(),
@@ -146,18 +145,19 @@ impl Counter {
                 async move {
                     let cache_mutex = Arc::clone(&cache_mutex);
 
-                    let access_token = get_or_gen_token(
+                    let access_token_details = get_or_gen_token(
                         cache_mutex.clone(),
                         "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                     );
 
-                    let user_details = user_details(access_token.clone()).unwrap();
+                    let user_details = user_details(access_token_details.clone()).unwrap();
                     cache_mutex.lock().unwrap().teams = user_details.clone().teams;
                     cache_mutex.lock().unwrap().chats = user_details.clone().chats;
 
                     let user_mris = get_chat_users_mri(user_details.chats);
 
-                    let user_short_profiles = fetch_short_profile(access_token.clone(), user_mris);
+                    let user_short_profiles =
+                        fetch_short_profile(access_token_details.clone(), user_mris);
 
                     let mut profile_map = HashMap::new();
 
@@ -166,6 +166,15 @@ impl Counter {
                     }
 
                     cache_mutex.lock().unwrap().org_users = profile_map;
+
+                    let access_token_properties = get_or_gen_token(
+                        cache_mutex.clone(),
+                        "https://ic3.teams.office.com/.default".to_string(),
+                    );
+
+                    let user_properties = user_properties(access_token_properties.clone()).unwrap();
+                    cache_mutex.lock().unwrap().user_id =
+                        user_properties.primary_member_name.unwrap();
                 },
                 Message::Authorized,
             ),
@@ -216,7 +225,7 @@ impl Counter {
             }
             View::Chat => {
                 let cache = self.cache.clone().lock().unwrap().clone();
-                app(chat(cache.chats, cache.org_users))
+                app(chat(cache.chats, cache.org_users, cache.user_id))
             }
         }
     }
@@ -290,7 +299,6 @@ impl Counter {
             }
 
             Message::FetchUserImage(user_id, display_name) => {
-                println!("fetching..");
                 let cache_mutex = self.cache.clone();
                 Task::perform(
                     {
@@ -309,6 +317,39 @@ impl Counter {
                             .unwrap();
 
                             save_cached_image(user_id, bytes);
+                        }
+                    },
+                    Message::DoNothing,
+                )
+            }
+
+            Message::FetchAvatar(url) => {
+                println!("1fetching..");
+
+                let cache_mutex = self.cache.clone();
+                Task::perform(
+                    {
+                        let access_token = get_or_gen_token(
+                            cache_mutex.clone(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                        );
+
+                        let skype_token = get_or_gen_skype_token(cache_mutex, access_token);
+
+                        async {
+                            let url = url;
+
+                            let identifier = url
+                                .clone()
+                                .replace(
+                                    "https://eu-prod.asyncgw.teams.microsoft.com/v1/objects",
+                                    "",
+                                )
+                                .replace("/", "");
+
+                            let bytes = authorize_avatar(skype_token, url.clone()).unwrap();
+
+                            save_cached_image(identifier, bytes);
                         }
                     },
                     Message::DoNothing,

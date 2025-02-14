@@ -235,7 +235,6 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
     if message.message_type == "RichText/Html" {
         let im_display_name = message.im_display_name.unwrap();
         let user_id = message.from.unwrap();
-
         let user_picture = c_cached_image(
             user_id.clone(),
             Message::FetchUserImage(user_id.clone(), im_display_name.clone()),

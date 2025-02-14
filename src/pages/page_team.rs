@@ -45,11 +45,11 @@ pub fn team<'a>(
     let name_row = row![
         team_picture,
         column![
-            text!("{}", truncate_name(&team.display_name, 16)).font(font::Font {
+            text!("{}", truncate_name(team.display_name.clone(), 16)).font(font::Font {
                 weight: font::Weight::Bold,
                 ..Default::default()
             }),
-            text!("{}", truncate_name(&page_channel.display_name, 16))
+            text!("{}", truncate_name(page_channel.display_name.clone(), 16))
         ]
         .spacing(5)
     ]
@@ -66,7 +66,7 @@ pub fn team<'a>(
         let channel_cloned = channel.clone();
         channels_coloumn = channels_coloumn.push(
             MouseArea::new(
-                container(text(truncate_name(&channel.display_name, 16)))
+                container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
                             container::Style {

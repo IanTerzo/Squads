@@ -173,6 +173,31 @@ pub struct FetchShortProfile {
     pub value: Vec<ShortProfile>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserProperties {
+    pub is_skype_teams_user_set_in_settings_store: Option<String>,
+    pub first_login_information: Option<String>,
+    pub favorites: Option<String>,
+    pub license_type: Option<String>,
+    pub enable_channels_v2: Option<String>,
+    pub personal_file_site: Option<String>,
+    pub self_chat_settings: Option<String>,
+    pub cortana_settings: Option<String>,
+    pub teams_order: Option<String>,
+    pub user_personal_settings: Option<String>,
+    pub user_details: Option<String>,
+    pub enable_push_to_talk: Option<String>,
+    pub user_pinned_apps: Option<String>,
+    pub locale: Option<String>,
+    pub read_receipts_enabled: Option<String>,
+    pub cid: Option<String>,
+    pub cid_hex: Option<String>,
+    pub dogfood_user: Option<bool>,
+    pub primary_member_name: Option<String>,
+    pub skype_name: Option<String>,
+}
+
 impl fmt::Display for ApiError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -556,6 +581,39 @@ pub fn user_details(token: AccessToken) -> Result<UserDetails, String> {
     }
 }
 
+pub fn user_properties(token: AccessToken) -> Result<UserProperties, String> {
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .get("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/properties")
+        .headers(headers)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let parsed = res.json::<UserProperties>().unwrap();
+        Ok(parsed)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
 pub fn fetch_short_profile(
     token: AccessToken,
     user_ids: Vec<String>,
@@ -917,6 +975,39 @@ pub fn authorize_image(token: AccessToken, image_id: String) -> Result<Bytes, St
         .headers(headers)
         .send()
         .unwrap();
+
+    if res.status().is_success() {
+        let bytes = res.bytes().unwrap();
+        Ok(bytes)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn authorize_avatar(token: AccessToken, avatar_url: String) -> Result<Bytes, String> {
+    // let scope = "https://api.spaces.skype.com/Authorization.ReadWrite".to_string();
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("referer"),
+        HeaderValue::from_static("https://teams.microsoft.com/_"),
+    );
+    headers.insert(
+        HeaderName::from_static("cookie"),
+        HeaderValue::from_str(format!("skypetoken_asm={}", token.value).as_str()).unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client.get(avatar_url).headers(headers).send().unwrap();
 
     if res.status().is_success() {
         let bytes = res.bytes().unwrap();

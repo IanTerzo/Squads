@@ -8,7 +8,7 @@ use crate::components::{cached_image::c_cached_image, styled_scrollbar::c_styled
 use crate::utils::truncate_name;
 
 pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'a, Message> {
-    let mut teams_column: Column<Message> = column![];
+    let mut teams_column: Column<Message> = column![].spacing(8.5);
 
     for team in teams {
         let team_picture = c_cached_image(
@@ -27,7 +27,7 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                 container(
                     row![
                         container(team_picture).padding(padding::left(10)),
-                        text(truncate_name(&team.display_name, 16)),
+                        text(truncate_name(team.display_name, 16)),
                     ]
                     .spacing(10),
                 )
@@ -48,7 +48,6 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                 team.id.to_string(),
             )),
         );
-        teams_column = teams_column.push(Space::new(10, 8.5));
     }
 
     let team_scrollbar = container(c_styled_scrollbar(teams_column));
