@@ -3,30 +3,21 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use iced::{Color, Element, Task, Theme};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use directories::ProjectDirs;
 use tokio::time::sleep;
 
-use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use std::{collections::HashMap, fs, io::Write, path::Path};
 
 use rand::Rng;
 use sha2::{Digest, Sha256};
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use webbrowser;
 
-use crate::api::{
-    authorize_image, authorize_profile_picture, authorize_team_picture, fetch_short_profile,
-    gen_refresh_token_from_code, gen_skype_token, gen_tokens, team_conversations, user_details,
-    AccessToken, Chat, ShortProfile, Team, TeamConversations,
-};
+use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
 use crate::AppCache;
 
 use std::time::Duration;
-use thirtyfour::{common::capabilities::chrome::ChromeCapabilities, prelude::*};
+use thirtyfour::prelude::*;
 use tokio::runtime::Builder;
 use url::form_urlencoded;
 
@@ -70,10 +61,14 @@ async fn get_auth_code(challenge: String) -> WebDriverResult<String> {
         .finish();
     let auth_url = format!("{}?{}", base_url, encoded_params);
 
-    // Configure Chrome options
+    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
+    let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
+    cache_dir.push("chrome-data");
+    let dir = cache_dir.to_str().unwrap();
+
     let mut chrome_options = DesiredCapabilities::chrome();
     chrome_options.add_arg(&format!("--app={}", auth_url))?;
-    chrome_options.add_arg("--user-data-dir=./user-data-dir")?;
+    chrome_options.add_arg(&format!("--user-data-dir={}", dir))?;
     chrome_options.add_arg("--window-size=550,500")?;
     chrome_options.add_arg("--disable-infobars")?;
     chrome_options.add_experimental_option("excludeSwitches", vec!["enable-automation"])?;
