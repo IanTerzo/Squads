@@ -31,7 +31,7 @@ fn get_epoch_s() -> u64 {
 const CHROMEDRIVER_PORT: u16 = 35101;
 
 fn start_chromedriver(port: u16) -> std::io::Result<Child> {
-    Command::new("chromedriver")
+    Command::new(std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver"))
         .arg(format!("--port={}", port))
         .stdout(std::process::Stdio::null()) // Redirect output if needed
         .stderr(std::process::Stdio::null())
@@ -72,6 +72,10 @@ async fn get_auth_code(challenge: String) -> WebDriverResult<String> {
     chrome_options.add_arg("--window-size=550,500")?;
     chrome_options.add_arg("--disable-infobars")?;
     chrome_options.add_experimental_option("excludeSwitches", vec!["enable-automation"])?;
+    const CHROMEDRIVER_PATH: Option<&str> = std::option_env!("CHROMEDRIVER_PATH");
+    if CHROMEDRIVER_PATH.is_some() {
+        chrome_options.set_binary(CHROMEDRIVER_PATH.unwrap())?;
+    }
 
     // Start WebDriver
 
