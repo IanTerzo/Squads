@@ -233,7 +233,7 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-pub async fn gen_refresh_token_from_code(
+pub fn gen_refresh_token_from_code(
     code: String,
     code_verifier: String,
 ) -> Result<AccessToken, ApiError> {
