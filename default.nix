@@ -1,6 +1,8 @@
 { rustPlatform
 , pkg-config
 , makeWrapper
+, llvmPackages
+, mold
 , lib
 , chromedriver
 , openssl
@@ -20,6 +22,8 @@ rustPlatform.buildRustPackage {
     rustPlatform.bindgenHook
     pkg-config
     makeWrapper
+    llvmPackages.clang
+    mold
   ];
   buildInputs = [
     openssl
@@ -29,10 +33,10 @@ rustPlatform.buildRustPackage {
     CHROMEDRIVER_PATH = chromedriver |> lib.getExe;
   };
   postFixup = ''
-    wrapProgram $out/bin/squads-iced --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [wayland libGL libxkbcommon]}
+    wrapProgram $out/bin/squads-iced --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}
   '';
   shellHook = ''
-    export LD_LIBRARY_PATH=${lib.makeLibraryPath [wayland libGL libxkbcommon]}
+    export LD_LIBRARY_PATH=${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}
   '';
   meta = with lib; {
     description = "Alternative Teams client";
