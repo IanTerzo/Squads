@@ -1,8 +1,9 @@
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
-use iced::{font, Color, Element, Font};
+use iced::{border, font, Alignment, Color, Element, Font};
 use std::collections::HashMap;
+use std::fmt::format;
 
 use crate::components::cached_image::c_cached_image;
 use crate::widgets::viewport::ViewportHandler;
@@ -232,6 +233,8 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
         return None;
     }
 
+    let mut message_info = row![].spacing(10).align_y(Alignment::Center);
+
     if message.message_type == "RichText/Html" {
         let im_display_name = message.im_display_name.unwrap();
         let user_id = message.from.unwrap();
@@ -242,22 +245,43 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
             31.0,
         );
 
-        let message_info = row![user_picture, text!("{}", im_display_name)]
-            .spacing(10)
-            .wrap();
-
-        message_column = message_column.push(message_info);
+        message_info = message_info.push(user_picture);
+        message_info = message_info.push(text!("{}", im_display_name));
     }
+
+    if let Some(arrival_time) = message.original_arrival_time {
+        let parsed_time: Vec<&str> = arrival_time.split("T").collect();
+        let date = parsed_time[0].replace("-", "/");
+        let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
+        let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
+
+        println!("{time}");
+
+        message_info = message_info.push(text(date).size(14).color(Color::from_rgb(
+            0.788235294117647,
+            0.788235294117647,
+            0.788235294117647,
+        )));
+        message_info = message_info.push(text(time).size(14).color(Color::from_rgb(
+            0.788235294117647,
+            0.788235294117647,
+            0.788235294117647,
+        )));
+    }
+
+    message_column = message_column.push(message_info);
 
     if message.properties.clone().unwrap().subject != "".to_string() {
-        message_column =
-            message_column.push(text(message.properties.unwrap().subject).size(18).font(
-                font::Font {
+        message_column = message_column.push(
+            text(message.properties.clone().unwrap().subject)
+                .size(18)
+                .font(font::Font {
                     weight: font::Weight::Bold,
                     ..Default::default()
-                },
-            ));
+                }),
+        );
     }
+
     if message.message_type == "RichText/Html" {
         if let Some(content) = message.content {
             message_column = message_column.push(parse_message_html(content));
@@ -265,6 +289,29 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
     } else {
         if let Some(content) = message.content {
             message_column = message_column.push(text(content));
+        }
+    }
+
+    if let Some(properties) = message.properties {
+        if let Some(reactions) = properties.emotions {
+            let mut reactions_row = row![].spacing(10);
+            for reaction in reactions {
+                let reaction_val = format!("{} {}", reaction.key, reaction.users.len());
+                let reaction_container = container(text(reaction_val))
+                    .style(|_| container::Style {
+                        background: Some(
+                            Color::parse("#525252")
+                                .expect("Background color is invalid.")
+                                .into(),
+                        ),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
+                    .padding(3)
+                    .align_y(Alignment::Center);
+                reactions_row = reactions_row.push(reaction_container);
+            }
+            message_column = message_column.push(reactions_row);
         }
     }
 

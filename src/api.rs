@@ -67,6 +67,21 @@ pub struct File {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct EmotionUser {
+    pub mri: String,
+    pub time: u64,
+    pub value: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Emotion {
+    pub key: String,
+    pub users: Vec<EmotionUser>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageProperties {
     #[serde(default)]
     #[serde(deserialize_with = "string_to_i64")]
@@ -81,7 +96,8 @@ pub struct MessageProperties {
     #[serde(default)]
     #[serde(deserialize_with = "string_to_bool")]
     pub systemdelete: bool,
-    pub title: Option<String>, // pub emotions: Vec<>
+    pub title: Option<String>,
+    pub emotions: Option<Vec<Emotion>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
