@@ -63,6 +63,7 @@ struct Counter {
     reply_options: HashMap<String, bool>, // String is the conversation id
     cache: Arc<Mutex<AppCache>>,
     history: Vec<Page>,
+    emoji_map: HashMap<String, String>,
     search_teams_input_value: String,
 }
 
@@ -121,6 +122,9 @@ impl Counter {
 
         let cache_mutex = Arc::new(Mutex::new(cache.clone()));
 
+        let file_content = fs::read_to_string("emojies.json").unwrap();
+        let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
+
         let mut counter_self = Self {
             page: Page {
                 view: View::Login,
@@ -130,6 +134,7 @@ impl Counter {
             },
             reply_options: HashMap::new(),
             history: Vec::new(),
+            emoji_map: emojies,
             cache: cache_mutex.clone(),
             search_teams_input_value: "".to_string(),
         };
@@ -208,6 +213,8 @@ impl Counter {
                     .clone();
 
                 let reply_options = self.reply_options.clone();
+
+                let emoji_map = &self.emoji_map;
                 // NOTE: We need to open the team page withou any conversations first, and the load the conversations, otherwise the app would feel unresposive if it froze until the conversations where loaded (and rendered into iced components)
                 // That's why this exists. Better solutions are welcome.
 
@@ -218,9 +225,16 @@ impl Counter {
                         current_channel,
                         conversation.cloned(),
                         reply_options,
+                        emoji_map,
                     ))
                 } else {
-                    app(team(current_team, current_channel, None, reply_options))
+                    app(team(
+                        current_team,
+                        current_channel,
+                        None,
+                        reply_options,
+                        emoji_map,
+                    ))
                 }
             }
             View::Chat => {

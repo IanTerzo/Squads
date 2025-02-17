@@ -12,6 +12,7 @@ pub fn team<'a>(
     page_channel: Channel,
     conversations: Option<TeamConversations>,
     reply_options: HashMap<String, bool>,
+    emoji_map: &HashMap<String, String>,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
@@ -24,7 +25,7 @@ pub fn team<'a>(
             if let Some(option) = reply_options.get(&conversation.id) {
                 show_replies = option.clone();
             }
-            let conversaton_element = c_conversation(conversation, show_replies);
+            let conversaton_element = c_conversation(conversation, show_replies, emoji_map);
             conversation_column = conversation_column.push(conversaton_element)
         }
     }

@@ -222,7 +222,10 @@ fn parse_message_html(content: String) -> Element<'static, Message> {
     }
 }
 
-pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
+pub fn c_message<'a>(
+    message: crate::api::Message,
+    emoji_map: &HashMap<String, String>,
+) -> Option<Element<'a, Message>> {
     let mut message_column = column![].spacing(20);
 
     if let Some(properties) = message.properties.clone() {
@@ -302,8 +305,19 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
         if let Some(reactions) = properties.emotions {
             let mut reactions_row = row![].spacing(10);
             for reaction in reactions {
-                let reaction_val = format!("{} {}", reaction.key, reaction.users.len());
-                let reaction_container = container(text(reaction_val))
+                let reacters = reaction.users.len();
+                if reacters == 0 {
+                    continue;
+                }
+                let mut reaction_char = "?".to_string();
+
+                let reaction_val = emoji_map.get(&reaction.key);
+                if let Some(reaction_unicode) = reaction_val {
+                    reaction_char = reaction_unicode.clone();
+                }
+
+                let reaction_val = format!("{} {}", reaction_char, reacters);
+                let reaction_container = container(rich_text![Span::new(reaction_val)])
                     .style(|_| container::Style {
                         background: Some(
                             Color::parse("#525252")
