@@ -134,7 +134,7 @@ impl Counter {
             search_teams_input_value: "".to_string(),
         };
 
-        //if cache.refresh_token.expires < get_epoch_s() {}
+        //if cache.refresh_token.expires < get_epoch_s() {} show login page
 
         counter_self.page.view = View::Homepage;
         counter_self.history.push(counter_self.clone().page);

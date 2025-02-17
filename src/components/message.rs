@@ -225,28 +225,28 @@ fn parse_message_html(content: String) -> Element<'static, Message> {
 pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message>> {
     let mut message_column = column![].spacing(20);
 
-    if message.properties.is_none() {
-        return None;
-    }
-
-    if message.properties.clone().unwrap().systemdelete {
-        return None;
+    if let Some(properties) = message.properties.clone() {
+        if properties.systemdelete {
+            return None;
+        }
     }
 
     let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
-    if message.message_type == "RichText/Html" {
-        let im_display_name = message.im_display_name.unwrap();
-        let user_id = message.from.unwrap();
-        let user_picture = c_cached_image(
-            user_id.clone(),
-            Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
-            31.0,
-            31.0,
-        );
+    if let Some(message_type) = message.message_type.clone() {
+        if message_type == "RichText/Html" {
+            let im_display_name = message.im_display_name.unwrap();
+            let user_id = message.from.unwrap();
+            let user_picture = c_cached_image(
+                user_id.clone(),
+                Message::FetchUserImage(user_id.clone(), im_display_name.clone()),
+                31.0,
+                31.0,
+            );
 
-        message_info = message_info.push(user_picture);
-        message_info = message_info.push(text!("{}", im_display_name));
+            message_info = message_info.push(user_picture);
+            message_info = message_info.push(text!("{}", im_display_name));
+        }
     }
 
     if let Some(arrival_time) = message.original_arrival_time {
@@ -271,24 +271,30 @@ pub fn c_message<'a>(message: crate::api::Message) -> Option<Element<'a, Message
 
     message_column = message_column.push(message_info);
 
-    if message.properties.clone().unwrap().subject != "".to_string() {
-        message_column = message_column.push(
-            text(message.properties.clone().unwrap().subject)
-                .size(18)
-                .font(font::Font {
-                    weight: font::Weight::Bold,
-                    ..Default::default()
-                }),
-        );
+    if let Some(properties) = message.properties.clone() {
+        if properties.subject != "".to_string() {
+            message_column = message_column.push(
+                text(message.properties.clone().unwrap().subject)
+                    .size(18)
+                    .font(font::Font {
+                        weight: font::Weight::Bold,
+                        ..Default::default()
+                    }),
+            );
+        }
     }
 
-    if message.message_type == "RichText/Html" {
-        if let Some(content) = message.content {
-            message_column = message_column.push(parse_message_html(content));
+    if let Some(message_type) = message.message_type.clone() {
+        if message_type == "RichText/Html" {
+            if let Some(content) = message.content {
+                message_column = message_column.push(parse_message_html(content));
+            }
         }
-    } else {
-        if let Some(content) = message.content {
-            message_column = message_column.push(text(content));
+        //else if message_type == "text"
+        else {
+            if let Some(content) = message.content {
+                message_column = message_column.push(text(content));
+            }
         }
     }
 
