@@ -102,7 +102,7 @@ fn transform_html<'a>(
 
                 if itemtype == "http://schema.skype.com/Emoji" {
                     if let Some(alt) = child_element.attr("alt") {
-                        let font = Font::with_name("Noto Color Emoji");
+                        let font = Font::with_name("Twemoji");
                         dynamic_container = dynamic_container
                             .push(rich_text![Span::new(alt.to_string()).font(font)].into());
                     }
@@ -312,7 +312,7 @@ pub fn c_message<'a>(
                     continue;
                 }
                 let mut reaction_text = text("(?)");
-                let font = Font::with_name("Noto Color Emoji");
+                let font = Font::with_name("Twemoji");
 
                 let reaction_val = emoji_map.get(&reaction.key);
                 if let Some(reaction_unicode) = reaction_val {

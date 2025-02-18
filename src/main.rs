@@ -463,6 +463,6 @@ impl Counter {
 pub fn main() -> iced::Result {
     iced::application("Squads", Counter::update, Counter::view)
         .theme(Counter::theme)
-        .font(include_bytes!("../resources/NotoColorEmoji-Regular.ttf").as_slice())
+        .font(include_bytes!("../resources/Twemoji-15.1.0.ttf").as_slice())
         .run_with(Counter::new)
 }
