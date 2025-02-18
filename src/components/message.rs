@@ -1,7 +1,7 @@
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
-use iced::{border, font, Alignment, Color, Element, Font};
+use iced::{border, font, Alignment, Color, Element, Font, Padding};
 use std::collections::HashMap;
 use std::fmt::format;
 
@@ -102,8 +102,9 @@ fn transform_html<'a>(
 
                 if itemtype == "http://schema.skype.com/Emoji" {
                     if let Some(alt) = child_element.attr("alt") {
-                        dynamic_container =
-                            dynamic_container.push(rich_text![Span::new(alt.to_string())].into());
+                        let font = Font::with_name("Noto Color Emoji");
+                        dynamic_container = dynamic_container
+                            .push(rich_text![Span::new(alt.to_string()).font(font)].into());
                     }
                 } else if itemtype == "http://schema.skype.com/AMSImage" {
                     // most consistent way to get the image id
@@ -301,23 +302,24 @@ pub fn c_message<'a>(
         }
     }
 
+    let mut reactions_row = row![].spacing(10);
+
     if let Some(properties) = message.properties {
         if let Some(reactions) = properties.emotions {
-            let mut reactions_row = row![].spacing(10);
             for reaction in reactions {
                 let reacters = reaction.users.len();
                 if reacters == 0 {
                     continue;
                 }
-                let mut reaction_char = "?".to_string();
+                let mut reaction_text = text("(?)");
+                let font = Font::with_name("Noto Color Emoji");
 
                 let reaction_val = emoji_map.get(&reaction.key);
                 if let Some(reaction_unicode) = reaction_val {
-                    reaction_char = reaction_unicode.clone();
+                    reaction_text = text(reaction_unicode.clone()).font(font);
                 }
 
-                let reaction_val = format!("{} {}", reaction_char, reacters);
-                let reaction_container = container(rich_text![Span::new(reaction_val)])
+                let reaction_container = container(row![reaction_text, text(reacters)].spacing(4))
                     .style(|_| container::Style {
                         background: Some(
                             Color::parse("#525252")
@@ -331,9 +333,26 @@ pub fn c_message<'a>(
                     .align_y(Alignment::Center);
                 reactions_row = reactions_row.push(reaction_container);
             }
-            message_column = message_column.push(reactions_row);
         }
     }
+
+    let add_reaction_container =
+        container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
+            .style(|_| container::Style {
+                background: Some(
+                    Color::parse("#525252")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(4),
+                ..Default::default()
+            })
+            .padding(3)
+            .align_y(Alignment::Center);
+
+    reactions_row = reactions_row.push(add_reaction_container);
+
+    message_column = message_column.push(reactions_row);
 
     return Some(message_column.into());
 }

@@ -122,7 +122,7 @@ impl Counter {
 
         let cache_mutex = Arc::new(Mutex::new(cache.clone()));
 
-        let file_content = fs::read_to_string("emojies.json").unwrap();
+        let file_content = fs::read_to_string("resources/emojis.json").unwrap();
         let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let mut counter_self = Self {
@@ -463,5 +463,6 @@ impl Counter {
 pub fn main() -> iced::Result {
     iced::application("Squads", Counter::update, Counter::view)
         .theme(Counter::theme)
+        .font(include_bytes!("../resources/NotoColorEmoji-Regular.ttf").as_slice())
         .run_with(Counter::new)
 }
