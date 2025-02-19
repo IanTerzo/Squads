@@ -329,7 +329,12 @@ pub fn c_message<'a>(
                         border: border::rounded(4),
                         ..Default::default()
                     })
-                    .padding(3)
+                    .padding(Padding {
+                        top: 3.0,
+                        right: 3.0,
+                        bottom: 3.0,
+                        left: 5.0,
+                    })
                     .align_y(Alignment::Center);
                 reactions_row = reactions_row.push(reaction_container);
             }

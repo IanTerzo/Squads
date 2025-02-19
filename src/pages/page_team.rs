@@ -4,7 +4,9 @@ use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
 use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
-use iced::{border, font, Color, ContentFit, Element, Padding};
+use iced::{border, font, Color, ContentFit, Element, Length, Padding};
+use iced_widget::text_editor::Content;
+use iced_widget::{scrollable, text_editor};
 use std::collections::HashMap;
 
 pub fn team<'a>(
@@ -13,6 +15,7 @@ pub fn team<'a>(
     conversations: Option<TeamConversations>,
     reply_options: HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
+    message_area_content: &'a Content,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
@@ -30,7 +33,24 @@ pub fn team<'a>(
         }
     }
 
-    let conversation_scrollbar = c_styled_scrollbar(conversation_column);
+    let conversation_scrollbar = scrollable(conversation_column).height(Length::Fill);
+
+    let message_box = container(
+        text_editor(message_area_content)
+            .height(150)
+            .on_action(Message::Edit),
+    )
+    .style(|_| container::Style {
+        background: Some(
+            Color::parse("#525252")
+                .expect("Background color is invalid.")
+                .into(),
+        ),
+        border: border::rounded(4),
+        ..Default::default()
+    });
+
+    let content_page = column![conversation_scrollbar, message_box];
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -103,7 +123,5 @@ pub fn team<'a>(
     let team_scrollbar = c_styled_scrollbar(channels_coloumn);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
-    row![team_info_column, conversation_scrollbar]
-        .spacing(10)
-        .into()
+    row![team_info_column, content_page].spacing(10).into()
 }

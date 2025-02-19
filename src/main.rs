@@ -1,4 +1,5 @@
 use iced::{Color, Element, Task, Theme};
+use iced_widget::text_editor::{self, Content};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
@@ -57,7 +58,7 @@ struct AppCache {
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Counter {
     page: Page,
     reply_options: HashMap<String, bool>, // String is the conversation id
@@ -65,10 +66,12 @@ struct Counter {
     history: Vec<Page>,
     emoji_map: HashMap<String, String>,
     search_teams_input_value: String,
+    message_area_content: Content,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+    Edit(text_editor::Action),
     Authorized(()),
     DoNothing(()),
     LinkClicked(String),
@@ -132,6 +135,7 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
+            message_area_content: Content::new(),
             reply_options: HashMap::new(),
             history: Vec::new(),
             emoji_map: emojies,
@@ -142,7 +146,7 @@ impl Counter {
         //if cache.refresh_token.expires < get_epoch_s() {} show login page
 
         counter_self.page.view = View::Homepage;
-        counter_self.history.push(counter_self.clone().page);
+        counter_self.history.push(counter_self.page.clone());
 
         (
             counter_self,
@@ -226,6 +230,7 @@ impl Counter {
                         conversation.cloned(),
                         reply_options,
                         emoji_map,
+                        &self.message_area_content,
                     ))
                 } else {
                     app(team(
@@ -234,6 +239,7 @@ impl Counter {
                         None,
                         reply_options,
                         emoji_map,
+                        &self.message_area_content,
                     ))
                 }
             }
@@ -246,6 +252,10 @@ impl Counter {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::Edit(action) => {
+                self.message_area_content.perform(action);
+                Task::none()
+            }
             Message::DoNothing(_) => Task::none(),
 
             Message::Authorized(_response) => {
