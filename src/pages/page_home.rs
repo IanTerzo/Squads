@@ -63,10 +63,10 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                     .expect("Background color is invalid.")
                     .into(),
                 border: border::rounded(8),
-                icon: Color::parse("#444").expect("Background color is invalid."),
-                placeholder: Color::parse("#666").expect("Background color is invalid."),
-                value: Color::parse("#fff").expect("Background color is invalid."),
-                selection: Color::parse("#444").expect("Background color is invalid."),
+                icon: Color::parse("#444").expect("Icon color is invalid."),
+                placeholder: Color::parse("#666").expect("Placeholder color is invalid."),
+                value: Color::parse("#fff").expect("Value color is invalid."),
+                selection: Color::parse("#444").expect("Selection color is invalid."),
             }),
     )
     .width(220)

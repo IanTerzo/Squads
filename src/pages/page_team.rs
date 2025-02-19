@@ -4,9 +4,9 @@ use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
 use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
-use iced::{border, font, Color, ContentFit, Element, Length, Padding};
+use iced::{border, font, padding, Border, Color, ContentFit, Element, Font, Length, Padding};
 use iced_widget::text_editor::Content;
-use iced_widget::{scrollable, text_editor};
+use iced_widget::{rich_text, scrollable, span, svg, text_editor};
 use std::collections::HashMap;
 
 pub fn team<'a>(
@@ -33,23 +33,63 @@ pub fn team<'a>(
         }
     }
 
-    let conversation_scrollbar = scrollable(conversation_column).height(Length::Fill);
+    let conversation_scrollbar =
+        container(c_styled_scrollbar(conversation_column)).height(Length::Fill);
 
     let message_box = container(
-        text_editor(message_area_content)
-            .height(150)
-            .on_action(Message::Edit),
+        container(column![
+            row![
+                text("Write"),
+                text("Preview"),
+                container(
+                    row![
+                        rich_text![span("B").font(Font {
+                            weight: font::Weight::Bold,
+                            ..Default::default()
+                        })],
+                        rich_text![span("I")],
+                        rich_text![span("U").underline(true)],
+                        rich_text![span("S").strikethrough(true)],
+                        svg("images/list.svg").width(23).height(23),
+                        svg("images/list-ordered.svg").width(23).height(23),
+                        svg("images/text-quote.svg").width(23).height(23),
+                        svg("images/code.svg").width(23).height(23),
+                        svg("images/link.svg").width(23).height(23),
+                        svg("images/image.svg").width(23).height(23),
+                        svg("images/at-sign.svg").width(23).height(23),
+                    ]
+                    .spacing(8)
+                )
+                .align_right(Length::Fill)
+            ]
+            .padding(8),
+            text_editor(message_area_content)
+                .padding(8)
+                .height(100)
+                .on_action(Message::Edit)
+                .placeholder("Type your message...")
+                .style(|_, _| text_editor::Style {
+                    background: Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                    border: border::rounded(4),
+                    icon: Color::parse("#444").expect("Icon color is invalid."),
+                    placeholder: Color::parse("#666").expect("Placeholder color is invalid."),
+                    value: Color::parse("#fff").expect("Value color is invalid."),
+                    selection: Color::parse("#444").expect("Selection color is invalid."),
+                }),
+        ])
+        .style(|_| container::Style {
+            background: Some(
+                Color::parse("#333")
+                    .expect("Background color is invalid.")
+                    .into(),
+            ),
+            border: border::rounded(8),
+            ..Default::default()
+        }),
     )
-    .style(|_| container::Style {
-        background: Some(
-            Color::parse("#525252")
-                .expect("Background color is invalid.")
-                .into(),
-        ),
-        border: border::rounded(4),
-        ..Default::default()
-    });
-
+    .padding(padding::top(10));
     let content_page = column![conversation_scrollbar, message_box];
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
