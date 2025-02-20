@@ -3,6 +3,7 @@ use iced_widget::text_editor::{self, Content};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
 
+use std::any::Any;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fs, io::Write, path::Path};
@@ -67,6 +68,7 @@ struct Counter {
     emoji_map: HashMap<String, String>,
     search_teams_input_value: String,
     message_area_content: Content,
+    message_area_height: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -135,6 +137,7 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
+            message_area_height: 39.0,
             message_area_content: Content::new(),
             reply_options: HashMap::new(),
             history: Vec::new(),
@@ -231,6 +234,7 @@ impl Counter {
                         reply_options,
                         emoji_map,
                         &self.message_area_content,
+                        self.message_area_height,
                     ))
                 } else {
                     app(team(
@@ -240,6 +244,7 @@ impl Counter {
                         reply_options,
                         emoji_map,
                         &self.message_area_content,
+                        self.message_area_height,
                     ))
                 }
             }
@@ -253,6 +258,9 @@ impl Counter {
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Edit(action) => {
+                if let text_editor::Action::Edit(text_editor::Edit::Enter) = action {
+                    self.message_area_height += 22.0;
+                }
                 self.message_area_content.perform(action);
                 Task::none()
             }
@@ -459,7 +467,7 @@ impl Counter {
 
     fn theme(&self) -> Theme {
         let custom_palette = iced::theme::palette::Palette {
-            background: Color::parse("#3c3c3c").expect("Background color is invalid."),
+            background: Color::parse("#1c1c20").expect("Background color is invalid."),
             text: Color::new(1.0, 0.0, 0.0, 1.0),
             primary: Color::new(1.0, 0.0, 0.0, 1.0),
             success: Color::new(1.0, 0.0, 0.0, 1.0),

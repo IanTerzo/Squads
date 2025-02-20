@@ -4,7 +4,9 @@ use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
 use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
-use iced::{border, font, padding, Border, Color, ContentFit, Element, Font, Length, Padding};
+use iced::{
+    border, font, padding, Alignment, Border, Color, ContentFit, Element, Font, Length, Padding,
+};
 use iced_widget::text_editor::Content;
 use iced_widget::{rich_text, scrollable, span, svg, text_editor};
 use std::collections::HashMap;
@@ -16,6 +18,7 @@ pub fn team<'a>(
     reply_options: HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     message_area_content: &'a Content,
+    message_area_height: f32,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
@@ -38,34 +41,87 @@ pub fn team<'a>(
 
     let message_box = container(
         container(column![
-            row![
-                text("Write"),
-                text("Preview"),
-                container(
+            container(
+                row![
                     row![
-                        rich_text![span("B").font(Font {
-                            weight: font::Weight::Bold,
-                            ..Default::default()
-                        })],
-                        rich_text![span("I")],
-                        rich_text![span("U").underline(true)],
-                        rich_text![span("S").strikethrough(true)],
-                        svg("images/list.svg").width(23).height(23),
-                        svg("images/list-ordered.svg").width(23).height(23),
-                        svg("images/text-quote.svg").width(23).height(23),
-                        svg("images/code.svg").width(23).height(23),
-                        svg("images/link.svg").width(23).height(23),
-                        svg("images/image.svg").width(23).height(23),
-                        svg("images/at-sign.svg").width(23).height(23),
+                        container(text("Write"))
+                            .style(|_| container::Style {
+                                background: Some(
+                                    Color::parse("#333")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
+                                ..Default::default()
+                            })
+                            .padding(3)
+                            .align_y(Alignment::Center),
+                        container(text("Preview"))
+                            .style(|_| container::Style {
+                                background: Some(
+                                    Color::parse("#484848")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
+                                border: border::rounded(4),
+                                ..Default::default()
+                            })
+                            .padding(3)
+                            .align_y(Alignment::Center)
                     ]
-                    .spacing(8)
-                )
-                .align_right(Length::Fill)
-            ]
-            .padding(8),
+                    .spacing(8),
+                    container(
+                        row![
+                            row![
+                                rich_text![span("B").font(Font {
+                                    weight: font::Weight::Bold,
+                                    ..Default::default()
+                                })]
+                                .size(20),
+                                rich_text![span("I")].size(20),
+                                rich_text![span("U").underline(true)].size(20),
+                                rich_text![span("S").strikethrough(true)].size(20)
+                            ]
+                            .spacing(8),
+                            row![
+                                svg("images/list.svg").width(23).height(23),
+                                svg("images/list-ordered.svg").width(23).height(23)
+                            ]
+                            .padding(padding::top(3))
+                            .spacing(8),
+                            row![
+                                svg("images/code.svg").width(23).height(23),
+                                svg("images/text-quote.svg").width(23).height(23),
+                                svg("images/link.svg").width(19).height(19),
+                                svg("images/image.svg").width(19).height(19),
+                                svg("images/at-sign.svg").width(19).height(19)
+                            ]
+                            .padding(padding::top(3))
+                            .spacing(8),
+                        ]
+                        .spacing(20)
+                    )
+                    .align_right(Length::Fill)
+                ]
+                .padding(Padding {
+                    top: 8.0,
+                    right: 10.0,
+                    bottom: 4.0,
+                    left: 10.0
+                })
+            )
+            .style(|_| container::Style {
+                background: Some(
+                    Color::parse("#484848")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(4),
+
+                ..Default::default()
+            }),
             text_editor(message_area_content)
                 .padding(8)
-                .height(100)
+                .height(message_area_height)
                 .on_action(Message::Edit)
                 .placeholder("Type your message...")
                 .style(|_, _| text_editor::Style {
@@ -78,6 +134,34 @@ pub fn team<'a>(
                     value: Color::parse("#fff").expect("Value color is invalid."),
                     selection: Color::parse("#444").expect("Selection color is invalid."),
                 }),
+            row![
+                row![
+                    svg("images/smile.svg").width(20).height(20),
+                    svg("images/upload.svg").width(20).height(20),
+                ]
+                .spacing(8),
+                container(
+                    container(text("Send"))
+                        .style(|_| container::Style {
+                            background: Some(
+                                Color::parse("#525252")
+                                    .expect("Background color is invalid.")
+                                    .into(),
+                            ),
+                            border: border::rounded(4),
+                            ..Default::default()
+                        })
+                        .padding(4)
+                        .align_y(Alignment::Center)
+                )
+                .align_right(Length::Fill)
+            ]
+            .padding(Padding {
+                top: 0.0,
+                right: 10.0,
+                bottom: 8.0,
+                left: 10.0
+            })
         ])
         .style(|_| container::Style {
             background: Some(
