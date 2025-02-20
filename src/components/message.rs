@@ -131,9 +131,6 @@ fn transform_html<'a>(
                         image_height = height;
                     }
 
-                    println!("width: {}", image_width);
-                    println!("height: {}", image_height);
-
                     let team_picture = c_cached_image(
                         image_id.clone(),
                         Message::AuthorizeImage(image_id.clone()),
@@ -258,8 +255,6 @@ pub fn c_message<'a>(
         let date = parsed_time[0].replace("-", "/");
         let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
         let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
-
-        println!("{time}");
 
         message_info = message_info.push(text(date).size(14).color(Color::from_rgb(
             0.788235294117647,

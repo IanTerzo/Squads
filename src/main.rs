@@ -1,4 +1,4 @@
-use iced::{Color, Element, Task, Theme};
+use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme};
 use iced_widget::text_editor::{self, Content};
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -31,6 +31,9 @@ use pages::page_chat::chat;
 use pages::page_home::home;
 use pages::page_login::login;
 use pages::page_team::team;
+
+const WINDOW_WIDTH: f32 = 1240.0;
+const WINDOW_HEIGHT: f32 = 780.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum View {
@@ -69,11 +72,14 @@ struct Counter {
     search_teams_input_value: String,
     message_area_content: Content,
     message_area_height: f32,
+    window_width: f32,
+    window_height: f32,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
     Edit(text_editor::Action),
+    EventOccurred(Event),
     Authorized(()),
     DoNothing(()),
     LinkClicked(String),
@@ -137,13 +143,15 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
-            message_area_height: 39.0,
+            message_area_height: 54.0,
             message_area_content: Content::new(),
             reply_options: HashMap::new(),
             history: Vec::new(),
             emoji_map: emojies,
             cache: cache_mutex.clone(),
             search_teams_input_value: "".to_string(),
+            window_width: WINDOW_WIDTH,
+            window_height: WINDOW_HEIGHT,
         };
 
         //if cache.refresh_token.expires < get_epoch_s() {} show login page
@@ -257,11 +265,36 @@ impl Counter {
 
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Edit(action) => {
-                if let text_editor::Action::Edit(text_editor::Edit::Enter) = action {
-                    self.message_area_height += 22.0;
+            Message::EventOccurred(event) => {
+                match event {
+                    Event::Window(window::Event::Resized(size)) => {
+                        self.window_width = size.width;
+                        self.window_height = size.height;
+
+                        let max_area_height = 0.5 * self.window_height;
+
+                        if self.message_area_height > max_area_height {
+                            self.message_area_height = max_area_height;
+                        }
+                    }
+                    _ => {}
                 }
+
+                Task::none()
+            }
+            Message::Edit(action) => {
+                let max_area_height = 0.5 * self.window_height;
                 self.message_area_content.perform(action);
+                let line_count = self.message_area_content.line_count();
+                let new_height = 33.0 + line_count as f32 * 21.0;
+
+                if new_height > max_area_height {
+                    self.message_area_height = max_area_height;
+                } else {
+                    self.message_area_height = new_height;
+                }
+                println!("max {:#?} current: {:#?}", max_area_height, new_height);
+
                 Task::none()
             }
             Message::DoNothing(_) => Task::none(),
@@ -465,6 +498,10 @@ impl Counter {
         }
     }
 
+    fn subscription(&self) -> Subscription<Message> {
+        event::listen().map(Message::EventOccurred)
+    }
+
     fn theme(&self) -> Theme {
         let custom_palette = iced::theme::palette::Palette {
             background: Color::parse("#1c1c20").expect("Background color is invalid."),
@@ -480,6 +517,11 @@ impl Counter {
 
 pub fn main() -> iced::Result {
     iced::application("Squads", Counter::update, Counter::view)
+        .window_size(Size {
+            width: WINDOW_WIDTH,
+            height: WINDOW_HEIGHT,
+        })
+        .subscription(Counter::subscription)
         .theme(Counter::theme)
         .font(include_bytes!("../resources/Twemoji-15.1.0.ttf").as_slice())
         .run_with(Counter::new)
