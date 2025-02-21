@@ -11,7 +11,7 @@ pub fn c_conversation<'a>(
     conversation: Conversation,
     show_replies: bool,
     emoji_map: &HashMap<String, String>,
-) -> Element<'a, Message> {
+) -> Option<Element<'a, Message>> {
     let mut message_chain = column![].spacing(20);
 
     let ordered_conversation: Vec<_> = conversation.messages.iter().rev().cloned().collect();
@@ -19,6 +19,8 @@ pub fn c_conversation<'a>(
     let first_message = ordered_conversation.get(0).unwrap().clone();
     if let Some(message_element) = c_message(first_message, emoji_map) {
         message_chain = message_chain.push(message_element);
+    } else {
+        return None;
     }
 
     if ordered_conversation.len() > 1 {
@@ -43,18 +45,19 @@ pub fn c_conversation<'a>(
             }
         }
     }
-
-    container(message_chain)
-        .style(|_| container::Style {
-            background: Some(
-                Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-            border: border::rounded(8),
-            ..Default::default()
-        })
-        .width(iced::Length::Fill)
-        .padding(20)
-        .into()
+    Some(
+        container(message_chain)
+            .style(|_| container::Style {
+                background: Some(
+                    Color::parse("#333")
+                        .expect("Background color is invalid.")
+                        .into(),
+                ),
+                border: border::rounded(8),
+                ..Default::default()
+            })
+            .width(iced::Length::Fill)
+            .padding(20)
+            .into(),
+    )
 }

@@ -6,8 +6,8 @@ use crate::utils::truncate_name;
 use crate::Message;
 
 use iced::widget::text;
+use iced::widget::{column, container, row, Space};
 use iced::{border, padding, Alignment, Color, Element};
-use iced_widget::{column, container, row, Space};
 
 pub fn chat<'a>(
     chats: Vec<Chat>,

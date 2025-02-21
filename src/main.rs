@@ -1,9 +1,7 @@
+use iced::widget::text_editor::{self, Content};
 use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme};
-use iced_widget::text_editor::{self, Content};
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
 
-use std::any::Any;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::{collections::HashMap, fs, io::Write, path::Path};
@@ -85,6 +83,7 @@ pub enum Message {
     LinkClicked(String),
     Join,
     Jump(Page),
+    PostMessage,
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
@@ -299,6 +298,11 @@ impl Counter {
             }
             Message::DoNothing(_) => Task::none(),
 
+            Message::PostMessage => {
+                let message_area_text = self.message_area_content.text();
+
+                Task::none()
+            }
             Message::Authorized(_response) => {
                 self.page.view = View::Homepage;
                 self.history.push(self.page.clone());

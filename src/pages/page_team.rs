@@ -3,12 +3,10 @@ use crate::components::{conversation::c_conversation, styled_scrollbar::c_styled
 use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
+use iced::widget::text_editor::Content;
 use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
-use iced::{
-    border, font, padding, Alignment, Border, Color, ContentFit, Element, Font, Length, Padding,
-};
-use iced_widget::text_editor::Content;
-use iced_widget::{rich_text, scrollable, span, svg, text_editor};
+use iced::widget::{rich_text, span, svg, text_editor};
+use iced::{border, font, padding, Alignment, Color, ContentFit, Element, Font, Length, Padding};
 use std::collections::HashMap;
 
 pub fn team<'a>(
@@ -32,7 +30,10 @@ pub fn team<'a>(
                 show_replies = option.clone();
             }
             let conversaton_element = c_conversation(conversation, show_replies, emoji_map);
-            conversation_column = conversation_column.push(conversaton_element)
+
+            if let Some(conversation_element_un) = conversaton_element {
+                conversation_column = conversation_column.push(conversation_element_un)
+            }
         }
     }
 
@@ -77,7 +78,11 @@ pub fn team<'a>(
                                     ..Default::default()
                                 })]
                                 .size(20),
-                                rich_text![span("I")].size(20),
+                                rich_text![span("I").font(Font {
+                                    style: font::Style::Italic,
+                                    ..Default::default()
+                                })]
+                                .size(20),
                                 rich_text![span("U").underline(true)].size(20),
                                 rich_text![span("S").strikethrough(true)].size(20)
                             ]
@@ -141,18 +146,21 @@ pub fn team<'a>(
                 ]
                 .spacing(8),
                 container(
-                    container(text("Send"))
-                        .style(|_| container::Style {
-                            background: Some(
-                                Color::parse("#525252")
-                                    .expect("Background color is invalid.")
-                                    .into(),
-                            ),
-                            border: border::rounded(4),
-                            ..Default::default()
-                        })
-                        .padding(4)
-                        .align_y(Alignment::Center)
+                    MouseArea::new(
+                        container(text("Send"))
+                            .style(|_| container::Style {
+                                background: Some(
+                                    Color::parse("#525252")
+                                        .expect("Background color is invalid.")
+                                        .into(),
+                                ),
+                                border: border::rounded(4),
+                                ..Default::default()
+                            })
+                            .padding(4)
+                            .align_y(Alignment::Center)
+                    )
+                    .on_release(Message::PostMessage)
                 )
                 .align_right(Length::Fill)
             ]

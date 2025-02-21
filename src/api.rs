@@ -1,6 +1,4 @@
 use anyhow::{anyhow, Context, Result};
-use base64::engine::general_purpose::STANDARD as BASE64;
-use base64::engine::Engine as _;
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Deserializer, Serialize};

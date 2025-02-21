@@ -1,7 +1,7 @@
 use crate::api::Team;
 use crate::Message;
 
-use iced::widget::{column, container, row, text, text_input, Column, MouseArea, Space};
+use iced::widget::{column, container, row, text, text_input, Column, MouseArea};
 use iced::{border, padding, Alignment, Color, Element};
 
 use crate::components::{cached_image::c_cached_image, styled_scrollbar::c_styled_scrollbar};
