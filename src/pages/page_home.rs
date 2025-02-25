@@ -52,15 +52,15 @@ pub fn home(
         scrollable(teams_column)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(10)
+                    .width(8)
                     .spacing(10)
-                    .scroller_width(10),
+                    .scroller_width(8),
             ))
             .style(|_, _| theme.scrollable),
     );
 
     let search_teams = container(
-        text_input("Search teams.. .", &search_teams_input_value)
+        text_input("Search teams...", &search_teams_input_value)
             .on_input(Message::ContentChanged)
             .padding(8)
             .style(|_, _| theme.input),

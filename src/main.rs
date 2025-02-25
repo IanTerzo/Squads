@@ -208,12 +208,15 @@ impl Counter {
         println!("view called");
 
         match self.page.view {
-            View::Login => app(login()),
-            View::Homepage => app(home(
+            View::Login => app(&self.theme, login()),
+            View::Homepage => app(
                 &self.theme,
-                self.cache.lock().unwrap().teams.clone(),
-                self.search_teams_input_value.clone(),
-            )),
+                home(
+                    &self.theme,
+                    self.cache.lock().unwrap().teams.clone(),
+                    self.search_teams_input_value.clone(),
+                ),
+            ),
             View::Team => {
                 let cache = self.cache.lock().unwrap();
 
@@ -239,37 +242,41 @@ impl Counter {
 
                 if self.page.show_conversations {
                     let conversation = cache.team_conversations.get(&self.page.current_team_id);
-                    app(team(
+                    app(
                         &self.theme,
-                        current_team,
-                        current_channel,
-                        conversation.cloned(),
-                        reply_options,
-                        emoji_map,
-                        &self.message_area_content,
-                        self.message_area_height,
-                    ))
+                        team(
+                            &self.theme,
+                            current_team,
+                            current_channel,
+                            conversation.cloned(),
+                            reply_options,
+                            emoji_map,
+                            &self.message_area_content,
+                            self.message_area_height,
+                        ),
+                    )
                 } else {
-                    app(team(
+                    app(
                         &self.theme,
-                        current_team,
-                        current_channel,
-                        None,
-                        reply_options,
-                        emoji_map,
-                        &self.message_area_content,
-                        self.message_area_height,
-                    ))
+                        team(
+                            &self.theme,
+                            current_team,
+                            current_channel,
+                            None,
+                            reply_options,
+                            emoji_map,
+                            &self.message_area_content,
+                            self.message_area_height,
+                        ),
+                    )
                 }
             }
             View::Chat => {
                 let cache = self.cache.clone().lock().unwrap().clone();
-                app(chat(
+                app(
                     &self.theme,
-                    cache.chats,
-                    cache.org_users,
-                    cache.user_id,
-                ))
+                    chat(&self.theme, cache.chats, cache.org_users, cache.user_id),
+                )
             }
         }
     }

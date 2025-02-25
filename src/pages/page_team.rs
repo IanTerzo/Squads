@@ -38,9 +38,17 @@ pub fn team<'a>(
         }
     }
 
-    let conversation_scrollbar =
-        container(scrollable(conversation_column).style(|_, _| theme.scrollable))
-            .height(Length::Fill);
+    let conversation_scrollbar = container(
+        scrollable(conversation_column)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(8)
+                    .spacing(10)
+                    .scroller_width(8),
+            ))
+            .style(|_, _| theme.scrollable),
+    )
+    .height(Length::Fill);
 
     let message_area = c_message_area(theme, message_area_content, message_area_height);
     let content_page = column![conversation_scrollbar, message_area];
@@ -97,7 +105,14 @@ pub fn team<'a>(
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }
 
-    let team_scrollbar = scrollable(channels_coloumn).style(|_, _| theme.scrollable);
+    let team_scrollbar = scrollable(channels_coloumn)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(8)
+                .spacing(10)
+                .scroller_width(8),
+        ))
+        .style(|_, _| theme.scrollable);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
     row![team_info_column, content_page].spacing(10).into()
