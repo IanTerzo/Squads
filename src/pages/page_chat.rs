@@ -1,19 +1,21 @@
 use std::collections::HashMap;
 
 use crate::api::{Chat, ShortProfile};
-use crate::components::{cached_image::c_cached_image, styled_scrollbar::c_styled_scrollbar};
+use crate::components::cached_image::c_cached_image;
+use crate::style::Stylesheet;
 use crate::utils::truncate_name;
 use crate::Message;
 
-use iced::widget::text;
 use iced::widget::{column, container, row, Space};
+use iced::widget::{scrollable, text};
 use iced::{border, padding, Alignment, Color, Element};
 
-pub fn chat<'a>(
+pub fn chat(
+    theme: &Stylesheet,
     chats: Vec<Chat>,
     org_users: HashMap<String, ShortProfile>,
     user_id: String,
-) -> Element<'a, Message> {
+) -> Element<Message> {
     let mut chats_column = column![].spacing(8.5);
 
     for chat in chats {
@@ -76,21 +78,13 @@ pub fn chat<'a>(
                 .padding(padding::left(10))
                 .align_y(Alignment::Center),
         )
-        .style(|_| container::Style {
-            background: Some(
-                Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-            border: border::rounded(8),
-            ..Default::default()
-        })
+        .style(|_| theme.list_tab)
         .center_y(47)
         .width(220);
 
         chats_column = chats_column.push(chat_item);
     }
-    let chats_scrollable = c_styled_scrollbar(chats_column);
+    let chats_scrollable = scrollable(chats_column).style(|_, _| theme.scrollable);
 
     row![chats_scrollable, "Hello, chat"].into()
 }

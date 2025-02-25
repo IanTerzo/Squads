@@ -11,10 +11,11 @@ use webbrowser;
 mod components;
 use components::cached_image::save_cached_image;
 
+mod api;
+mod style;
+use style::{theme_squads_dark, Stylesheet};
 mod utils;
 mod widgets;
-
-mod api;
 use api::{
     authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture,
     fetch_short_profile, team_conversations, user_details, user_properties, AccessToken, Chat,
@@ -50,6 +51,7 @@ struct Page {
     show_conversations: bool,
 }
 
+struct State {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct AppCache {
     access_tokens: HashMap<String, AccessToken>,
@@ -63,6 +65,7 @@ struct AppCache {
 #[derive(Debug)]
 struct Counter {
     page: Page,
+    theme: Stylesheet,
     reply_options: HashMap<String, bool>, // String is the conversation id
     cache: Arc<Mutex<AppCache>>,
     history: Vec<Page>,
@@ -142,6 +145,7 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
+            theme: theme_squads_dark(),
             message_area_height: 54.0,
             message_area_content: Content::new(),
             reply_options: HashMap::new(),
@@ -206,6 +210,7 @@ impl Counter {
         match self.page.view {
             View::Login => app(login()),
             View::Homepage => app(home(
+                &self.theme,
                 self.cache.lock().unwrap().teams.clone(),
                 self.search_teams_input_value.clone(),
             )),
@@ -235,6 +240,7 @@ impl Counter {
                 if self.page.show_conversations {
                     let conversation = cache.team_conversations.get(&self.page.current_team_id);
                     app(team(
+                        &self.theme,
                         current_team,
                         current_channel,
                         conversation.cloned(),
@@ -245,6 +251,7 @@ impl Counter {
                     ))
                 } else {
                     app(team(
+                        &self.theme,
                         current_team,
                         current_channel,
                         None,
@@ -257,7 +264,12 @@ impl Counter {
             }
             View::Chat => {
                 let cache = self.cache.clone().lock().unwrap().clone();
-                app(chat(cache.chats, cache.org_users, cache.user_id))
+                app(chat(
+                    &self.theme,
+                    cache.chats,
+                    cache.org_users,
+                    cache.user_id,
+                ))
             }
         }
     }
@@ -506,9 +518,10 @@ impl Counter {
         event::listen().map(Message::EventOccurred)
     }
 
+    // The default theming system is not used, except for the background
     fn theme(&self) -> Theme {
         let custom_palette = iced::theme::palette::Palette {
-            background: Color::parse("#1c1c20").expect("Background color is invalid."),
+            background: self.theme.background_color,
             text: Color::new(1.0, 0.0, 0.0, 1.0),
             primary: Color::new(1.0, 0.0, 0.0, 1.0),
             success: Color::new(1.0, 0.0, 0.0, 1.0),

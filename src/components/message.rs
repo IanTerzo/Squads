@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
 use crate::components::cached_image::c_cached_image;
+use crate::style::Stylesheet;
 use crate::Message;
 use base64::decode;
 use scraper::{Html, Selector};
@@ -237,6 +238,7 @@ fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, String> 
 }
 
 pub fn c_message<'a>(
+    theme: &'a Stylesheet,
     message: crate::api::Message,
     emoji_map: &HashMap<String, String>,
 ) -> Option<Element<'a, Message>> {
@@ -397,15 +399,7 @@ pub fn c_message<'a>(
 
                     let reaction_container =
                         container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(|_| container::Style {
-                                background: Some(
-                                    Color::parse("#525252")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(4),
-                                ..Default::default()
-                            })
+                            .style(|_| theme.primary_button)
                             .padding(Padding {
                                 top: 3.0,
                                 right: 3.0,
@@ -420,15 +414,7 @@ pub fn c_message<'a>(
 
         let add_reaction_container =
             container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-                .style(|_| container::Style {
-                    background: Some(
-                        Color::parse("#525252")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(4),
-                    ..Default::default()
-                })
+                .style(|_| theme.primary_button)
                 .padding(3)
                 .align_y(Alignment::Center);
 

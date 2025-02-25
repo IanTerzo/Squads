@@ -1,13 +1,18 @@
 use crate::api::Team;
+use crate::style::Stylesheet;
 use crate::Message;
 
-use iced::widget::{column, container, row, text, text_input, Column, MouseArea};
-use iced::{border, padding, Alignment, Color, Element};
+use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
+use iced::{padding, Alignment, Element};
 
-use crate::components::{cached_image::c_cached_image, styled_scrollbar::c_styled_scrollbar};
+use crate::components::cached_image::c_cached_image;
 use crate::utils::truncate_name;
 
-pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'a, Message> {
+pub fn home(
+    theme: &Stylesheet,
+    teams: Vec<Team>,
+    search_teams_input_value: String,
+) -> Element<Message> {
     let mut teams_column: Column<Message> = column![].spacing(8.5);
 
     for team in teams {
@@ -32,15 +37,7 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
                     .spacing(10)
                     .align_y(Alignment::Center),
                 )
-                .style(|_| container::Style {
-                    background: Some(
-                        Color::parse("#333")
-                            .expect("Background color is invalid.")
-                            .into(),
-                    ),
-                    border: border::rounded(8),
-                    ..Default::default()
-                })
+                .style(|_| theme.list_tab)
                 .center_y(47)
                 .width(220),
             )
@@ -51,23 +48,22 @@ pub fn home<'a>(teams: Vec<Team>, search_teams_input_value: String) -> Element<'
         );
     }
 
-    let team_scrollbar = container(c_styled_scrollbar(teams_column));
-    //.padding(20);
+    let team_scrollbar = container(
+        scrollable(teams_column)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(10)
+                    .spacing(10)
+                    .scroller_width(10),
+            ))
+            .style(|_, _| theme.scrollable),
+    );
 
     let search_teams = container(
         text_input("Search teams.. .", &search_teams_input_value)
             .on_input(Message::ContentChanged)
             .padding(8)
-            .style(|_, _| text_input::Style {
-                background: Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-                border: border::rounded(8),
-                icon: Color::parse("#444").expect("Icon color is invalid."),
-                placeholder: Color::parse("#666").expect("Placeholder color is invalid."),
-                value: Color::parse("#fff").expect("Value color is invalid."),
-                selection: Color::parse("#444").expect("Selection color is invalid."),
-            }),
+            .style(|_, _| theme.input),
     )
     .width(220)
     .padding(padding::bottom(18));

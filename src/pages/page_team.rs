@@ -1,15 +1,16 @@
 use crate::api::{Channel, Team, TeamConversations};
-use crate::components::{conversation::c_conversation, styled_scrollbar::c_styled_scrollbar};
+use crate::components::{conversation::c_conversation, message_area::c_message_area};
+use crate::style::Stylesheet;
 use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, image, row, text, Column, MouseArea, Space};
-use iced::widget::{rich_text, span, svg, text_editor};
-use iced::{border, font, padding, Alignment, Color, ContentFit, Element, Font, Length, Padding};
+use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
+use iced::{font, ContentFit, Element, Length, Padding};
 use std::collections::HashMap;
 
 pub fn team<'a>(
+    theme: &'a Stylesheet,
     team: Team,
     page_channel: Channel,
     conversations: Option<TeamConversations>,
@@ -29,7 +30,7 @@ pub fn team<'a>(
             if let Some(option) = reply_options.get(&conversation.id) {
                 show_replies = option.clone();
             }
-            let conversaton_element = c_conversation(conversation, show_replies, emoji_map);
+            let conversaton_element = c_conversation(theme, conversation, show_replies, emoji_map);
 
             if let Some(conversation_element_un) = conversaton_element {
                 conversation_column = conversation_column.push(conversation_element_un)
@@ -38,151 +39,11 @@ pub fn team<'a>(
     }
 
     let conversation_scrollbar =
-        container(c_styled_scrollbar(conversation_column)).height(Length::Fill);
+        container(scrollable(conversation_column).style(|_, _| theme.scrollable))
+            .height(Length::Fill);
 
-    let message_box = container(
-        container(column![
-            container(
-                row![
-                    row![
-                        container(text("Write"))
-                            .style(|_| container::Style {
-                                background: Some(
-                                    Color::parse("#333")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                ..Default::default()
-                            })
-                            .padding(3)
-                            .align_y(Alignment::Center),
-                        container(text("Preview"))
-                            .style(|_| container::Style {
-                                background: Some(
-                                    Color::parse("#484848")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(4),
-                                ..Default::default()
-                            })
-                            .padding(3)
-                            .align_y(Alignment::Center)
-                    ]
-                    .spacing(8),
-                    container(
-                        row![
-                            row![
-                                rich_text![span("B").font(Font {
-                                    weight: font::Weight::Bold,
-                                    ..Default::default()
-                                })]
-                                .size(20),
-                                rich_text![span("I").font(Font {
-                                    style: font::Style::Italic,
-                                    ..Default::default()
-                                })]
-                                .size(20),
-                                rich_text![span("U").underline(true)].size(20),
-                                rich_text![span("S").strikethrough(true)].size(20)
-                            ]
-                            .spacing(8),
-                            row![
-                                svg("images/list.svg").width(23).height(23),
-                                svg("images/list-ordered.svg").width(23).height(23)
-                            ]
-                            .padding(padding::top(3))
-                            .spacing(8),
-                            row![
-                                svg("images/code.svg").width(23).height(23),
-                                svg("images/text-quote.svg").width(23).height(23),
-                                svg("images/link.svg").width(19).height(19),
-                                svg("images/image.svg").width(19).height(19),
-                                svg("images/at-sign.svg").width(19).height(19)
-                            ]
-                            .padding(padding::top(3))
-                            .spacing(8),
-                        ]
-                        .spacing(20)
-                    )
-                    .align_right(Length::Fill)
-                ]
-                .padding(Padding {
-                    top: 8.0,
-                    right: 10.0,
-                    bottom: 4.0,
-                    left: 10.0
-                })
-            )
-            .style(|_| container::Style {
-                background: Some(
-                    Color::parse("#484848")
-                        .expect("Background color is invalid.")
-                        .into(),
-                ),
-                border: border::rounded(4),
-
-                ..Default::default()
-            }),
-            text_editor(message_area_content)
-                .padding(8)
-                .height(message_area_height)
-                .on_action(Message::Edit)
-                .placeholder("Type your message...")
-                .style(|_, _| text_editor::Style {
-                    background: Color::parse("#333")
-                        .expect("Background color is invalid.")
-                        .into(),
-                    border: border::rounded(4),
-                    icon: Color::parse("#444").expect("Icon color is invalid."),
-                    placeholder: Color::parse("#666").expect("Placeholder color is invalid."),
-                    value: Color::parse("#fff").expect("Value color is invalid."),
-                    selection: Color::parse("#444").expect("Selection color is invalid."),
-                }),
-            row![
-                row![
-                    svg("images/smile.svg").width(20).height(20),
-                    svg("images/upload.svg").width(20).height(20),
-                ]
-                .spacing(8),
-                container(
-                    MouseArea::new(
-                        container(text("Send"))
-                            .style(|_| container::Style {
-                                background: Some(
-                                    Color::parse("#525252")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(4),
-                                ..Default::default()
-                            })
-                            .padding(4)
-                            .align_y(Alignment::Center)
-                    )
-                    .on_release(Message::PostMessage)
-                )
-                .align_right(Length::Fill)
-            ]
-            .padding(Padding {
-                top: 0.0,
-                right: 10.0,
-                bottom: 8.0,
-                left: 10.0
-            })
-        ])
-        .style(|_| container::Style {
-            background: Some(
-                Color::parse("#333")
-                    .expect("Background color is invalid.")
-                    .into(),
-            ),
-            border: border::rounded(8),
-            ..Default::default()
-        }),
-    )
-    .padding(padding::top(10));
-    let content_page = column![conversation_scrollbar, message_box];
+    let message_area = c_message_area(theme, message_area_content, message_area_height);
+    let content_page = column![conversation_scrollbar, message_area];
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -222,25 +83,9 @@ pub fn team<'a>(
                 container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
-                            container::Style {
-                                background: Some(
-                                    Color::parse("#4c4c4c")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(8),
-                                ..Default::default()
-                            }
+                            theme.list_tab_selected
                         } else {
-                            container::Style {
-                                background: Some(
-                                    Color::parse("#333")
-                                        .expect("Background color is invalid.")
-                                        .into(),
-                                ),
-                                border: border::rounded(8),
-                                ..Default::default()
-                            }
+                            theme.list_tab
                         }
                     })
                     .padding(Padding::from([0, 8]))
@@ -252,7 +97,7 @@ pub fn team<'a>(
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }
 
-    let team_scrollbar = c_styled_scrollbar(channels_coloumn);
+    let team_scrollbar = scrollable(channels_coloumn).style(|_, _| theme.scrollable);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
     row![team_info_column, content_page].spacing(10).into()
