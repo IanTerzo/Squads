@@ -15,6 +15,7 @@ pub struct Stylesheet {
     pub primary_button: container::Style,
     pub message_area: text_editor::Style,
     pub message_area_bar: container::Style,
+    pub message_area_tab_active: container::Style,
     pub message_area_tab: container::Style,
     pub message_area_container: container::Style,
     pub conversation: container::Style,
@@ -103,8 +104,12 @@ pub fn theme_squads_dark() -> Stylesheet {
 
             ..Default::default()
         },
+        message_area_tab_active: container::Style {
+            background: Some(colors.primary1_selected.into()),
+            ..Default::default()
+        },
         message_area_tab: container::Style {
-            background: Some(colors.primary1.into()),
+            background: Some(colors.primary3.into()),
             ..Default::default()
         },
         message_area: text_editor::Style {

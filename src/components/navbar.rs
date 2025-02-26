@@ -38,7 +38,12 @@ pub fn c_navbar(theme: &Stylesheet) -> Element<Message> {
     ])
     .style(|_| theme.navbar)
     .width(Fill)
-    .center_y(45)
-    .padding(Padding::from([0, 20]))
+    .center_y(40)
+    .padding(Padding {
+        top: 4.0,
+        right: 20.0,
+        bottom: 0.0,
+        left: 20.0,
+    })
     .into()
 }
