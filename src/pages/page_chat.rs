@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::api::{Chat, ShortProfile};
+use crate::api::{Chat, Profile};
 use crate::components::cached_image::c_cached_image;
 use crate::style::Stylesheet;
 use crate::utils::truncate_name;
@@ -13,7 +13,7 @@ use iced::{border, padding, Alignment, Color, Element};
 pub fn chat(
     theme: &Stylesheet,
     chats: Vec<Chat>,
-    org_users: HashMap<String, ShortProfile>,
+    org_users: HashMap<String, Profile>,
     user_id: String,
 ) -> Element<Message> {
     let mut chats_column = column![].spacing(8.5);

@@ -189,6 +189,30 @@ pub struct FetchShortProfile {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Profile {
+    pub id: String,
+    pub display_name: Option<String>,
+    pub business_phones: Option<Vec<String>>,
+    pub given_name: Option<String>,
+    pub job_title: Option<String>,
+    pub mail: Option<String>,
+    pub mobile_phone: Option<String>,
+    pub office_location: Option<String>,
+    pub preferred_language: Option<String>,
+    pub is_short_profile: Option<bool>,
+    pub surname: Option<String>,
+    pub company_name: Option<String>,
+    pub user_principal_name: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Users {
+    pub value: Vec<Profile>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UserProperties {
     pub is_skype_teams_user_set_in_settings_store: Option<String>,
     pub first_login_information: Option<String>,
@@ -697,6 +721,82 @@ pub fn fetch_short_profile(
     }
 }
 
+pub fn me(token: AccessToken) -> Result<Profile, String> {
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .get("https://graph.microsoft.com/v1.0/me")
+        .headers(headers)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let parsed = res.json::<Profile>().unwrap();
+        Ok(parsed)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn users(token: AccessToken) -> Result<Users, String> {
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .get("https://graph.microsoft.com/v1.0/users?$top=999")
+        .headers(headers)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let parsed = res.json::<Users>().unwrap();
+        Ok(parsed)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
 pub fn team_conversations(
     token: AccessToken,
     team_id: String,
@@ -1040,6 +1140,49 @@ pub fn authorize_avatar(token: AccessToken, avatar_url: String) -> Result<Bytes,
     if res.status().is_success() {
         let bytes = res.bytes().unwrap();
         Ok(bytes)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn send_message(
+    token: AccessToken,
+    conversation_id: String,
+    body: String,
+) -> Result<String, String> {
+    //https://ic3.teams.office.com/.default
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .post(format!(
+            "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages",
+            conversation_id
+        ))
+        .body(body)
+        .headers(headers)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let body = res.text().unwrap();
+        Ok(body)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
