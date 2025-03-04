@@ -189,6 +189,7 @@ pub struct FetchShortProfile {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct Profile {
     pub id: String,
     pub display_name: Option<String>,

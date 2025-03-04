@@ -35,8 +35,9 @@ pub fn chat(
             title = truncate_name(chat_title, 20);
         } else if chat.members.len() == 2 {
             for member in chat.members {
-                if member.mri != format!("8:{user_id}") {
-                    if let Some(user_profile) = org_users.get(&member.mri) {
+                let member_id = member.mri.replace("8:orgid:", "");
+                if member_id != user_id {
+                    if let Some(user_profile) = org_users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             title = truncate_name(display_name.clone(), 24);
                             picture = c_cached_image(
@@ -49,7 +50,6 @@ pub fn chat(
                             title = "Unknown User".to_string();
                         }
                     } else {
-                        // This should never happen
                         title = "Unknown User".to_string();
                     }
                 }

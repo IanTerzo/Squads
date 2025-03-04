@@ -1,5 +1,7 @@
 use std::{
+    collections::HashMap,
     process::{Child, Command},
+    sync::RwLock,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -14,7 +16,6 @@ use sha2::{Digest, Sha256};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 
 use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
-use crate::AppCache;
 
 use std::time::Duration;
 use thirtyfour::prelude::*;
@@ -155,11 +156,13 @@ pub fn authorize() -> Result<AuthorizationCode, String> {
     })
 }
 
-pub fn get_or_gen_token(cache: Arc<Mutex<AppCache>>, scope: String) -> AccessToken {
-    let refresh_token = cache
-        .lock()
+pub fn get_or_gen_token(
+    access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
+    scope: String,
+) -> AccessToken {
+    let refresh_token = access_tokens
+        .write()
         .unwrap()
-        .access_tokens
         .entry("refresh_token".to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
@@ -174,10 +177,9 @@ pub fn get_or_gen_token(cache: Arc<Mutex<AppCache>>, scope: String) -> AccessTok
         })
         .clone();
 
-    cache
-        .lock()
+    access_tokens
+        .write()
         .unwrap()
-        .access_tokens
         .entry(scope.to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
@@ -189,13 +191,12 @@ pub fn get_or_gen_token(cache: Arc<Mutex<AppCache>>, scope: String) -> AccessTok
 }
 
 pub fn get_or_gen_skype_token(
-    cache: Arc<Mutex<AppCache>>,
+    access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     access_token: AccessToken,
 ) -> AccessToken {
-    cache
-        .lock()
+    access_tokens
+        .write()
         .unwrap()
-        .access_tokens
         .entry("skype_token".to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
