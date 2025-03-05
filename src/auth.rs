@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     process::{Child, Command},
     sync::RwLock,
+    thread,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -32,10 +33,14 @@ fn get_epoch_s() -> u64 {
 const CHROMEDRIVER_PORT: u16 = 35101;
 
 fn start_chromedriver(port: u16) -> std::io::Result<Child> {
+    println!(
+        "{}",
+        std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver")
+    );
     Command::new(std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver"))
         .arg(format!("--port={}", port))
-        .stdout(std::process::Stdio::null()) // Redirect output if needed
-        .stderr(std::process::Stdio::null())
+        .stdout(std::process::Stdio::inherit()) // Redirect output if needed
+        .stderr(std::process::Stdio::inherit())
         .spawn()
 }
 
@@ -131,7 +136,7 @@ pub struct AuthorizationCode {
 }
 
 pub fn authorize() -> Result<AuthorizationCode, String> {
-    let challenge = "lXHr5Zb7Mro-sKjZXn5xYpYhMX3ik5MsA9APHPlDtpQ".to_string();
+    let challenge = gen_code_challenge();
 
     let rt = Builder::new_current_thread()
         .enable_time()
@@ -141,6 +146,8 @@ pub fn authorize() -> Result<AuthorizationCode, String> {
 
     let mut chromedriver = start_chromedriver(CHROMEDRIVER_PORT)
         .map_err(|e| format!("Failed to start chromedriver: {:?}", e))?;
+
+    thread::sleep(Duration::from_millis(500)); // Wait 500 milliseconds to allow chromedriver to start
 
     let code = rt
         .block_on(get_auth_code(challenge.clone()))

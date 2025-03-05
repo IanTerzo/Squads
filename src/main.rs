@@ -4,8 +4,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use std::collections::HashSet;
-use std::sync::{Arc, Mutex, RwLock};
-use std::{collections::HashMap, fs, io::Write, path::Path};
+use std::sync::{Arc, RwLock};
+use std::{collections::HashMap, fs, io::Write};
 
 use webbrowser;
 
@@ -20,9 +20,8 @@ use style::{theme_squads_dark, Stylesheet};
 mod utils;
 mod widgets;
 use api::{
-    authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture,
-    fetch_short_profile, me, team_conversations, user_details, user_properties, users, AccessToken,
-    Chat, Profile, ShortProfile, Team, TeamConversations,
+    authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture, me,
+    team_conversations, user_details, users, AccessToken, Chat, Profile, Team, TeamConversations,
 };
 
 mod auth;
