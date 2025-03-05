@@ -2,16 +2,16 @@ use std::collections::HashMap;
 
 use crate::api::{Chat, Profile};
 use crate::components::cached_image::c_cached_image;
-use crate::style::Stylesheet;
+use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 
 use iced::widget::{column, container, row, Space};
 use iced::widget::{scrollable, text};
-use iced::{border, padding, Alignment, Color, Element};
+use iced::{padding, Alignment, Element};
 
 pub fn chat(
-    theme: &Stylesheet,
+    theme: &style::Theme,
     chats: Vec<Chat>,
     org_users: HashMap<String, Profile>,
     user_id: String,
@@ -78,13 +78,13 @@ pub fn chat(
                 .padding(padding::left(10))
                 .align_y(Alignment::Center),
         )
-        .style(|_| theme.list_tab)
+        .style(|_| theme.stylesheet.list_tab)
         .center_y(47)
         .width(220);
 
         chats_column = chats_column.push(chat_item);
     }
-    let chats_scrollable = scrollable(chats_column).style(|_, _| theme.scrollable);
+    let chats_scrollable = scrollable(chats_column).style(|_, _| theme.stylesheet.scrollable);
 
     row![chats_scrollable, "Hello, chat"].into()
 }

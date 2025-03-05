@@ -1,12 +1,12 @@
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
-use iced::{border, font, Alignment, Color, Element, Font, Padding};
+use iced::{font, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
 use crate::components::cached_image::c_cached_image;
-use crate::style::Stylesheet;
+use crate::style;
 use crate::Message;
 use base64::decode;
 use scraper::{Html, Selector};
@@ -60,6 +60,7 @@ impl DynamicContainer {
 }
 
 fn transform_html<'a>(
+    theme: &style::Theme,
     element: scraper::ElementRef<'a>,
     mut cascading_properties: HashMap<&'a str, String>,
 ) -> DynamicContainer {
@@ -93,7 +94,8 @@ fn transform_html<'a>(
         if let Some(child_element) = scraper::ElementRef::wrap(child) {
             if child.has_children() {
                 dynamic_container = dynamic_container.push(
-                    transform_html(child_element, cascading_properties.clone()).into_element(),
+                    transform_html(theme, child_element, cascading_properties.clone())
+                        .into_element(),
                 );
             }
             // Special cases
@@ -149,7 +151,7 @@ fn transform_html<'a>(
             let words = text_content.split_inclusive(" ");
 
             let mut font = Font::default();
-            let mut color = Color::from_rgb(1.0, 1.0, 1.0);
+            let mut color = theme.colors.text;
             let mut underline = false;
             let mut strikethrough = false;
             let mut link_href: Option<String> = None;
@@ -177,11 +179,11 @@ fn transform_html<'a>(
             }
             if let Some(value) = cascading_properties.get("a") {
                 link_href = Some(value.clone());
-                color = Color::from_rgb(0.4, 0.5961, 0.851);
+                color = theme.colors.text_link;
             }
             if let Some(property) = cascading_properties.get("span") {
                 if property == "http://schema.skype.com/Mention" {
-                    color = Color::from_rgb(0.4, 0.5961, 0.851);
+                    color = theme.colors.text_link;
                 }
             }
 
@@ -208,14 +210,17 @@ fn transform_html<'a>(
     dynamic_container.wrap() // If it is a row, it needs to be wrapping
 }
 
-fn parse_message_html(content: String) -> Result<Element<'static, Message>, String> {
+fn parse_message_html(
+    theme: &style::Theme,
+    content: String,
+) -> Result<Element<'static, Message>, String> {
     // Remove things like newlines to avoid them being treated as text during the parsing
     let content = content.replace("\n", "").replace("\r", "");
     let document = Html::parse_document(content.as_str());
 
     let selector = Selector::parse("body").unwrap();
     if let Some(root_element) = document.select(&selector).next() {
-        Ok(transform_html(root_element, HashMap::new()).into_element())
+        Ok(transform_html(theme, root_element, HashMap::new()).into_element())
     } else {
         Err("Couldn't get body from message html".to_string())
     }
@@ -238,7 +243,7 @@ fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, String> 
 }
 
 pub fn c_message<'a>(
-    theme: &'a Stylesheet,
+    theme: &'a style::Theme,
     message: crate::api::Message,
     emoji_map: &HashMap<String, String>,
 ) -> Option<Element<'a, Message>> {
@@ -285,16 +290,8 @@ pub fn c_message<'a>(
         let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
         let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
 
-        message_info = message_info.push(text(date).size(14).color(Color::from_rgb(
-            0.788235294117647,
-            0.788235294117647,
-            0.788235294117647,
-        )));
-        message_info = message_info.push(text(time).size(14).color(Color::from_rgb(
-            0.788235294117647,
-            0.788235294117647,
-            0.788235294117647,
-        )));
+        message_info = message_info.push(text(date).size(14).color(theme.colors.demo_text));
+        message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
     }
 
     message_column = message_column.push(message_info);
@@ -336,7 +333,7 @@ pub fn c_message<'a>(
     } else if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" {
             if let Some(content) = message.content {
-                match parse_message_html(content) {
+                match parse_message_html(theme, content) {
                     Ok(result) => {
                         message_column = message_column.push(result);
                     }
@@ -399,7 +396,7 @@ pub fn c_message<'a>(
 
                     let reaction_container =
                         container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(|_| theme.primary_button)
+                            .style(|_| theme.stylesheet.primary_button)
                             .padding(Padding {
                                 top: 3.0,
                                 right: 3.0,
@@ -414,7 +411,7 @@ pub fn c_message<'a>(
 
         let add_reaction_container =
             container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-                .style(|_| theme.primary_button)
+                .style(|_| theme.stylesheet.primary_button)
                 .padding(3)
                 .align_y(Alignment::Center);
 

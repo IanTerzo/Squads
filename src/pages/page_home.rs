@@ -1,5 +1,5 @@
 use crate::api::Team;
-use crate::style::Stylesheet;
+use crate::style;
 use crate::Message;
 
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
@@ -9,7 +9,7 @@ use crate::components::cached_image::c_cached_image;
 use crate::utils::truncate_name;
 
 pub fn home(
-    theme: &Stylesheet,
+    theme: &style::Theme,
     teams: Vec<Team>,
     search_teams_input_value: String,
 ) -> Element<Message> {
@@ -37,7 +37,7 @@ pub fn home(
                     .spacing(10)
                     .align_y(Alignment::Center),
                 )
-                .style(|_| theme.list_tab)
+                .style(|_| theme.stylesheet.list_tab)
                 .center_y(47)
                 .width(220),
             )
@@ -56,14 +56,14 @@ pub fn home(
                     .spacing(10)
                     .scroller_width(8),
             ))
-            .style(|_, _| theme.scrollable),
+            .style(|_, _| theme.stylesheet.scrollable),
     );
 
     let search_teams = container(
         text_input("Search teams...", &search_teams_input_value)
             .on_input(Message::ContentChanged)
             .padding(8)
-            .style(|_, _| theme.input),
+            .style(|_, _| theme.stylesheet.input),
     )
     .width(220)
     .padding(padding::bottom(18));

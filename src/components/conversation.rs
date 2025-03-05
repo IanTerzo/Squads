@@ -1,7 +1,7 @@
 use iced::widget::{column, container, mouse_area, text};
-use iced::{border, Color, Element};
+use iced::Element;
 
-use crate::style::Stylesheet;
+use crate::style;
 use crate::Message;
 use std::collections::HashMap;
 
@@ -9,7 +9,7 @@ use crate::api::Conversation;
 use crate::components::message::c_message;
 
 pub fn c_conversation<'a>(
-    theme: &'a Stylesheet,
+    theme: &'a style::Theme,
     conversation: Conversation,
     show_replies: bool,
     emoji_map: &HashMap<String, String>,
@@ -33,7 +33,7 @@ pub fn c_conversation<'a>(
                 } else {
                     "Show replies"
                 })
-                .color(Color::from_rgb(0.4, 0.5961, 0.851))
+                .color(theme.colors.text_link)
                 .size(14),
             )
             .on_release(Message::ToggleReplyOptions(conversation.id)),
@@ -49,7 +49,7 @@ pub fn c_conversation<'a>(
     }
     Some(
         container(message_chain)
-            .style(|_| theme.conversation)
+            .style(|_| theme.stylesheet.conversation)
             .width(iced::Length::Fill)
             .padding(20)
             .into(),

@@ -2,11 +2,11 @@ use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, rich_text, row, span, svg, text, text_editor};
 use iced::{border, font, padding, Alignment, Color, Element, Font, Length, Padding};
 
-use crate::style::Stylesheet;
+use crate::style;
 use crate::Message;
 
 pub fn c_message_area<'a>(
-    theme: &'a Stylesheet,
+    theme: &'a style::Theme,
     message_area_content: &'a Content,
     message_area_height: f32,
 ) -> Element<'a, Message> {
@@ -16,11 +16,11 @@ pub fn c_message_area<'a>(
                 row![
                     row![
                         container(text("Write"))
-                            .style(|_| theme.message_area_tab)
+                            .style(|_| theme.stylesheet.message_area_tab)
                             .padding(3)
                             .align_y(Alignment::Center),
                         container(text("Preview"))
-                            .style(|_| theme.message_area_tab)
+                            .style(|_| theme.stylesheet.message_area_tab)
                             .padding(3)
                             .align_y(Alignment::Center)
                     ]
@@ -69,13 +69,13 @@ pub fn c_message_area<'a>(
                     left: 10.0
                 })
             )
-            .style(|_| theme.message_area_bar),
+            .style(|_| theme.stylesheet.message_area_bar),
             text_editor(message_area_content)
                 .padding(8)
                 .height(message_area_height)
                 .on_action(Message::Edit)
                 .placeholder("Type your message...")
-                .style(|_, _| theme.message_area),
+                .style(|_, _| theme.stylesheet.message_area),
             row![
                 row![
                     svg("images/smile.svg").width(20).height(20),
@@ -85,7 +85,7 @@ pub fn c_message_area<'a>(
                 container(
                     mouse_area(
                         container(text("Send"))
-                            .style(|_| theme.primary_button)
+                            .style(|_| theme.stylesheet.primary_button)
                             .padding(4)
                             .align_y(Alignment::Center)
                     )
@@ -100,7 +100,7 @@ pub fn c_message_area<'a>(
                 left: 10.0
             })
         ])
-        .style(|_| theme.message_area_container),
+        .style(|_| theme.stylesheet.message_area_container),
     )
     .padding(padding::top(10))
     .into()

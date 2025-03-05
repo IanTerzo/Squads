@@ -33,10 +33,6 @@ fn get_epoch_s() -> u64 {
 const CHROMEDRIVER_PORT: u16 = 35101;
 
 fn start_chromedriver(port: u16) -> std::io::Result<Child> {
-    println!(
-        "{}",
-        std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver")
-    );
     Command::new(std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver"))
         .arg(format!("--port={}", port))
         .stdout(std::process::Stdio::inherit()) // Redirect output if needed

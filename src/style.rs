@@ -6,7 +6,6 @@ use iced::{
 
 #[derive(Debug)]
 pub struct Stylesheet {
-    pub background_color: Color,
     pub navbar: container::Style,
     pub scrollable: scrollable::Style,
     pub list_tab: container::Style,
@@ -22,24 +21,32 @@ pub struct Stylesheet {
 }
 
 #[derive(Debug)]
-struct Colors {
-    not_set: Color,
-    background: Color,
-    text: Color,
-    demo_text: Color,
-    text_selection: Color,
-    accent: Color,
-    primary1: Color,
-    primary2: Color,
-    primary3: Color,
-    primary1_selected: Color,
+pub struct Colors {
+    pub not_set: Color,
+    pub background: Color,
+    pub text: Color,
+    pub text_link: Color,
+    pub demo_text: Color,
+    pub text_selection: Color,
+    pub accent: Color,
+    pub primary1: Color,
+    pub primary2: Color,
+    pub primary3: Color,
+    pub primary1_selected: Color,
 }
 
-pub fn theme_squads_dark() -> Stylesheet {
+#[derive(Debug)]
+pub struct Theme {
+    pub colors: Colors,
+    pub stylesheet: Stylesheet,
+}
+
+pub fn squads_dark() -> Theme {
     let colors = Colors {
         not_set: Color::from_rgb(1.0, 0.0, 0.0), // To be used as a palceholder for colors that are not yet choosen
         text: Color::WHITE,
-        demo_text: Color::parse("#93a0aa").expect("Color is invalid."),
+        text_link: Color::parse("#6d74f4").expect("Color is invalid."),
+        demo_text: Color::parse("#C9C9C9").expect("Color is invalid."),
         background: Color::parse("#0d0e12").expect("Color is invalid."),
         text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,
@@ -49,8 +56,7 @@ pub fn theme_squads_dark() -> Stylesheet {
         primary3: Color::parse("#2b3338").expect("Color is invalid."),
     };
 
-    Stylesheet {
-        background_color: colors.background,
+    let stylesheet = Stylesheet {
         navbar: container::Style {
             background: Some(colors.primary1.into()),
             //border: border::rounded(10),
@@ -135,5 +141,11 @@ pub fn theme_squads_dark() -> Stylesheet {
             border: border::rounded(8),
             ..Default::default()
         },
-    }
+    };
+
+    Theme { colors, stylesheet }
+}
+
+pub fn global_theme() -> Theme {
+    squads_dark()
 }

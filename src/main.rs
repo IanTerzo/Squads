@@ -16,7 +16,7 @@ use directories::ProjectDirs;
 
 mod api;
 mod style;
-use style::{theme_squads_dark, Stylesheet};
+use style::{global_theme, Stylesheet};
 mod utils;
 mod widgets;
 use api::{
@@ -56,7 +56,7 @@ struct Page {
 #[derive(Debug)]
 struct Counter {
     page: Page,
-    theme: Stylesheet,
+    theme: style::Theme,
     reply_options: HashMap<String, bool>, // String is the conversation id
     history: Vec<Page>,
     emoji_map: HashMap<String, String>,
@@ -167,7 +167,7 @@ impl Counter {
                 current_channel_id: "0".to_string(),
                 show_conversations: false,
             },
-            theme: theme_squads_dark(),
+            theme: global_theme(),
             message_area_height: 54.0,
             message_area_content: Content::new(),
             reply_options: HashMap::new(),
@@ -541,7 +541,7 @@ impl Counter {
     // The default theming system is not used, except for the background
     fn theme(&self) -> Theme {
         let custom_palette = iced::theme::palette::Palette {
-            background: self.theme.background_color,
+            background: self.theme.colors.background,
             text: Color::new(1.0, 0.0, 0.0, 1.0),
             primary: Color::new(1.0, 0.0, 0.0, 1.0),
             success: Color::new(1.0, 0.0, 0.0, 1.0),

@@ -1,12 +1,10 @@
-use std::f32::consts::PI;
-
 use iced::widget::{container, image, row, svg, MouseArea};
 use iced::{Color, Element, Fill, Padding, Rotation};
 
-use crate::style::Stylesheet;
+use crate::style;
 use crate::{Message, Page, View};
 
-pub fn c_navbar(theme: &Stylesheet) -> Element<Message> {
+pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
     container(row![
         row![
             MouseArea::new(svg("images/chevron-left.svg").width(28).height(28))
@@ -36,7 +34,7 @@ pub fn c_navbar(theme: &Stylesheet) -> Element<Message> {
         )
         .align_right(Fill)
     ])
-    .style(|_| theme.navbar)
+    .style(|_| theme.stylesheet.navbar)
     .width(Fill)
     .center_y(40)
     .padding(Padding {

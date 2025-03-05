@@ -1,6 +1,6 @@
 use crate::api::{Channel, Team, TeamConversations};
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
-use crate::style::Stylesheet;
+use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
@@ -10,7 +10,7 @@ use iced::{font, ContentFit, Element, Length, Padding};
 use std::collections::HashMap;
 
 pub fn team<'a>(
-    theme: &'a Stylesheet,
+    theme: &'a style::Theme,
     team: Team,
     page_channel: Channel,
     conversations: Option<TeamConversations>,
@@ -46,7 +46,7 @@ pub fn team<'a>(
                     .spacing(10)
                     .scroller_width(8),
             ))
-            .style(|_, _| theme.scrollable),
+            .style(|_, _| theme.stylesheet.scrollable),
     )
     .height(Length::Fill);
 
@@ -91,9 +91,9 @@ pub fn team<'a>(
                 container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
-                            theme.list_tab_selected
+                            theme.stylesheet.list_tab_selected
                         } else {
-                            theme.list_tab
+                            theme.stylesheet.list_tab
                         }
                     })
                     .padding(Padding::from([0, 8]))
@@ -112,7 +112,7 @@ pub fn team<'a>(
                 .spacing(10)
                 .scroller_width(8),
         ))
-        .style(|_, _| theme.scrollable);
+        .style(|_, _| theme.stylesheet.scrollable);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
     row![team_info_column, content_page].spacing(10).into()
