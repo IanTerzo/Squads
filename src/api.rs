@@ -80,12 +80,23 @@ pub struct Emotion {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct Activity {
+    activity_type: String,
+    activity_operation_type: String,
+    source_thread_id: String,
+    source_message_id: u64,
+    source_reply_chain_id: u64,
+    annotations_entity: String,
+    content: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageProperties {
     #[serde(default)]
     #[serde(deserialize_with = "string_to_i64")]
     pub edittime: i64,
-    #[serde(default)]
-    pub subject: String,
+    pub subject: Option<String>,
     #[serde(default)]
     pub files: String, // is string that should be parsed to vec of File
     #[serde(default)]
@@ -96,6 +107,7 @@ pub struct MessageProperties {
     pub systemdelete: bool,
     pub title: Option<String>,
     pub emotions: Option<Vec<Emotion>>,
+    pub activity: Option<Activity>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -119,6 +131,12 @@ pub struct Conversation {
     pub container_id: String,
     pub id: String,
     pub latest_delivery_time: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Conversations {
+    messages: Vec<Message>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -656,6 +674,38 @@ pub fn user_properties(token: AccessToken) -> Result<UserProperties, String> {
 
     if res.status().is_success() {
         let parsed = res.json::<UserProperties>().unwrap();
+        Ok(parsed)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn activity(token: AccessToken) -> Result<Conversations, String> {
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token).unwrap(),
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client.get("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Aannotations/messages?view=msnp24Equivalent|supportsMessageProperties&pageSize=200&startTime=1")
+        .headers(headers)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let parsed = res.json::<Conversations>().unwrap();
         Ok(parsed)
     } else {
         let error_message = format!(

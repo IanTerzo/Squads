@@ -304,10 +304,10 @@ pub fn c_message<'a>(
     // Message subject
 
     if let Some(properties) = message.properties.clone() {
-        if properties.subject != "".to_string() {
+        if let Some(subject) = properties.subject {
             let mut text_row = row![];
 
-            for c in message.properties.clone().unwrap().subject.chars() {
+            for c in subject.chars() {
                 if c.is_emoji_char() {
                     text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
                 } else {

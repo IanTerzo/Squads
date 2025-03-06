@@ -23,8 +23,8 @@ use style::global_theme;
 mod utils;
 mod widgets;
 use api::{
-    authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture, me,
-    send_message, team_conversations, user_details, users, AccessToken, Chat, Profile, Team,
+    activity, authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture,
+    me, send_message, team_conversations, user_details, users, AccessToken, Chat, Profile, Team,
     TeamConversations,
 };
 
@@ -241,6 +241,14 @@ impl Counter {
                         access_tokens.clone(),
                         "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                     );
+
+                    let access_token_ic3 = get_or_gen_token(
+                        access_tokens.clone(),
+                        "https://ic3.teams.office.com/.default".to_string(),
+                    );
+
+                    let activity_messages = activity(access_token_ic3);
+                    println!("{:#?}", activity_messages);
 
                     let user_details = user_details(access_token_chatsvcagg.clone()).unwrap();
 
