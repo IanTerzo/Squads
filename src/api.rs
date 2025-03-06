@@ -1156,7 +1156,7 @@ pub fn send_message(
     conversation_id: String,
     body: String,
 ) -> Result<String, String> {
-    //https://ic3.teams.office.com/.default
+    //scope https://ic3.teams.office.com/.default
 
     let access_token = format!("Bearer {}", token.value);
 

@@ -1,5 +1,6 @@
 use iced::widget::text_editor::{self, Content};
 use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme};
+use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
@@ -15,13 +16,16 @@ use components::cached_image::save_cached_image;
 use directories::ProjectDirs;
 
 mod api;
+mod parsing;
+use parsing::parse_message_markdown;
 mod style;
-use style::{global_theme, Stylesheet};
+use style::global_theme;
 mod utils;
 mod widgets;
 use api::{
     authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture, me,
-    team_conversations, user_details, users, AccessToken, Chat, Profile, Team, TeamConversations,
+    send_message, team_conversations, user_details, users, AccessToken, Chat, Profile, Team,
+    TeamConversations,
 };
 
 mod auth;
@@ -93,6 +97,46 @@ pub enum Message {
     ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct TeamsMessage {
+    id: String,
+    #[serde(rename = "type")]
+    msg_type: String,
+    conversationid: String,
+    conversation_link: String,
+    from: String,
+    composetime: String,
+    originalarrivaltime: String,
+    content: String,
+    messagetype: String,
+    contenttype: String,
+    imdisplayname: String,
+    clientmessageid: String,
+    call_id: String,
+    state: i32,
+    version: String,
+    amsreferences: Vec<String>,
+    properties: Properties,
+    post_type: String,
+    cross_post_channels: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct Properties {
+    importance: String,
+    subject: String,
+    title: String,
+    cards: String,
+    links: String,
+    mentions: String,
+    onbehalfof: Option<String>,
+    files: String,
+    policy_violation: Option<String>,
+    format_variant: String,
 }
 
 fn get_chat_users_mri(chats: Vec<Chat>) -> Vec<String> {
@@ -352,6 +396,55 @@ impl Counter {
 
             Message::PostMessage => {
                 let message_area_text = self.message_area_content.text();
+                let html = parse_message_markdown(message_area_text);
+
+                let access_token = get_or_gen_token(
+                    self.access_tokens.clone(),
+                    "https://ic3.teams.office.com/.default".to_string(),
+                );
+
+                let mut rng = rand::rng();
+                let message_id: u64 = rng.random(); // generate the mssage_id randomly
+
+                println!("id {}", self.me.read().unwrap().id.clone());
+                let message = TeamsMessage {
+                    id: "-1".to_string(),
+                    msg_type: "Message".to_string(),
+                    conversationid: self.page.current_channel_id.clone(),
+                    conversation_link: format!("blah/{}", self.page.current_channel_id.clone()),
+                    from: format!("8:orgid:{}", self.me.read().unwrap().id.clone()),
+                    composetime: "2025-03-06T11:04:18.265Z".to_string(),
+                    originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
+                    content: html,
+                    messagetype: "RichText/Html".to_string(),
+                    contenttype: "Text".to_string(),
+                    imdisplayname: self.me.read().unwrap().display_name.clone().unwrap(),
+                    clientmessageid: message_id.to_string(),
+                    call_id: "".to_string(),
+                    state: 0,
+                    version: "0".to_string(),
+                    amsreferences: vec![],
+                    properties: Properties {
+                        importance: "".to_string(),
+                        subject: "SUBJECT".to_string(),
+                        title: "".to_string(),
+                        cards: "[]".to_string(),
+                        links: "[]".to_string(),
+                        mentions: "[]".to_string(),
+                        onbehalfof: None,
+                        files: "[]".to_string(),
+                        policy_violation: None,
+                        format_variant: "TEAMS".to_string(),
+                    },
+                    post_type: "Standard".to_string(),
+                    cross_post_channels: vec![],
+                };
+
+                // Convert the struct into a JSON string
+                let body = serde_json::to_string_pretty(&message).unwrap();
+
+                send_message(access_token, self.page.current_channel_id.clone(), body).unwrap();
+                println!("Posted!");
 
                 Task::none()
             }

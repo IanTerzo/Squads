@@ -76,7 +76,7 @@ fn transform_html<'a>(
         DynamicContainer::Row(row![])
     };
 
-    if matches!(element_tagname, "strong" | "u" | "s" | "i") {
+    if matches!(element_tagname, "strong" | "u" | "s" | "i" | "em") {
         cascading_properties.insert(element_tagname, element_tagname.to_string());
     } else if element_tagname == "span" {
         if let Some(attr) = element.attr("itemtype") {
@@ -174,6 +174,11 @@ fn transform_html<'a>(
             }
             if let Some(property) = cascading_properties.get("i") {
                 if property == "i" {
+                    font.style = font::Style::Italic;
+                }
+            }
+            if let Some(property) = cascading_properties.get("em") {
+                if property == "em" {
                     font.style = font::Style::Italic;
                 }
             }
