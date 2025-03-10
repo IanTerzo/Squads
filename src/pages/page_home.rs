@@ -17,9 +17,14 @@ pub fn home(
 
     for team in teams {
         let team_picture = c_cached_image(
-            team.picture_e_tag.clone(),
+            team.picture_e_tag
+                .clone()
+                .unwrap_or(team.display_name.clone()),
             Message::FetchTeamImage(
-                team.picture_e_tag,
+                team.picture_e_tag
+                    .clone()
+                    .unwrap_or(team.display_name.clone()),
+                team.picture_e_tag.unwrap_or("".to_string()),
                 team.team_site_information.group_id.clone(),
                 team.display_name.clone(),
             ),

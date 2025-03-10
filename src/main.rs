@@ -90,7 +90,7 @@ pub enum Message {
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
-    FetchTeamImage(String, String, String),
+    FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String),
     FetchAvatar(String),
     AuthorizeImage(String),
@@ -251,7 +251,6 @@ impl Counter {
                     println!("{:#?}", activity_messages);
 
                     let user_details = user_details(access_token_chatsvcagg.clone()).unwrap();
-
                     let mut teams = teams.write().unwrap();
                     *teams = user_details.clone().teams;
 
@@ -490,28 +489,30 @@ impl Counter {
                 Task::none()
             }
 
-            Message::FetchTeamImage(picture_e_tag, group_id, display_name) => Task::perform(
-                {
-                    let access_token = get_or_gen_token(
-                        self.access_tokens.clone(),
-                        "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
-                    );
-                    async {
-                        let picture_e_tag = picture_e_tag;
+            Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
+                Task::perform(
+                    {
+                        let access_token = get_or_gen_token(
+                            self.access_tokens.clone(),
+                            "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                        );
+                        async {
+                            let picture_e_tag = picture_e_tag;
 
-                        let bytes = authorize_team_picture(
-                            access_token,
-                            group_id,
-                            picture_e_tag.clone(),
-                            display_name,
-                        )
-                        .unwrap();
+                            let bytes = authorize_team_picture(
+                                access_token,
+                                group_id,
+                                picture_e_tag.clone(),
+                                display_name,
+                            )
+                            .unwrap();
 
-                        save_cached_image(picture_e_tag, bytes);
-                    }
-                },
-                Message::DoNothing,
-            ),
+                            save_cached_image(identifier, bytes);
+                        }
+                    },
+                    Message::DoNothing,
+                )
+            }
 
             Message::FetchUserImage(user_id, display_name) => Task::perform(
                 {

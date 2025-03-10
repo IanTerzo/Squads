@@ -57,7 +57,12 @@ pub fn team<'a>(
 
     let mut image_path = project_dirs.unwrap().cache_dir().to_path_buf();
     image_path.push("image-cache");
-    image_path.push(format!("{}.jpeg", team.picture_e_tag));
+    image_path.push(format!(
+        "{}.jpeg",
+        team.picture_e_tag
+            .clone()
+            .unwrap_or(team.display_name.clone())
+    ));
 
     let team_picture = image(image_path)
         .content_fit(ContentFit::Cover)

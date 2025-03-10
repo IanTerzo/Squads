@@ -42,7 +42,7 @@ pub struct Team {
     pub team_site_information: TeamSiteInformation,
     pub display_name: String,
     #[serde(deserialize_with = "trim_quotes")]
-    pub picture_e_tag: String,
+    pub picture_e_tag: Option<String>, // In some small cases this is not set
 }
 
 pub struct FileInfo {
@@ -266,12 +266,12 @@ impl fmt::Display for ApiError {
     }
 }
 
-fn trim_quotes<'de, D>(deserializer: D) -> Result<String, D::Error>
+fn trim_quotes<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let s = String::deserialize(deserializer)?;
-    Ok(s.trim_matches('"').to_string())
+    let opt_s: Option<String> = Option::deserialize(deserializer)?;
+    Ok(opt_s.map(|s| s.trim_matches('"').to_string()))
 }
 impl std::error::Error for ApiError {}
 
