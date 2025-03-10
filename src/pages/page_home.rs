@@ -5,12 +5,13 @@ use crate::Message;
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
 use iced::{padding, Alignment, Element};
 
-use crate::components::cached_image::c_cached_image;
+use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};
 use crate::utils::truncate_name;
 
 pub fn home(
     theme: &style::Theme,
     teams: Vec<Team>,
+    activities: Vec<crate::api::Message>,
     search_teams_input_value: String,
 ) -> Element<Message> {
     let mut teams_column: Column<Message> = column![].spacing(8.5);
@@ -73,5 +74,15 @@ pub fn home(
     .width(220)
     .padding(padding::bottom(18));
 
-    column![search_teams, team_scrollbar].into()
+    let teams_column = column![search_teams, team_scrollbar];
+
+    let mut activities_colum = column![];
+    for message in activities {
+        activities_colum = activities_colum.push(c_preview_message(
+            theme,
+            message.properties.unwrap().activity.unwrap(),
+        ));
+    }
+
+    row![teams_column, scrollable(activities_colum)].into()
 }

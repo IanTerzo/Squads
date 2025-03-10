@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
 use std::time::{SystemTime, UNIX_EPOCH};
+use url::form_urlencoded::parse;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccessToken {
@@ -81,13 +82,22 @@ pub struct Emotion {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Activity {
-    activity_type: String,
-    activity_operation_type: String,
-    source_thread_id: String,
-    source_message_id: u64,
-    source_reply_chain_id: u64,
-    annotations_entity: String,
-    content: String,
+    pub activity_type: String,
+    pub activity_subtype: Option<String>,
+    pub activity_timestamp: String,
+    pub activity_id: u64,
+    pub source_message_id: u64,
+    pub source_reply_chain_id: Option<u64>,
+    pub source_user_id: String,
+    pub source_user_im_display_name: Option<String>,
+    pub target_user_id: String,
+    pub source_thread_id: String,
+    pub message_preview: String,
+    pub message_preview_template_option: String,
+    pub source_thread_topic: Option<String>,
+    pub source_thread_roster_non_bot_member_count: Option<u64>,
+    #[serde(deserialize_with = "string_to_bool")]
+    pub source_thread_is_private_channel: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -116,6 +126,7 @@ pub struct Message {
     pub content: Option<String>,
     pub from: Option<String>,
     pub im_display_name: Option<String>,
+    pub imdisplayname: Option<String>,
     pub message_type: Option<String>,
     pub properties: Option<MessageProperties>,
     pub compose_time: Option<String>,
@@ -136,7 +147,7 @@ pub struct Conversation {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Conversations {
-    messages: Vec<Message>,
+    pub messages: Vec<Message>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -699,13 +710,14 @@ pub fn activity(token: AccessToken) -> Result<Conversations, String> {
         .build()
         .unwrap();
 
-    let res = client.get("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Aannotations/messages?view=msnp24Equivalent|supportsMessageProperties&pageSize=200&startTime=1")
+    let res = client.get("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Anotifications/messages?view=msnp24Equivalent%7CsupportsMessageProperties&pageSize=200&startTime=1")
         .headers(headers)
         .send()
         .unwrap();
 
     if res.status().is_success() {
         let parsed = res.json::<Conversations>().unwrap();
+        println!("{:#?}", parsed);
         Ok(parsed)
     } else {
         let error_message = format!(

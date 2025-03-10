@@ -4,7 +4,6 @@ use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
-use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, fs, io::Write};
 
@@ -75,6 +74,7 @@ struct Counter {
     teams: Arc<RwLock<Vec<Team>>>,
     chats: Arc<RwLock<Vec<Chat>>>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
+    activities: Arc<RwLock<Vec<api::Message>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -139,16 +139,6 @@ struct Properties {
     format_variant: String,
 }
 
-fn get_chat_users_mri(chats: Vec<Chat>) -> Vec<String> {
-    let mut user_mri = HashSet::new();
-    for chat in chats {
-        for member in chat.members {
-            user_mri.insert(member.mri);
-        }
-    }
-    user_mri.into_iter().collect()
-}
-
 fn save_to_cache<T>(filename: &str, content: &T)
 where
     T: Serialize,
@@ -204,6 +194,8 @@ impl Counter {
             *arc_me.write().unwrap() = cached;
         }
 
+        let arc_activities = Arc::new(RwLock::new(Vec::new()));
+
         let mut counter_self = Self {
             page: Page {
                 view: View::Login,
@@ -226,6 +218,7 @@ impl Counter {
             teams: teams.clone(),
             chats: chats.clone(),
             team_conversations: HashMap::new(),
+            activities: arc_activities.clone(),
         };
 
         //if cache.refresh_token.expires < get_epoch_s() {} show login page
@@ -247,8 +240,10 @@ impl Counter {
                         "https://ic3.teams.office.com/.default".to_string(),
                     );
 
-                    let activity_messages = activity(access_token_ic3);
-                    println!("{:#?}", activity_messages);
+                    let activity_messages = activity(access_token_ic3).unwrap();
+                    let mut activities = arc_activities.write().unwrap();
+
+                    *activities = activity_messages.messages;
 
                     let user_details = user_details(access_token_chatsvcagg.clone()).unwrap();
                     let mut teams = teams.write().unwrap();
@@ -292,14 +287,17 @@ impl Counter {
 
         match self.page.view {
             View::Login => app(&self.theme, login()),
-            View::Homepage => app(
-                &self.theme,
-                home(
+            View::Homepage => {
+                // Read and release the locks
+                let teams = self.teams.read().unwrap().clone();
+                let activities = self.activities.read().unwrap().clone();
+                let search_value = self.search_teams_input_value.clone();
+
+                app(
                     &self.theme,
-                    self.teams.read().unwrap().to_owned(),
-                    self.search_teams_input_value.to_owned(),
-                ),
-            ),
+                    home(&self.theme, teams, activities, search_value),
+                )
+            }
             View::Team => {
                 let current_team = self
                     .teams
