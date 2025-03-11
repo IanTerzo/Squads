@@ -84,7 +84,14 @@ pub fn chat(
 
         chats_column = chats_column.push(chat_item);
     }
-    let chats_scrollable = scrollable(chats_column).style(|_, _| theme.stylesheet.scrollable);
+    let chats_scrollable = scrollable(chats_column)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(8)
+                .spacing(10)
+                .scroller_width(8),
+        ))
+        .style(|_, _| theme.stylesheet.scrollable);
 
     row![chats_scrollable, "Hello, chat"].into()
 }
