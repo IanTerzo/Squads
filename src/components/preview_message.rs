@@ -41,7 +41,6 @@ pub fn c_preview_message<'a>(
 
     if activity.activity_type == "mention" {
         let max_len = (window_width * 0.09).round() as usize;
-        println!("{max_len}");
         let mut lines = activity.message_preview.split("\n");
         let mut first_line = lines.nth(0).unwrap().to_string();
 

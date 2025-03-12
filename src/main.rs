@@ -23,9 +23,8 @@ use style::global_theme;
 mod utils;
 mod widgets;
 use api::{
-    activity, authorize_avatar, authorize_image, authorize_profile_picture, authorize_team_picture,
-    me, send_message, team_conversations, user_details, users, AccessToken, Chat, Profile, Team,
-    TeamConversations,
+    activity, authorize_image, authorize_profile_picture, authorize_team_picture, me, send_message,
+    team_conversations, teams_me, users, AccessToken, Chat, Profile, Team, TeamConversations,
 };
 
 mod auth;
@@ -93,8 +92,7 @@ pub enum Message {
     OpenTeam(String, String),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String),
-    FetchAvatar(String),
-    AuthorizeImage(String),
+    AuthorizeImage(String, String),
     ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
@@ -246,7 +244,7 @@ impl Counter {
 
                     *activities = activity_messages.messages;
 
-                    let user_details = user_details(access_token_chatsvcagg.clone()).unwrap();
+                    let user_details = teams_me(access_token_chatsvcagg.clone()).unwrap();
                     let mut teams = teams.write().unwrap();
                     *teams = user_details.clone().teams;
 
@@ -284,7 +282,7 @@ impl Counter {
     }
 
     fn view(&self) -> Element<Message> {
-        println!("view called");
+        //println!("view called");
 
         match self.page.view {
             View::Login => app(&self.theme, login()),
@@ -400,7 +398,6 @@ impl Counter {
                 } else {
                     self.message_area_height = new_height;
                 }
-                println!("max {:#?} current: {:#?}", max_area_height, new_height);
 
                 Task::none()
             }
@@ -418,7 +415,6 @@ impl Counter {
                 let mut rng = rand::rng();
                 let message_id: u64 = rng.random(); // generate the mssage_id randomly
 
-                println!("id {}", self.me.read().unwrap().id.clone());
                 let message = TeamsMessage {
                     id: "-1".to_string(),
                     msg_type: "Message".to_string(),
@@ -538,40 +534,7 @@ impl Counter {
                 Message::DoNothing,
             ),
 
-            Message::FetchAvatar(url) => {
-                println!("1fetching..");
-
-                Task::perform(
-                    {
-                        let access_token = get_or_gen_token(
-                            self.access_tokens.clone(),
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
-                        );
-
-                        let skype_token =
-                            get_or_gen_skype_token(self.access_tokens.clone(), access_token);
-
-                        async {
-                            let url = url;
-
-                            let identifier = url
-                                .clone()
-                                .replace(
-                                    "https://eu-prod.asyncgw.teams.microsoft.com/v1/objects",
-                                    "",
-                                )
-                                .replace("/", "");
-
-                            let bytes = authorize_avatar(skype_token, url.clone()).unwrap();
-
-                            save_cached_image(identifier, bytes);
-                        }
-                    },
-                    Message::DoNothing,
-                )
-            }
-
-            Message::AuthorizeImage(image_id) => Task::perform(
+            Message::AuthorizeImage(url, identifier) => Task::perform(
                 {
                     let access_token = get_or_gen_token(
                         self.access_tokens.clone(),
@@ -582,11 +545,11 @@ impl Counter {
                         get_or_gen_skype_token(self.access_tokens.clone(), access_token);
 
                     async {
-                        let image_id = image_id;
+                        let url = url;
 
-                        let bytes = authorize_image(skype_token, image_id.clone()).unwrap();
+                        let bytes = authorize_image(skype_token, url.clone()).unwrap();
 
-                        save_cached_image(image_id, bytes);
+                        save_cached_image(identifier, bytes);
                     }
                 },
                 Message::DoNothing,

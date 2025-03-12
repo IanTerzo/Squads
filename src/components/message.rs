@@ -111,15 +111,8 @@ fn transform_html<'a>(
                         }
                     } else if itemtype == "http://schema.skype.com/AMSImage" {
                         // most consistent way to get the image id
-                        let image_id = child_element
-                            .attr("src")
-                            .unwrap()
-                            .replace("https://eu-api.asm.skype.com/v1/objects/", "")
-                            .replace(
-                                "https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/",
-                                "",
-                            )
-                            .replace("/views/imgo", "");
+                        let image_url = child_element.attr("src").unwrap().to_string();
+                        let identifier = image_url.replace("https:", "").replace("/", "");
 
                         let mut image_width = 20.0;
                         let mut image_height = 20.0;
@@ -135,8 +128,8 @@ fn transform_html<'a>(
                         }
 
                         let team_picture = c_cached_image(
-                            image_id.clone(),
-                            Message::AuthorizeImage(image_id.clone()),
+                            identifier.clone(),
+                            Message::AuthorizeImage(image_url, identifier),
                             image_width,
                             image_height,
                         );

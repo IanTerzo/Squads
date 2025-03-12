@@ -25,10 +25,13 @@ pub fn chat(
 
         if let Some(chat_picture) = chat.picture {
             let url = chat_picture.replace("URL@", "");
-            let identifier = url
-                .replace("https://eu-prod.asyncgw.teams.microsoft.com/v1/objects", "")
-                .replace("/", "");
-            picture = c_cached_image(identifier, Message::FetchAvatar(url), 28.0, 28.0);
+            let identifier = url.replace("https:", "").replace("/", "");
+            picture = c_cached_image(
+                identifier.clone(),
+                Message::AuthorizeImage(url, identifier),
+                28.0,
+                28.0,
+            );
         }
 
         if let Some(chat_title) = chat.title {
