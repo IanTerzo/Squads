@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::api::Team;
 use crate::style;
 use crate::Message;
@@ -10,13 +12,14 @@ use iced::{padding, Alignment, Element};
 use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};
 use crate::utils::truncate_name;
 
-pub fn home(
-    theme: &style::Theme,
+pub fn home<'a>(
+    theme: &'a style::Theme,
     teams: Vec<Team>,
     activities: Vec<crate::api::Message>,
+    emoji_map: &'a HashMap<String, String>,
     window_width: f32,
     search_teams_input_value: String,
-) -> Element<Message> {
+) -> Element<'a, Message> {
     let mut teams_column: Column<Message> = column![].spacing(8.5);
 
     for team in teams {
@@ -85,7 +88,8 @@ pub fn home(
     for message in activities_conversations {
         let activity = message.properties.unwrap().activity.unwrap();
 
-        activities_colum = activities_colum.push(c_preview_message(theme, activity, window_width));
+        activities_colum =
+            activities_colum.push(c_preview_message(theme, activity, window_width, emoji_map));
     }
 
     let activities_scrollbar = container(

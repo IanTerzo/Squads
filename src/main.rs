@@ -298,6 +298,7 @@ impl Counter {
                         &self.theme,
                         teams,
                         activities,
+                        &self.emoji_map,
                         self.window_width,
                         search_value,
                     ),

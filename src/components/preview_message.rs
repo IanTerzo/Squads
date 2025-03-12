@@ -1,16 +1,18 @@
+use std::collections::HashMap;
+
 use iced::widget::{column, container, row, text};
-use iced::{Alignment, Element};
+use iced::{Alignment, Element, Font};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
-use scraper::{Html, Selector};
 
 pub fn c_preview_message<'a>(
     theme: &'a style::Theme,
     activity: crate::api::Activity,
     window_width: f32,
+    emoji_map: &HashMap<String, String>,
 ) -> Element<'a, Message> {
     let mut message_column = column![].spacing(20);
 
@@ -54,6 +56,29 @@ pub fn c_preview_message<'a>(
         }
 
         message_column = message_column.push(text(first_line).color(theme.colors.demo_text));
+    } else if activity.activity_type == "reactionInChat" {
+        // message.preview // tuo messagwe
+        // message.activity_subtype // emoji id
+
+        let mut reaction_unicode = "(?)";
+        if let Some(reaction_value) = emoji_map.get(&activity.activity_subtype.unwrap()) {
+            reaction_unicode = reaction_value;
+        }
+
+        message_column = message_column.push(row![
+            text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
+            text!(
+                "Reacted to your message: {}, {}",
+                activity.message_preview,
+                activity.source_thread_topic.unwrap()
+            )
+        ]);
+    } else if activity.activity_type == "msGraph" {
+        // TODO: check subtype
+        message_column = message_column.push(text!("{}", activity.message_preview));
+    } else if activity.activity_type == "replyToReply" {
+        message_column =
+            message_column.push(text!("Replied to a message: {}", activity.message_preview));
     } else if activity.activity_type == "teamMembershipChange"
         && activity.activity_subtype.unwrap() == "addedToTeam"
     {
