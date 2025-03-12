@@ -1,3 +1,4 @@
+use iced::widget::scrollable::{snap_to, Id, RelativeOffset};
 use iced::widget::text_editor::{self, Content};
 use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme};
 use rand::Rng;
@@ -295,7 +296,13 @@ impl Counter {
 
                 app(
                     &self.theme,
-                    home(&self.theme, teams, activities, search_value),
+                    home(
+                        &self.theme,
+                        teams,
+                        activities,
+                        self.window_width,
+                        search_value,
+                    ),
                 )
             }
             View::Team => {
@@ -625,7 +632,7 @@ impl Counter {
             Message::GotConversations(team_id, conversations) => {
                 self.team_conversations
                     .insert(team_id, conversations.unwrap());
-                Task::none()
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::ContentChanged(content) => {
                 self.search_teams_input_value = content;

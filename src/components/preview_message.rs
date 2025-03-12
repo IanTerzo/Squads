@@ -1,14 +1,16 @@
-use iced::widget::{column, row, text};
+use iced::widget::{column, container, row, text};
 use iced::{Alignment, Element};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
+use crate::utils::truncate_name;
 use crate::Message;
 use scraper::{Html, Selector};
 
 pub fn c_preview_message<'a>(
     theme: &'a style::Theme,
     activity: crate::api::Activity,
+    window_width: f32,
 ) -> Element<'a, Message> {
     let mut message_column = column![].spacing(20);
 
@@ -37,7 +39,34 @@ pub fn c_preview_message<'a>(
 
     message_column = message_column.push(message_info);
 
-    message_column = message_column.push(text(activity.message_preview));
+    if activity.activity_type == "mention" {
+        let max_len = (window_width * 0.09).round() as usize;
+        println!("{max_len}");
+        let mut lines = activity.message_preview.split("\n");
+        let mut first_line = lines.nth(0).unwrap().to_string();
 
-    return message_column.into();
+        if lines.count() >= 1 && first_line.len() < max_len {
+            first_line = format!(
+                "{}...",
+                first_line.strip_suffix('\r').unwrap_or(first_line.as_str())
+            );
+        } else {
+            first_line = truncate_name(first_line, max_len);
+        }
+
+        message_column = message_column.push(text(first_line).color(theme.colors.demo_text));
+    } else if activity.activity_type == "teamMembershipChange"
+        && activity.activity_subtype.unwrap() == "addedToTeam"
+    {
+        message_column = message_column.push(text!(
+            "Added to team: {}",
+            activity.source_thread_topic.unwrap()
+        ));
+    }
+
+    container(message_column)
+        .style(|_| theme.stylesheet.conversation)
+        .width(iced::Length::Fill)
+        .padding(20)
+        .into()
 }

@@ -4,6 +4,7 @@ use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 use directories::ProjectDirs;
+use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
 use iced::{font, ContentFit, Element, Length, Padding};
@@ -46,7 +47,8 @@ pub fn team<'a>(
                     .spacing(10)
                     .scroller_width(8),
             ))
-            .style(|_, _| theme.stylesheet.scrollable),
+            .style(|_, _| theme.stylesheet.scrollable)
+            .id(Id::new("conversation_column")),
     )
     .height(Length::Fill);
 

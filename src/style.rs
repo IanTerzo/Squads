@@ -46,7 +46,7 @@ pub fn squads_dark() -> Theme {
         not_set: Color::from_rgb(1.0, 0.0, 0.0), // To be used as a palceholder for colors that are not yet choosen
         text: Color::WHITE,
         text_link: Color::parse("#6d74f4").expect("Color is invalid."),
-        demo_text: Color::parse("#C9C9C9").expect("Color is invalid."),
+        demo_text: Color::parse("#c1c1c1").expect("Color is invalid."),
         background: Color::parse("#0d0e12").expect("Color is invalid."),
         text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,

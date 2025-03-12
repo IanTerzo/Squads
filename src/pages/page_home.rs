@@ -2,7 +2,9 @@ use crate::api::Team;
 use crate::style;
 use crate::Message;
 
+use iced::widget::scrollable::Id;
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
+use iced::Length;
 use iced::{padding, Alignment, Element};
 
 use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};
@@ -12,6 +14,7 @@ pub fn home(
     theme: &style::Theme,
     teams: Vec<Team>,
     activities: Vec<crate::api::Message>,
+    window_width: f32,
     search_teams_input_value: String,
 ) -> Element<Message> {
     let mut teams_column: Column<Message> = column![].spacing(8.5);
@@ -76,13 +79,27 @@ pub fn home(
 
     let teams_column = column![search_teams, team_scrollbar];
 
-    let mut activities_colum = column![];
-    for message in activities {
-        activities_colum = activities_colum.push(c_preview_message(
-            theme,
-            message.properties.unwrap().activity.unwrap(),
-        ));
+    let mut activities_colum = column![].spacing(8.5);
+    let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
+
+    for message in activities_conversations {
+        let activity = message.properties.unwrap().activity.unwrap();
+
+        activities_colum = activities_colum.push(c_preview_message(theme, activity, window_width));
     }
 
-    row![teams_column, scrollable(activities_colum)].into()
+    let activities_scrollbar = container(
+        scrollable(activities_colum)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(8)
+                    .spacing(10)
+                    .scroller_width(8),
+            ))
+            .anchor_bottom()
+            .style(|_, _| theme.stylesheet.scrollable),
+    )
+    .height(Length::Fill);
+
+    row![teams_column, activities_scrollbar].spacing(10).into()
 }
