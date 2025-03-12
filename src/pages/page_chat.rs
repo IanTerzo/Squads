@@ -25,7 +25,7 @@ pub fn chat(
 
         if let Some(chat_picture) = chat.picture {
             let url = chat_picture.replace("URL@", "");
-            let identifier = url.replace("https:", "").replace("/", "");
+            let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
             picture = c_cached_image(
                 identifier.clone(),
                 Message::AuthorizeImage(url, identifier),

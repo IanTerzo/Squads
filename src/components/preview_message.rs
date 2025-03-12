@@ -68,11 +68,13 @@ pub fn c_preview_message<'a>(
         message_column = message_column.push(row![
             text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
             text!(
-                "Reacted to your message: {}, {}",
+                " Reacted to your message: {}, {}",
                 activity.message_preview,
                 activity.source_thread_topic.unwrap()
             )
         ]);
+
+    // TODO truncate everything
     } else if activity.activity_type == "msGraph" {
         // TODO: check subtype
         message_column = message_column.push(text!("{}", activity.message_preview));

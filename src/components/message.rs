@@ -112,7 +112,10 @@ fn transform_html<'a>(
                     } else if itemtype == "http://schema.skype.com/AMSImage" {
                         // most consistent way to get the image id
                         let image_url = child_element.attr("src").unwrap().to_string();
-                        let identifier = image_url.replace("https:", "").replace("/", "");
+                        let identifier = image_url
+                            .replace("https:", "")
+                            .replace("/", "")
+                            .replace(":", ""); // Windows
 
                         let mut image_width = 20.0;
                         let mut image_height = 20.0;
