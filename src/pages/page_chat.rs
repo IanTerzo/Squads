@@ -45,7 +45,11 @@ pub fn chat(
                             title = truncate_name(display_name.clone(), 24);
                             picture = c_cached_image(
                                 member.mri.clone(),
-                                Message::FetchUserImage(member.mri, display_name),
+                                Message::FetchUserImage(
+                                    member.mri.clone().replace(":", ""),
+                                    member.mri,
+                                    display_name,
+                                ),
                                 31.0,
                                 31.0,
                             );

@@ -264,9 +264,11 @@ pub fn c_message<'a>(
         if message_type == "RichText/Html" || message_type == "Text" {
             if let Some(display_name) = message.im_display_name {
                 let user_id = message.from.unwrap();
+                let identifier = user_id.clone().replace(":", "");
+
                 let user_picture = c_cached_image(
                     user_id.clone(),
-                    Message::FetchUserImage(user_id.clone(), display_name.clone()),
+                    Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
                     31.0,
                     31.0,
                 );

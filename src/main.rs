@@ -91,7 +91,7 @@ pub enum Message {
     HistoryBack,
     OpenTeam(String, String),
     FetchTeamImage(String, String, String, String),
-    FetchUserImage(String, String),
+    FetchUserImage(String, String, String),
     AuthorizeImage(String, String),
     ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
@@ -516,7 +516,7 @@ impl Counter {
                 )
             }
 
-            Message::FetchUserImage(user_id, display_name) => Task::perform(
+            Message::FetchUserImage(identifier, user_id, display_name) => Task::perform(
                 {
                     let access_token = get_or_gen_token(
                         self.access_tokens.clone(),
@@ -529,7 +529,7 @@ impl Counter {
                             authorize_profile_picture(access_token, user_id.clone(), display_name)
                                 .unwrap();
 
-                        save_cached_image(user_id, bytes);
+                        save_cached_image(identifier, bytes);
                     }
                 },
                 Message::DoNothing,

@@ -20,9 +20,11 @@ pub fn c_preview_message<'a>(
 
     if let Some(display_name) = activity.source_user_im_display_name {
         let user_id = activity.source_user_id;
+        let identifier = user_id.clone().replace(":", "");
+
         let user_picture = c_cached_image(
             user_id.clone(),
-            Message::FetchUserImage(user_id.clone(), display_name.clone()),
+            Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
             31.0,
             31.0,
         );
