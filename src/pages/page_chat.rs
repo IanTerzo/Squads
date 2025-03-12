@@ -43,13 +43,10 @@ pub fn chat(
                     if let Some(user_profile) = org_users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             title = truncate_name(display_name.clone(), 24);
+                            let identifier = member.mri.clone().replace(":", "");
                             picture = c_cached_image(
-                                member.mri.clone(),
-                                Message::FetchUserImage(
-                                    member.mri.clone().replace(":", ""),
-                                    member.mri,
-                                    display_name,
-                                ),
+                                identifier.clone(),
+                                Message::FetchUserImage(identifier, member.mri, display_name),
                                 31.0,
                                 31.0,
                             );

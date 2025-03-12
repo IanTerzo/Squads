@@ -267,8 +267,8 @@ pub fn c_message<'a>(
                 let identifier = user_id.clone().replace(":", "");
 
                 let user_picture = c_cached_image(
-                    user_id.clone(),
-                    Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
+                    identifier.clone(),
+                    Message::FetchUserImage(identifier, user_id, display_name.clone()),
                     31.0,
                     31.0,
                 );

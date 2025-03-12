@@ -23,8 +23,8 @@ pub fn c_preview_message<'a>(
         let identifier = user_id.clone().replace(":", "");
 
         let user_picture = c_cached_image(
-            user_id.clone(),
-            Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
+            identifier.clone(),
+            Message::FetchUserImage(identifier, user_id, display_name.clone()),
             31.0,
             31.0,
         );
@@ -67,13 +67,23 @@ pub fn c_preview_message<'a>(
             reaction_unicode = reaction_value;
         }
 
+        let max_len = (window_width * 0.09).round() as usize;
+        let mut lines = activity.message_preview.split("\n");
+        let mut first_line = lines.nth(0).unwrap().to_string();
+
+        if lines.count() >= 1 && first_line.len() < max_len {
+            first_line = format!(
+                "{}...",
+                first_line.strip_suffix('\r').unwrap_or(first_line.as_str())
+            );
+        } else {
+            first_line = truncate_name(first_line, max_len);
+        }
+
         message_column = message_column.push(row![
+            text("Reacted to your message: "),
             text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
-            text!(
-                " Reacted to your message: {}, {}",
-                activity.message_preview,
-                activity.source_thread_topic.unwrap()
-            )
+            // show thread and mesage preview
         ]);
 
     // TODO truncate everything
