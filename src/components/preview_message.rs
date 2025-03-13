@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::widget::{column, container, row, text};
-use iced::{Alignment, Element, Font};
+use iced::{Alignment, Element, Font, Length};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
@@ -38,13 +38,19 @@ pub fn c_preview_message<'a>(
     let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
     let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
 
+    message_info = message_info.push(
+        text(activity.activity_type.clone())
+            .size(14)
+            .color(theme.colors.demo_text),
+    );
     message_info = message_info.push(text(date).size(14).color(theme.colors.demo_text));
     message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
 
     message_column = message_column.push(message_info);
 
+    // TODO truncate everything
     if activity.activity_type == "mention" {
-        let max_len = (window_width * 0.09).round() as usize;
+        let max_len = (window_width * 0.09) as usize;
         let mut lines = activity.message_preview.split("\n");
         let mut first_line = lines.nth(0).unwrap().to_string();
 
@@ -85,21 +91,23 @@ pub fn c_preview_message<'a>(
             text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
             // show thread and mesage preview
         ]);
-
-    // TODO truncate everything
     } else if activity.activity_type == "msGraph" {
         // TODO: check subtype
-        message_column = message_column.push(text!("{}", activity.message_preview));
+        message_column = message_column
+            .push(text!("{}", activity.message_preview).color(theme.colors.demo_text));
     } else if activity.activity_type == "replyToReply" {
         message_column =
             message_column.push(text!("Replied to a message: {}", activity.message_preview));
+    } else if activity.activity_type == "thirdParty" {
+        message_column = message_column
+            .push(text!("{}", activity.message_preview).color(theme.colors.demo_text));
     } else if activity.activity_type == "teamMembershipChange"
         && activity.activity_subtype.unwrap() == "addedToTeam"
     {
-        message_column = message_column.push(text!(
-            "Added to team: {}",
-            activity.source_thread_topic.unwrap()
-        ));
+        message_column = message_column.push(
+            text!("Added to {}", activity.source_thread_topic.unwrap())
+                .color(theme.colors.demo_text),
+        );
     }
 
     container(message_column)
