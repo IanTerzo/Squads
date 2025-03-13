@@ -234,7 +234,6 @@ impl Counter {
         let access_tokens_clone = access_tokens.clone();
         let access_tokens_clone2 = access_tokens.clone();
         let access_tokens_clone3 = access_tokens.clone();
-
         (
             counter_self,
             Task::batch(vec![

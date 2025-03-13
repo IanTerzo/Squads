@@ -23,6 +23,13 @@ pub fn home<'a>(
     let mut teams_column: Column<Message> = column![].spacing(8.5);
 
     for team in teams {
+        if !team
+            .display_name
+            .to_lowercase()
+            .starts_with(&search_teams_input_value.to_lowercase())
+        {
+            continue;
+        }
         let team_picture = c_cached_image(
             team.picture_e_tag
                 .clone()
