@@ -10,6 +10,11 @@ Install and add chromedriver to path. Chromedriver is only used for logging in w
 cargo run 
 ```
 
+## Contributing
+If you want to contribute a new feature or a big change, please start a discussion so we can plan its implementation. For small fixes, pull requests are directly accepted. If you don't know what to contribute see the [todos](https://github.com/IanTerzo/Squads/blob/master/TODO.md), to claim one, add it to the in-progress tab with your name.
+
+Feature or improvement ideas are very welcome, feel free to share them in the discussions page.
+
 ## Preview
 
 
