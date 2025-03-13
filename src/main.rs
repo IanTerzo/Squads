@@ -72,6 +72,7 @@ struct Counter {
     me: Arc<RwLock<Profile>>,
     users: Arc<RwLock<HashMap<String, Profile>>>,
     teams: Arc<RwLock<Vec<Team>>>,
+    teams_cached: Vec<Team>,
     chats: Arc<RwLock<Vec<Chat>>>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     activities: Arc<RwLock<Vec<api::Message>>>,
@@ -180,7 +181,10 @@ impl Counter {
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {
             *access_tokens.write().unwrap() = cached;
         }
+
+        let mut teams_cached = Vec::new();
         if let Some(cached) = get_cache::<Vec<Team>>("teams.json") {
+            teams_cached = cached.clone();
             *teams.write().unwrap() = cached;
         }
         if let Some(cached) = get_cache::<Vec<Chat>>("chats.json") {
@@ -215,6 +219,7 @@ impl Counter {
             me: arc_me.clone(),
             users: arc_users.clone(),
             teams: teams.clone(),
+            teams_cached: teams_cached,
             chats: chats.clone(),
             team_conversations: HashMap::new(),
             activities: arc_activities.clone(),
@@ -287,9 +292,16 @@ impl Counter {
         match self.page.view {
             View::Login => app(&self.theme, login()),
             View::Homepage => {
-                // Read and release the locks
-                let teams = self.teams.read().unwrap().clone();
-                let activities = self.activities.read().unwrap().clone();
+                let teams = match self.teams.try_read() {
+                    Ok(guard) => guard.clone(),
+                    Err(_) => self.teams_cached.to_owned(), // A bit of a hotfix, but it works
+                };
+
+                let activities = match self.activities.try_read() {
+                    Ok(guard) => guard.clone(),
+                    Err(_) => Vec::new(),
+                };
+
                 let search_value = self.search_teams_input_value.clone();
 
                 app(
