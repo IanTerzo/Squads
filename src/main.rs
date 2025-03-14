@@ -53,7 +53,6 @@ struct Page {
     view: View,
     current_team_id: String,
     current_channel_id: String,
-    show_conversations: bool,
 }
 
 #[derive(Debug)]
@@ -94,7 +93,6 @@ pub enum Message {
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
     AuthorizeImage(String, String),
-    ShowConversations(()),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
 }
@@ -204,7 +202,6 @@ impl Counter {
                 view: View::Login,
                 current_team_id: "0".to_string(),
                 current_channel_id: "0".to_string(),
-                show_conversations: false,
             },
             theme: global_theme(),
             message_area_height: 54.0,
@@ -353,41 +350,23 @@ impl Counter {
                     .unwrap()
                     .clone();
 
-                let reply_options = self.reply_options.clone();
+                let reply_options = &self.reply_options;
 
-                // NOTE: We need to open the team page withou any conversations first, and then load the conversations, otherwise the app would feel unresposive if it froze until the conversations where loaded (and rendered into iced components)
-                // That's why this exists. Better solutions are welcome.
+                let conversation = self.team_conversations.get(&self.page.current_team_id);
 
-                if self.page.show_conversations {
-                    let conversation = self.team_conversations.get(&self.page.current_team_id);
-                    app(
+                app(
+                    &self.theme,
+                    team(
                         &self.theme,
-                        team(
-                            &self.theme,
-                            current_team,
-                            current_channel,
-                            conversation.cloned(),
-                            reply_options,
-                            &self.emoji_map,
-                            &self.message_area_content,
-                            self.message_area_height,
-                        ),
-                    )
-                } else {
-                    app(
-                        &self.theme,
-                        team(
-                            &self.theme,
-                            current_team,
-                            current_channel,
-                            None,
-                            reply_options,
-                            &self.emoji_map,
-                            &self.message_area_content,
-                            self.message_area_height,
-                        ),
-                    )
-                }
+                        &current_team,
+                        &current_channel,
+                        &conversation,
+                        &reply_options,
+                        &self.emoji_map,
+                        &self.message_area_content,
+                        &self.message_area_height,
+                    ),
+                )
             }
             View::Chat => app(
                 &self.theme,
@@ -591,22 +570,10 @@ impl Counter {
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
                     view: View::Team,
-                    current_team_id: team_id.clone(),
-                    current_channel_id: channel_id.clone(),
-                    show_conversations: false,
+                    current_team_id: team_id,
+                    current_channel_id: channel_id,
                 };
-                self.page = team_page.clone();
 
-                Task::perform(async {}, Message::ShowConversations)
-            }
-
-            Message::ShowConversations(_) => {
-                let team_page = Page {
-                    view: View::Team,
-                    current_team_id: self.page.current_team_id.clone(),
-                    current_channel_id: self.page.current_channel_id.clone(),
-                    show_conversations: true,
-                };
                 self.page = team_page.clone();
                 self.history.push(team_page);
 
@@ -622,9 +589,10 @@ impl Counter {
                         );
                         async move { team_conversations(access_token, team_id, channel_id) }
                     },
-                    move |result| Message::GotConversations(team_id_clone.clone(), result),
+                    move |result| Message::GotConversations(team_id_clone.clone(), result), // This calls a message
                 )
             }
+
             Message::GotConversations(team_id, conversations) => {
                 self.team_conversations
                     .insert(team_id, conversations.unwrap());

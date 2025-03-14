@@ -18,7 +18,6 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
                         view: View::Homepage,
                         current_team_id: "0".to_string(),
                         current_channel_id: "0".to_string(),
-                        show_conversations: false,
                     })
                 ),
                 MouseArea::new(svg("images/message-square.svg").width(25).height(25)).on_press(
@@ -26,7 +25,6 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
                         view: View::Chat,
                         current_team_id: "0".to_string(),
                         current_channel_id: "0".to_string(),
-                        show_conversations: false,
                     })
                 )
             ]

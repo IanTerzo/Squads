@@ -8,7 +8,7 @@ use crate::Message;
 pub fn c_message_area<'a>(
     theme: &'a style::Theme,
     message_area_content: &'a Content,
-    message_area_height: f32,
+    message_area_height: &f32,
 ) -> Element<'a, Message> {
     container(
         container(column![
@@ -72,7 +72,7 @@ pub fn c_message_area<'a>(
             .style(|_| theme.stylesheet.message_area_bar),
             text_editor(message_area_content)
                 .padding(8)
-                .height(message_area_height)
+                .height(*message_area_height)
                 .on_action(Message::Edit)
                 .placeholder("Type your message...")
                 .style(|_, _| theme.stylesheet.message_area),

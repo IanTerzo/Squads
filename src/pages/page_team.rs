@@ -12,13 +12,13 @@ use std::collections::HashMap;
 
 pub fn team<'a>(
     theme: &'a style::Theme,
-    team: Team,
-    page_channel: Channel,
-    conversations: Option<TeamConversations>,
-    reply_options: HashMap<String, bool>,
+    team: &Team,
+    page_channel: &Channel,
+    conversations: &Option<&TeamConversations>,
+    reply_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     message_area_content: &'a Content,
-    message_area_height: f32,
+    message_area_height: &f32,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(10);
 
