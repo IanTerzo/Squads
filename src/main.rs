@@ -355,6 +355,7 @@ impl Counter {
 
                 let conversation = self.team_conversations.get(&self.page.current_channel_id);
 
+                let users = self.users.read().unwrap();
                 app(
                     &self.theme,
                     team(
@@ -364,6 +365,7 @@ impl Counter {
                         &conversation,
                         &reply_options,
                         &self.emoji_map,
+                        &users,
                         &self.message_area_content,
                         &self.message_area_height,
                     ),

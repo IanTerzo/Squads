@@ -5,10 +5,11 @@ use iced::{font, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
+use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
-use base64::decode;
+use base64::{decode, display};
 use scraper::{Html, Selector};
 
 const LOG_THREAD_ACTIVITY: bool = false;
@@ -247,6 +248,7 @@ pub fn c_message<'a>(
     theme: &'a style::Theme,
     message: crate::api::Message,
     emoji_map: &HashMap<String, String>,
+    users: &HashMap<String, Profile>,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -262,19 +264,26 @@ pub fn c_message<'a>(
 
     if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" || message_type == "Text" {
-            if let Some(display_name) = message.im_display_name {
-                let user_id = message.from.unwrap();
-                let identifier = user_id.clone().replace(":", "");
+            // The message.im_display_name value is useless. Some messages don't have it and it can be set completely arbitrarily by the client. Instead, Teams matches the displayname from the user id.
+            if let Some(user_id) = message.from {
+                let profile = users.get(&user_id.replace("8:orgid:", ""));
+                if let Some(profile) = profile {
+                    let display_name = profile.display_name.clone().unwrap();
 
-                let user_picture = c_cached_image(
-                    identifier.clone(),
-                    Message::FetchUserImage(identifier, user_id, display_name.clone()),
-                    31.0,
-                    31.0,
-                );
+                    let identifier = user_id.clone().replace(":", "");
 
-                message_info = message_info.push(user_picture);
-                message_info = message_info.push(text!("{}", display_name));
+                    let user_picture = c_cached_image(
+                        identifier.clone(),
+                        Message::FetchUserImage(identifier, user_id, display_name.clone()),
+                        31.0,
+                        31.0,
+                    );
+
+                    message_info = message_info.push(user_picture);
+                    message_info = message_info.push(text!("{}", display_name));
+                } else {
+                    message_info = message_info.push(text("Unknown User"));
+                }
             } else {
                 message_info = message_info.push(text("Unknown User"));
             }

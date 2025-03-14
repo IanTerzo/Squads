@@ -1,4 +1,4 @@
-use crate::api::{Channel, Team, TeamConversations};
+use crate::api::{Channel, Profile, Team, TeamConversations};
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
 use crate::style;
 use crate::utils::truncate_name;
@@ -17,6 +17,7 @@ pub fn team<'a>(
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
+    users: &HashMap<String, Profile>,
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
@@ -31,7 +32,8 @@ pub fn team<'a>(
             if let Some(option) = reply_options.get(&conversation.id) {
                 show_replies = option.clone();
             }
-            let conversaton_element = c_conversation(theme, conversation, show_replies, emoji_map);
+            let conversaton_element =
+                c_conversation(theme, conversation, show_replies, emoji_map, users);
 
             if let Some(conversation_element_un) = conversaton_element {
                 conversation_column = conversation_column.push(conversation_element_un)
