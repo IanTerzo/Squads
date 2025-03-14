@@ -303,20 +303,22 @@ pub fn c_message<'a>(
 
     if let Some(properties) = message.properties.clone() {
         if let Some(subject) = properties.subject {
-            let mut text_row = row![];
-
-            for c in subject.chars() {
-                if c.is_emoji_char() {
-                    text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
-                } else {
-                    text_row = text_row.push(text(c).size(18).font(font::Font {
-                        weight: font::Weight::Bold,
-                        ..Default::default()
-                    }));
+            if subject != "" {
+                // Edgecase
+                let mut text_row = row![];
+                for c in subject.chars() {
+                    if c.is_emoji_char() && !c.is_digit(10) {
+                        text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
+                    } else {
+                        text_row = text_row.push(text(c).size(18).font(font::Font {
+                            weight: font::Weight::Bold,
+                            ..Default::default()
+                        }));
+                    }
                 }
-            }
 
-            message_column = message_column.push(text_row);
+                message_column = message_column.push(text_row);
+            }
         }
     }
 

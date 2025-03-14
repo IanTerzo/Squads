@@ -574,7 +574,6 @@ impl Counter {
                     current_team_id: team_id,
                     current_channel_id: channel_id,
                 };
-                println!("{}", self.page.current_channel_id);
 
                 self.page = team_page.clone();
                 self.history.push(team_page);
