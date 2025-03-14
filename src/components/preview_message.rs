@@ -19,7 +19,14 @@ pub fn c_preview_message<'a>(
     let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
     if let Some(display_name) = activity.source_user_im_display_name {
-        let user_id = activity.source_user_id;
+        let mut user_id = activity.source_user_id; // This is wrong for
+
+        if activity.activity_type == "msGraph" {
+            if let Some(attributed_to_actor_id) = activity.activityContext.attributed_to_actor_id {
+                user_id = attributed_to_actor_id;
+            }
+        }
+
         let identifier = user_id.clone().replace(":", "");
 
         let user_picture = c_cached_image(

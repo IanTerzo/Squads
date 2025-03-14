@@ -82,6 +82,29 @@ pub struct Emotion {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct ActivityContext {
+    pub teams_app_id: Option<String>,
+    pub location: Option<String>,
+    pub template_parameter: Option<String>,
+    pub entitlement_search_locations: Option<String>,
+    pub attributed_to_actor: Option<String>,
+    pub attributed_to_actor_id: Option<String>,
+    #[serde(rename = "AggregationId")]
+    pub aggregation_id: Option<String>,
+    #[serde(rename = "WebhookCorrelationId")]
+    pub webhook_correlation_id: Option<String>,
+    #[serde(rename = "ClumpId")]
+    pub clump_id: Option<String>,
+    #[serde(rename = "ClumpType")]
+    pub clump_type: Option<String>,
+    #[serde(rename = "ClumpTitle")]
+    pub clump_title: Option<String>,
+    pub activity_version: Option<String>,
+    pub activity_processing_latency: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Activity {
     pub activity_type: String,
     pub activity_subtype: Option<String>,
@@ -99,6 +122,7 @@ pub struct Activity {
     pub source_thread_roster_non_bot_member_count: Option<u64>,
     #[serde(deserialize_with = "string_to_bool")]
     pub source_thread_is_private_channel: bool,
+    pub activityContext: ActivityContext,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -735,7 +759,7 @@ pub fn properties(token: AccessToken) -> Result<UserProperties, String> {
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
 pub fn activity(token: AccessToken) -> Result<Conversations, String> {
-    let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Anotifications/messages";
+    let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Anotifications/messages?pageSize=200";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
