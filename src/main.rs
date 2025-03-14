@@ -335,7 +335,7 @@ impl Counter {
                 )
             }
             View::Team => {
-                let current_team = self
+                let mut current_team = self
                     .teams
                     .read()
                     .unwrap()
@@ -360,7 +360,7 @@ impl Counter {
                     &self.theme,
                     team(
                         &self.theme,
-                        &current_team,
+                        &mut current_team,
                         &current_channel,
                         &conversation,
                         &reply_options,

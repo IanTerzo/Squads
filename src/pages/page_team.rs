@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 pub fn team<'a>(
     theme: &'a style::Theme,
-    team: &Team,
+    team: &mut Team,
     page_channel: &Channel,
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
@@ -92,6 +92,7 @@ pub fn team<'a>(
 
     let channel_count = team.channels.len();
 
+    let channels_sorted = team.channels.sort_by_key(|item| item.id != team.id);
     for channel in team.channels.clone() {
         let page_channel_cloned = page_channel.clone();
         let channel_cloned = channel.clone();
