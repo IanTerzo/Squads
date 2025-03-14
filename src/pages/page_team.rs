@@ -107,7 +107,8 @@ pub fn team<'a>(
                     .center_y(47)
                     .width(if channel_count <= 13 { 220 } else { 185 }),
             )
-            .on_press(Message::OpenTeam(team.clone().id, channel.id)),
+            .on_press(Message::OpenTeam(team.id.clone(), channel.id.clone()))
+            .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id)),
         );
         channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }

@@ -60,10 +60,8 @@ pub fn home<'a>(
                 .center_y(47)
                 .width(220),
             )
-            .on_press(Message::OpenTeam(
-                team.id.clone().to_string(),
-                team.id.to_string(),
-            )),
+            .on_press(Message::OpenTeam(team.id.clone(), team.id.clone()))
+            .on_enter(Message::PrefetchTeam(team.id.clone(), team.id)),
         );
     }
 

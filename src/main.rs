@@ -90,6 +90,7 @@ pub enum Message {
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
+    PrefetchTeam(String, String),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
     AuthorizeImage(String, String),
@@ -352,7 +353,7 @@ impl Counter {
 
                 let reply_options = &self.reply_options;
 
-                let conversation = self.team_conversations.get(&self.page.current_team_id);
+                let conversation = self.team_conversations.get(&self.page.current_channel_id);
 
                 app(
                     &self.theme,
@@ -573,14 +574,16 @@ impl Counter {
                     current_team_id: team_id,
                     current_channel_id: channel_id,
                 };
+                println!("{}", self.page.current_channel_id);
 
                 self.page = team_page.clone();
                 self.history.push(team_page);
 
-                let team_id = self.page.current_team_id.clone();
-                let channel_id = self.page.current_channel_id.clone();
-                let team_id_clone = self.page.current_team_id.clone();
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+            }
 
+            Message::PrefetchTeam(team_id, channel_id) => {
+                let channel_id_clone = channel_id.clone();
                 Task::perform(
                     {
                         let access_token = get_or_gen_token(
@@ -589,14 +592,14 @@ impl Counter {
                         );
                         async move { team_conversations(access_token, team_id, channel_id) }
                     },
-                    move |result| Message::GotConversations(team_id_clone.clone(), result), // This calls a message
+                    move |result| Message::GotConversations(channel_id_clone.clone(), result), // This calls a message
                 )
             }
 
-            Message::GotConversations(team_id, conversations) => {
+            Message::GotConversations(channel_id, conversations) => {
                 self.team_conversations
-                    .insert(team_id, conversations.unwrap());
-                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+                    .insert(channel_id, conversations.unwrap());
+                Task::none()
             }
             Message::ContentChanged(content) => {
                 self.search_teams_input_value = content;
