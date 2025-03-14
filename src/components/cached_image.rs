@@ -59,7 +59,7 @@ pub fn c_cached_image<'a>(
         team_picture = container(
             ViewportHandler::new(
                 image(image_path)
-                    .content_fit(ContentFit::Cover)
+                    .content_fit(ContentFit::Fill)
                     .width(image_width)
                     .height(image_height),
             )
