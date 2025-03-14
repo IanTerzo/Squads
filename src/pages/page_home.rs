@@ -7,6 +7,7 @@ use crate::Message;
 use iced::widget::scrollable::Id;
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
 use iced::Length;
+use iced::Padding;
 use iced::{padding, Alignment, Element};
 
 use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};
@@ -22,6 +23,8 @@ pub fn home<'a>(
 ) -> Element<'a, Message> {
     let mut teams_column: Column<Message> = column![].spacing(8.5);
 
+    let mut teams_list_empty = true;
+
     for team in teams {
         if !team
             .display_name
@@ -30,6 +33,9 @@ pub fn home<'a>(
         {
             continue;
         }
+
+        teams_list_empty = false;
+
         let team_picture = c_cached_image(
             team.picture_e_tag
                 .clone()
@@ -85,7 +91,12 @@ pub fn home<'a>(
     .width(220)
     .padding(padding::bottom(18));
 
-    let teams_column = column![search_teams, team_scrollbar];
+    let mut teams_column = column![search_teams, team_scrollbar];
+
+    // Mantain the same padding as the scrollbar
+    if teams_list_empty {
+        teams_column = teams_column.padding(padding::right(18));
+    }
 
     let mut activities_colum = column![].spacing(8.5);
     let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
