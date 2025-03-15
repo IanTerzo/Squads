@@ -93,8 +93,8 @@ pub fn c_preview_message<'a>(
             first_line = truncate_name(first_line, max_len);
         }
 
-        message_column = message_column.push(row![
-            text("Reacted to your message: "),
+        message_column = message_column.push(column![
+            text!("> {}", activity.message_preview).color(theme.colors.demo_text),
             text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
             // show thread and mesage preview
         ]);

@@ -212,10 +212,10 @@ fn transform_html<'a>(
     dynamic_container.wrap() // If it is a row, it needs to be wrapping
 }
 
-fn parse_message_html(
+fn parse_message_html<'a>(
     theme: &style::Theme,
     content: String,
-) -> Result<Element<'static, Message>, String> {
+) -> Result<Element<'a, Message>, String> {
     // Remove things like newlines to avoid them being treated as text during the parsing
     let content = content.replace("\n", "").replace("\r", "");
     let document = Html::parse_document(content.as_str());
