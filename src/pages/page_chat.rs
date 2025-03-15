@@ -23,33 +23,15 @@ pub fn chat(
 
         let mut title = "Chat".to_string();
 
-        if let Some(chat_picture) = chat.picture {
-            let url = chat_picture.replace("URL@", "");
-            let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
-            picture = c_cached_image(
-                identifier.clone(),
-                Message::AuthorizeImage(url, identifier),
-                28.0,
-                28.0,
-            );
-        }
-
         if let Some(chat_title) = chat.title {
             title = truncate_name(chat_title, 20);
         } else if chat.members.len() == 2 {
-            for member in chat.members {
+            for member in chat.members.clone() {
                 let member_id = member.mri.replace("8:orgid:", "");
                 if member_id != user_id {
                     if let Some(user_profile) = org_users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             title = truncate_name(display_name.clone(), 24);
-                            let identifier = member.mri.clone().replace(":", "");
-                            picture = c_cached_image(
-                                identifier.clone(),
-                                Message::FetchUserImage(identifier, member.mri, display_name),
-                                31.0,
-                                31.0,
-                            );
                         } else {
                             title = "Unknown User".to_string();
                         }
@@ -61,19 +43,59 @@ pub fn chat(
         } else {
             let mut member_names = vec![];
             for member in chat.members.clone() {
-                if let Some(user_profile) = org_users.get(&member.mri) {
-                    if let Some(display_name) = user_profile.clone().display_name {
-                        member_names.push(display_name);
+                let member_id = member.mri.replace("8:orgid:", "");
+                if member_id != user_id {
+                    if let Some(user_profile) = org_users.get(&member_id) {
+                        if let Some(display_name) = user_profile.clone().display_name {
+                            member_names.push(display_name);
+                        } else {
+                            member_names.push("Unknown User".to_string());
+                        }
                     } else {
+                        // This should never happen
                         member_names.push("Unknown User".to_string());
                     }
-                } else {
-                    // This should never happen
-                    member_names.push("Unknown User".to_string());
                 }
             }
 
             title = truncate_name(member_names.join(", "), 24);
+        }
+
+        if let Some(chat_picture) = chat.picture {
+            let url = chat_picture.replace("URL@", "");
+            let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
+            picture = c_cached_image(
+                identifier.clone(),
+                Message::AuthorizeImage(url, identifier),
+                28.0,
+                28.0,
+            );
+        } else {
+            let mut member_profiles = vec![];
+            for member in chat.members {
+                let member_id = member.mri.replace("8:orgid:", "");
+                if member_id != user_id {
+                    if let Some(user_profile) = org_users.get(&member_id) {
+                        if let Some(display_name) = user_profile.clone().display_name {
+                            member_profiles.push((member.mri.clone(), display_name.clone()));
+                        }
+                    }
+                }
+            }
+
+            let identifier = member_profiles
+                .iter()
+                .map(|(a, _)| a)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("-");
+
+            picture = c_cached_image(
+                identifier.clone(),
+                Message::FetchMergedProfilePicture(identifier, member_profiles),
+                31.0,
+                31.0,
+            );
         }
 
         let chat_item = container(

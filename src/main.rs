@@ -23,8 +23,9 @@ use style::global_theme;
 mod utils;
 mod widgets;
 use api::{
-    activity, authorize_image, authorize_profile_picture, authorize_team_picture, me, send_message,
-    team_conversations, teams_me, users, AccessToken, Chat, Profile, Team, TeamConversations,
+    activity, authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
+    authorize_team_picture, me, send_message, team_conversations, teams_me, users, AccessToken,
+    Chat, Profile, Team, TeamConversations,
 };
 
 mod auth;
@@ -93,6 +94,7 @@ pub enum Message {
     PrefetchTeam(String, String),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
+    FetchMergedProfilePicture(String, Vec<(String, String)>),
     AuthorizeImage(String, String),
     GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
@@ -542,6 +544,21 @@ impl Counter {
                         let bytes =
                             authorize_profile_picture(access_token, user_id.clone(), display_name)
                                 .unwrap();
+
+                        save_cached_image(identifier, bytes);
+                    }
+                },
+                Message::DoNothing,
+            ),
+
+            Message::FetchMergedProfilePicture(identifier, users) => Task::perform(
+                {
+                    let access_token = get_or_gen_token(
+                        self.access_tokens.clone(),
+                        "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                    );
+                    async {
+                        let bytes = authorize_merged_profile_picture(access_token, users).unwrap();
 
                         save_cached_image(identifier, bytes);
                     }

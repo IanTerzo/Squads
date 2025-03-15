@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
@@ -1331,6 +1331,68 @@ pub fn authorize_image(token: AccessToken, url: String) -> Result<Bytes, String>
         .unwrap();
 
     let res = client.get(url).headers(headers).send().unwrap();
+
+    if res.status().is_success() {
+        let bytes = res.bytes().unwrap();
+        Ok(bytes)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+// Api: Emea v2
+// Scope: Skype
+pub fn authorize_merged_profile_picture(
+    token: AccessToken,
+    users: Vec<(String, String)>,
+) -> Result<Bytes, String> {
+    let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/mergedProfilePicturev2";
+    if LOG_REQUESTS {
+        println!("Log: GET {}", url);
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("cookie"),
+        format!(
+            "authtoken=Bearer={}&origin=https://teams.microsoft.com;",
+            token.value
+        )
+        .parse()
+        .unwrap(),
+    );
+
+    headers.insert(
+        "Referer",
+        "https://teams.microsoft.com/v2/".parse().unwrap(),
+    );
+
+    let json_array: Vec<Value> = users
+        .iter()
+        .map(|(user_id, display_name)| json!({"userId": user_id, "displayName": display_name}))
+        .collect();
+
+    let params = [
+        ("usersInfo", serde_json::to_string(&json_array).unwrap()),
+        ("size", "HR64x64".to_string()),
+    ];
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .get(url)
+        .headers(headers)
+        .query(&params)
+        .send()
+        .unwrap();
 
     if res.status().is_success() {
         let bytes = res.bytes().unwrap();
