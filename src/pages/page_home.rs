@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
+use crate::api;
 use crate::api::Team;
 use crate::style;
 use crate::Message;
 
+use iced::widget::mouse_area;
 use iced::widget::scrollable::Id;
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
 use iced::Length;
@@ -17,6 +19,7 @@ pub fn home<'a>(
     theme: &'a style::Theme,
     teams: Vec<Team>,
     activities: Vec<crate::api::Message>,
+    expanded_conversations: HashMap<String, Vec<api::Message>>,
     emoji_map: &'a HashMap<String, String>,
     window_width: f32,
     search_teams_input_value: String,
@@ -101,11 +104,28 @@ pub fn home<'a>(
     let mut activities_colum = column![].spacing(8.5);
     let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
 
+    let mut message_order = 0;
     for message in activities_conversations {
         let activity = message.properties.unwrap().activity.unwrap();
 
-        activities_colum =
-            activities_colum.push(c_preview_message(theme, activity, window_width, emoji_map));
+        let thread_id = activity.source_thread_id.clone();
+
+        let message_id = activity
+            .source_reply_chain_id
+            .unwrap_or(activity.source_message_id);
+
+        let message_activity_id = format!("expandend_activity_{}", message_order);
+
+        if let Some(value) = expanded_conversations.get(&message_activity_id) {
+            activities_colum = activities_colum.push(text!("Expanded"));
+        } else {
+            activities_colum = activities_colum.push(
+                mouse_area(c_preview_message(theme, activity, window_width, emoji_map)).on_release(
+                    Message::ExpandActivity(thread_id, message_id, message_activity_id),
+                ),
+            );
+        }
+        message_order += 1;
     }
 
     let activities_scrollbar = container(

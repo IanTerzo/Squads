@@ -758,8 +758,22 @@ pub fn properties(token: AccessToken) -> Result<UserProperties, String> {
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub fn activity(token: AccessToken) -> Result<Conversations, String> {
-    let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/48%3Anotifications/messages?pageSize=200";
+pub fn conversations(
+    token: AccessToken,
+    thread_id: String,
+    message_id: Option<u64>,
+) -> Result<Conversations, String> {
+    let thread_part = if let Some(msg_id) = message_id {
+        format!("{};messageid={}", thread_id, msg_id)
+    } else {
+        thread_id.clone()
+    };
+
+    let url = format!(
+    "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages?pageSize=200",
+    thread_part
+);
+
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }

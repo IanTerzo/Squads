@@ -23,9 +23,9 @@ use style::global_theme;
 mod utils;
 mod widgets;
 use api::{
-    activity, authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
-    authorize_team_picture, me, send_message, team_conversations, teams_me, users, AccessToken,
-    Chat, Profile, Team, TeamConversations,
+    authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
+    authorize_team_picture, conversations, me, send_message, team_conversations, teams_me, users,
+    AccessToken, Chat, Conversation, Profile, Team, TeamConversations,
 };
 
 mod auth;
@@ -75,6 +75,7 @@ struct Counter {
     teams_cached: Vec<Team>,
     chats: Arc<RwLock<Vec<Chat>>>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
+    activity_expanded_conversations: Arc<RwLock<HashMap<String, Vec<api::Message>>>>, // String is the team id
     activities: Arc<RwLock<Vec<api::Message>>>,
 }
 
@@ -88,6 +89,7 @@ pub enum Message {
     Join,
     Jump(Page),
     PostMessage,
+    ExpandActivity(String, u64, String),
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
@@ -221,6 +223,7 @@ impl Counter {
             teams: teams.clone(),
             teams_cached: teams_cached,
             chats: chats.clone(),
+            activity_expanded_conversations: Arc::new(RwLock::new(HashMap::new())),
             team_conversations: HashMap::new(),
             activities: arc_activities.clone(),
         };
@@ -244,7 +247,9 @@ impl Counter {
                             "https://ic3.teams.office.com/.default".to_string(),
                         );
 
-                        let activity_messages = activity(access_token_ic3).unwrap();
+                        let activity_messages =
+                            conversations(access_token_ic3, "48:notifications".to_string(), None)
+                                .unwrap();
                         let mut activities = arc_activities.write().unwrap();
 
                         *activities = activity_messages.messages;
@@ -322,6 +327,11 @@ impl Counter {
                     Err(_) => Vec::new(),
                 };
 
+                let expanded_conversations = match self.activity_expanded_conversations.try_read() {
+                    Ok(guard) => guard.clone(),
+                    Err(_) => HashMap::new(),
+                };
+
                 let search_value = self.search_teams_input_value.clone();
 
                 app(
@@ -330,6 +340,7 @@ impl Counter {
                         &self.theme,
                         teams,
                         activities,
+                        expanded_conversations,
                         &self.emoji_map,
                         self.window_width,
                         search_value,
@@ -404,6 +415,27 @@ impl Counter {
 
                 Task::none()
             }
+            Message::ExpandActivity(thread_id, message_id, message_activity_id) => Task::perform(
+                {
+                    let access_token = get_or_gen_token(
+                        self.access_tokens.clone(),
+                        "https://ic3.teams.office.com/.default".to_string(),
+                    );
+                    let arc_expanded_conversations = self.activity_expanded_conversations.clone();
+                    async move {
+                        let conversation =
+                            conversations(access_token, thread_id.clone(), Some(message_id))
+                                .unwrap();
+                        arc_expanded_conversations
+                            .write()
+                            .unwrap()
+                            .insert(message_activity_id, conversation.messages.clone());
+                        println!("{conversation:#?}");
+                    }
+                },
+                Message::DoNothing,
+            ),
+
             Message::Edit(action) => {
                 let max_area_height = 0.5 * self.window_height;
                 self.message_area_content.perform(action);
@@ -652,6 +684,6 @@ pub fn main() -> iced::Result {
         })
         .subscription(Counter::subscription)
         .theme(Counter::theme)
-        .font(include_bytes!("../resources/Twemoji-15.1.0.ttf").as_slice())
+        .font(include_bytes!("../resources/Twemoji-15.1.0.ttf").as_slice()) // Increases startup time with about 100 ms...
         .run_with(Counter::new)
 }
