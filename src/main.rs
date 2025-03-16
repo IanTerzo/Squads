@@ -25,7 +25,7 @@ mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
     authorize_team_picture, conversations, me, send_message, team_conversations, teams_me, users,
-    AccessToken, Chat, Conversation, Profile, Team, TeamConversations,
+    AccessToken, Chat, Conversation, Conversations, Profile, Team, TeamConversations,
 };
 
 mod auth;
@@ -52,8 +52,9 @@ enum View {
 #[derive(Debug, Clone)]
 struct Page {
     view: View,
-    current_team_id: String,
-    current_channel_id: String,
+    current_team_id: Option<String>,
+    current_channel_id: Option<String>,
+    current_chat_id: Option<String>,
 }
 
 #[derive(Debug)]
@@ -75,7 +76,8 @@ struct Counter {
     teams_cached: Vec<Team>,
     chats: Arc<RwLock<Vec<Chat>>>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
-    activity_expanded_conversations: Arc<RwLock<HashMap<String, Vec<api::Message>>>>, // String is the team id
+    chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
+    activity_expanded_conversations: Arc<RwLock<HashMap<String, Vec<api::Message>>>>, // String is the thread id
     activities: Arc<RwLock<Vec<api::Message>>>,
 }
 
@@ -90,15 +92,18 @@ pub enum Message {
     Jump(Page),
     PostMessage,
     ExpandActivity(String, u64, String),
+    OpenChat(String),
+    PrefetchChat(String),
+    GotChatConversations(String, Result<Conversations, String>),
     ToggleReplyOptions(String),
     HistoryBack,
     OpenTeam(String, String),
     PrefetchTeam(String, String),
+    GotConversations(String, Result<TeamConversations, String>),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
     FetchMergedProfilePicture(String, Vec<(String, String)>),
     AuthorizeImage(String, String),
-    GotConversations(String, Result<TeamConversations, String>),
     ContentChanged(String),
 }
 
@@ -204,9 +209,10 @@ impl Counter {
 
         let mut counter_self = Self {
             page: Page {
-                view: View::Login,
-                current_team_id: "0".to_string(),
-                current_channel_id: "0".to_string(),
+                view: View::Homepage,
+                current_team_id: None,
+                current_channel_id: None,
+                current_chat_id: None,
             },
             theme: global_theme(),
             message_area_height: 54.0,
@@ -225,12 +231,12 @@ impl Counter {
             chats: chats.clone(),
             activity_expanded_conversations: Arc::new(RwLock::new(HashMap::new())),
             team_conversations: HashMap::new(),
+            chat_conversations: HashMap::new(),
             activities: arc_activities.clone(),
         };
 
         //if cache.refresh_token.expires < get_epoch_s() {} show login page
 
-        counter_self.page.view = View::Homepage;
         counter_self.history.push(counter_self.page.clone());
 
         // hotfix...
@@ -348,25 +354,29 @@ impl Counter {
                 )
             }
             View::Team => {
+                let current_team_id = self.page.current_team_id.as_ref().unwrap();
+
                 let mut current_team = self
                     .teams
                     .read()
                     .unwrap()
                     .iter()
-                    .find(|team| team.id == self.page.current_team_id)
+                    .find(|team| &team.id == current_team_id)
                     .unwrap()
                     .clone();
+
+                let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
 
                 let current_channel = current_team
                     .channels
                     .iter()
-                    .find(|channel| channel.id == self.page.current_channel_id)
+                    .find(|channel| &channel.id == current_channel_id)
                     .unwrap()
                     .clone();
 
                 let reply_options = &self.reply_options;
 
-                let conversation = self.team_conversations.get(&self.page.current_channel_id);
+                let conversation = self.team_conversations.get(current_channel_id);
 
                 let users = self.users.read().unwrap();
                 app(
@@ -384,15 +394,26 @@ impl Counter {
                     ),
                 )
             }
-            View::Chat => app(
-                &self.theme,
-                chat(
+            View::Chat => {
+                let conversation =
+                    if let Some(current_channel_id) = self.page.current_chat_id.as_ref() {
+                        self.chat_conversations.get(current_channel_id)
+                    } else {
+                        None
+                    };
+
+                app(
                     &self.theme,
-                    self.chats.read().unwrap().to_owned(),
-                    self.users.read().unwrap().to_owned(),
-                    self.me.read().unwrap().to_owned().id,
-                ),
-            ),
+                    chat(
+                        &self.theme,
+                        self.chats.read().unwrap().to_owned(),
+                        &conversation,
+                        &self.emoji_map,
+                        &self.users.read().unwrap().to_owned(),
+                        self.me.read().unwrap().to_owned().id,
+                    ),
+                )
+            }
         }
     }
 
@@ -435,6 +456,39 @@ impl Counter {
                 },
                 Message::DoNothing,
             ),
+            Message::OpenChat(thread_id) => {
+                let team_page = Page {
+                    view: View::Chat,
+                    current_team_id: None,
+                    current_channel_id: None,
+                    current_chat_id: Some(thread_id),
+                };
+
+                self.page = team_page.clone();
+                self.history.push(team_page);
+
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+            }
+
+            Message::PrefetchChat(thread_id) => {
+                let channel_id_clone = thread_id.clone();
+                Task::perform(
+                    {
+                        let access_token = get_or_gen_token(
+                            self.access_tokens.clone(),
+                            "https://ic3.teams.office.com/.default".to_string(),
+                        );
+                        async move { conversations(access_token, thread_id, None) }
+                    },
+                    move |result| Message::GotChatConversations(channel_id_clone.clone(), result), // This calls a message
+                )
+            }
+
+            Message::GotChatConversations(thread_id, conversations) => {
+                self.chat_conversations
+                    .insert(thread_id, conversations.unwrap().messages);
+                Task::none()
+            }
 
             Message::Edit(action) => {
                 let max_area_height = 0.5 * self.window_height;
@@ -467,8 +521,11 @@ impl Counter {
                 let message = TeamsMessage {
                     id: "-1".to_string(),
                     msg_type: "Message".to_string(),
-                    conversationid: self.page.current_channel_id.clone(),
-                    conversation_link: format!("blah/{}", self.page.current_channel_id.clone()),
+                    conversationid: self.page.current_channel_id.clone().unwrap(),
+                    conversation_link: format!(
+                        "blah/{}",
+                        self.page.current_channel_id.clone().unwrap()
+                    ),
                     from: format!("8:orgid:{}", self.me.read().unwrap().id.clone()),
                     composetime: "2025-03-06T11:04:18.265Z".to_string(),
                     originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
@@ -500,7 +557,12 @@ impl Counter {
                 // Convert the struct into a JSON string
                 let body = serde_json::to_string_pretty(&message).unwrap();
 
-                send_message(access_token, self.page.current_channel_id.clone(), body).unwrap();
+                send_message(
+                    access_token,
+                    self.page.current_channel_id.clone().unwrap(),
+                    body,
+                )
+                .unwrap();
                 println!("Posted!");
 
                 Task::none()
@@ -622,8 +684,9 @@ impl Counter {
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
                     view: View::Team,
-                    current_team_id: team_id,
-                    current_channel_id: channel_id,
+                    current_team_id: Some(team_id),
+                    current_channel_id: Some(channel_id),
+                    current_chat_id: None,
                 };
 
                 self.page = team_page.clone();

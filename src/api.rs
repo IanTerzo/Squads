@@ -149,9 +149,12 @@ pub struct MessageProperties {
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub content: Option<String>,
+    #[serde(deserialize_with = "strip_url")]
+    // In some cases the id is displayed as a contacts url, https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/8:orgid:15de4241-3...
     pub from: Option<String>,
+    #[serde(alias = "imdisplayname")]
     pub im_display_name: Option<String>,
-    pub imdisplayname: Option<String>,
+    #[serde(alias = "messagetype")]
     pub message_type: Option<String>,
     pub properties: Option<MessageProperties>,
     pub compose_time: Option<String>,
@@ -300,6 +303,18 @@ impl fmt::Display for ApiError {
             ApiError::MissingTokenOrExpiry => write!(f, "Missing refresh_token or expires_in"),
         }
     }
+}
+
+pub fn strip_url<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    Ok(opt.map(|url| {
+        url.strip_prefix("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/")
+            .unwrap_or(&url)
+            .to_string()
+    }))
 }
 
 fn trim_quotes<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>

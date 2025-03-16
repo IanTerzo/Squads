@@ -1,21 +1,25 @@
 use std::collections::HashMap;
 
-use crate::api::{Chat, Profile};
+use crate::api::{self, Chat, Profile};
 use crate::components::cached_image::c_cached_image;
+use crate::components::message::{self, c_message};
 use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 
-use iced::widget::{column, container, row, Space};
+use iced::widget::scrollable::Id;
+use iced::widget::{column, container, mouse_area, row, Space};
 use iced::widget::{scrollable, text};
-use iced::{padding, Alignment, Element};
+use iced::{padding, Alignment, Element, Length};
 
-pub fn chat(
-    theme: &style::Theme,
+pub fn chat<'a>(
+    theme: &'a style::Theme,
     chats: Vec<Chat>,
-    org_users: HashMap<String, Profile>,
+    conversation: &Option<&Vec<api::Message>>,
+    emoji_map: &HashMap<String, String>,
+    users: &HashMap<String, Profile>,
     user_id: String,
-) -> Element<Message> {
+) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(8.5);
 
     for chat in chats {
@@ -29,7 +33,7 @@ pub fn chat(
             for member in chat.members.clone() {
                 let member_id = member.mri.replace("8:orgid:", "");
                 if member_id != user_id {
-                    if let Some(user_profile) = org_users.get(&member_id) {
+                    if let Some(user_profile) = users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             title = truncate_name(display_name.clone(), 24);
                         } else {
@@ -45,7 +49,7 @@ pub fn chat(
             for member in chat.members.clone() {
                 let member_id = member.mri.replace("8:orgid:", "");
                 if member_id != user_id {
-                    if let Some(user_profile) = org_users.get(&member_id) {
+                    if let Some(user_profile) = users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             member_names.push(display_name);
                         } else {
@@ -75,7 +79,7 @@ pub fn chat(
             for member in chat.members {
                 let member_id = member.mri.replace("8:orgid:", "");
                 if member_id != user_id {
-                    if let Some(user_profile) = org_users.get(&member_id) {
+                    if let Some(user_profile) = users.get(&member_id) {
                         if let Some(display_name) = user_profile.clone().display_name {
                             member_profiles.push((member.mri.clone(), display_name.clone()));
                         }
@@ -98,15 +102,19 @@ pub fn chat(
             );
         }
 
-        let chat_item = container(
-            row![picture, text(title)]
-                .spacing(10)
-                .padding(padding::left(10))
-                .align_y(Alignment::Center),
+        let chat_item = mouse_area(
+            container(
+                row![picture, text(title)]
+                    .spacing(10)
+                    .padding(padding::left(10))
+                    .align_y(Alignment::Center),
+            )
+            .style(|_| theme.stylesheet.list_tab)
+            .center_y(47)
+            .width(220),
         )
-        .style(|_| theme.stylesheet.list_tab)
-        .center_y(47)
-        .width(220);
+        .on_enter(Message::PrefetchChat(chat.id.clone()))
+        .on_release(Message::OpenChat(chat.id));
 
         chats_column = chats_column.push(chat_item);
     }
@@ -119,5 +127,37 @@ pub fn chat(
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
-    row![chats_scrollable, "Hello, chat"].into()
+    let mut message_column = column![].spacing(10);
+
+    if let Some(conversation) = conversation {
+        let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
+
+        for message in ordered_conversation {
+            if let Some(message_element) = c_message(theme, message, emoji_map, users) {
+                message_column = message_column.push(
+                    container(message_element)
+                        .style(|_| theme.stylesheet.conversation)
+                        .width(iced::Length::Fill)
+                        .padding(20),
+                );
+            }
+        }
+    };
+
+    let conversation_scrollbar = container(
+        scrollable(message_column)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(8)
+                    .spacing(10)
+                    .scroller_width(8),
+            ))
+            .style(|_, _| theme.stylesheet.scrollable)
+            .id(Id::new("conversation_column")),
+    )
+    .height(Length::Fill);
+
+    row![chats_scrollable, conversation_scrollbar]
+        .spacing(10)
+        .into()
 }

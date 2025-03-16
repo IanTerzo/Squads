@@ -16,15 +16,17 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
                 MouseArea::new(svg("images/house.svg").width(25).height(25)).on_press(
                     Message::Jump(Page {
                         view: View::Homepage,
-                        current_team_id: "0".to_string(),
-                        current_channel_id: "0".to_string(),
+                        current_team_id: None,
+                        current_channel_id: None,
+                        current_chat_id: None
                     })
                 ),
                 MouseArea::new(svg("images/message-square.svg").width(25).height(25)).on_press(
                     Message::Jump(Page {
                         view: View::Chat,
-                        current_team_id: "0".to_string(),
-                        current_channel_id: "0".to_string(),
+                        current_team_id: None,
+                        current_channel_id: None,
+                        current_chat_id: None
                     })
                 )
             ]
