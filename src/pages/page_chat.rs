@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
 use crate::components::cached_image::c_cached_image;
-use crate::components::message::{self, c_message};
+use crate::components::chat_message::c_chat_message;
 use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
@@ -133,13 +133,8 @@ pub fn chat<'a>(
         let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
 
         for message in ordered_conversation {
-            if let Some(message_element) = c_message(theme, message, emoji_map, users) {
-                message_column = message_column.push(
-                    container(message_element)
-                        .style(|_| theme.stylesheet.conversation)
-                        .width(iced::Length::Fill)
-                        .padding(20),
-                );
+            if let Some(message_element) = c_chat_message(theme, message, emoji_map, users) {
+                message_column = message_column.push(message_element);
             }
         }
     };
