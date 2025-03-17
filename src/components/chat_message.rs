@@ -4,7 +4,7 @@ use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
 use iced::widget::{column, container, row, text};
-use iced::{font, padding, Alignment, Element, Font, Padding};
+use iced::{border, font, padding, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
@@ -24,7 +24,7 @@ pub fn c_chat_message<'a>(
 
     let mut message_row = row![].spacing(12);
 
-    let mut message_column = column![].spacing(3);
+    let mut message_column = column![].spacing(4);
     let mut contents_column = column![].spacing(2);
 
     let mut message_info = row![].spacing(10).align_y(Alignment::Center);
@@ -138,7 +138,20 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    message_column = message_column.push(contents_column);
+    message_column = message_column.push(
+        container(contents_column)
+            .style(|_| container::Style {
+                background: Some(theme.colors.primary1.into()),
+                border: border::rounded(4),
+                ..Default::default()
+            })
+            .padding(Padding {
+                top: 4.0,
+                right: 8.0,
+                bottom: 4.0,
+                left: 8.0,
+            }),
+    );
 
     // Message reactions
 
