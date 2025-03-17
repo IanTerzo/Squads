@@ -158,6 +158,7 @@ pub struct Message {
     pub message_type: Option<String>,
     pub properties: Option<MessageProperties>,
     pub compose_time: Option<String>,
+    #[serde(alias = "originalarrivaltime")]
     pub original_arrival_time: Option<String>,
     pub id: Option<String>,
     pub container_id: Option<String>,

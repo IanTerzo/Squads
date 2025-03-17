@@ -9,6 +9,7 @@ pub fn c_message_area<'a>(
     theme: &'a style::Theme,
     message_area_content: &'a Content,
     message_area_height: &f32,
+    area_id: String,
 ) -> Element<'a, Message> {
     container(
         container(column![
@@ -73,7 +74,7 @@ pub fn c_message_area<'a>(
             text_editor(message_area_content)
                 .padding(8)
                 .height(*message_area_height)
-                .on_action(Message::Edit)
+                .on_action(move |action| Message::MessageAreaEdit(action, area_id.clone()))
                 .placeholder("Type your message...")
                 .style(|_, _| theme.stylesheet.message_area),
             row![

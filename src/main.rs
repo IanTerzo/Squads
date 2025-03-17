@@ -65,8 +65,10 @@ struct Counter {
     history: Vec<Page>,
     emoji_map: HashMap<String, String>,
     search_teams_input_value: String,
-    message_area_content: Content,
-    message_area_height: f32,
+    team_message_area_content: Content,
+    team_message_area_height: f32,
+    chat_message_area_content: Content,
+    chat_message_area_height: f32,
     window_width: f32,
     window_height: f32,
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
@@ -83,7 +85,7 @@ struct Counter {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Edit(text_editor::Action),
+    MessageAreaEdit(text_editor::Action, String),
     EventOccurred(Event),
     Authorized(()),
     DoNothing(()),
@@ -215,8 +217,10 @@ impl Counter {
                 current_chat_id: None,
             },
             theme: global_theme(),
-            message_area_height: 54.0,
-            message_area_content: Content::new(),
+            team_message_area_content: Content::new(),
+            team_message_area_height: 54.0,
+            chat_message_area_content: Content::new(),
+            chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
             history: Vec::new(),
             emoji_map: emojies,
@@ -389,8 +393,8 @@ impl Counter {
                         &reply_options,
                         &self.emoji_map,
                         &users,
-                        &self.message_area_content,
-                        &self.message_area_height,
+                        &self.team_message_area_content,
+                        &self.team_message_area_height,
                     ),
                 )
             }
@@ -411,6 +415,8 @@ impl Counter {
                         &self.emoji_map,
                         &self.users.read().unwrap().to_owned(),
                         self.me.read().unwrap().to_owned().id,
+                        &self.chat_message_area_content,
+                        &self.chat_message_area_height,
                     ),
                 )
             }
@@ -427,8 +433,8 @@ impl Counter {
 
                         let max_area_height = 0.5 * self.window_height;
 
-                        if self.message_area_height > max_area_height {
-                            self.message_area_height = max_area_height;
+                        if self.team_message_area_height > max_area_height {
+                            self.team_message_area_height = max_area_height;
                         }
                     }
                     _ => {}
@@ -490,24 +496,47 @@ impl Counter {
                 Task::none()
             }
 
-            Message::Edit(action) => {
+            Message::MessageAreaEdit(action, area_id) => {
                 let max_area_height = 0.5 * self.window_height;
-                self.message_area_content.perform(action);
-                let line_count = self.message_area_content.line_count();
-                let new_height = 33.0 + line_count as f32 * 21.0;
 
-                if new_height > max_area_height {
-                    self.message_area_height = max_area_height;
-                } else {
-                    self.message_area_height = new_height;
+                if area_id == "team" {
+                    self.team_message_area_content.perform(action);
+                    let line_count = self.team_message_area_content.line_count();
+                    let new_height = 33.0 + line_count as f32 * 21.0;
+
+                    if new_height > max_area_height {
+                        self.team_message_area_height = max_area_height;
+                    } else {
+                        self.team_message_area_height = new_height;
+                    }
+                } else if area_id == "chat" {
+                    self.chat_message_area_content.perform(action);
+                    let line_count = self.chat_message_area_content.line_count();
+                    let new_height = 33.0 + line_count as f32 * 21.0;
+
+                    if new_height > max_area_height {
+                        self.team_message_area_height = max_area_height;
+                    } else {
+                        self.chat_message_area_height = new_height;
+                    }
                 }
-
                 Task::none()
             }
             Message::DoNothing(_) => Task::none(),
 
             Message::PostMessage => {
-                let message_area_text = self.message_area_content.text();
+                let message_area_text = match self.page.view {
+                    View::Team => self.team_message_area_content.text(),
+                    View::Chat => self.chat_message_area_content.text(),
+                    _ => "".to_string(),
+                };
+
+                let conversation_id = match self.page.view {
+                    View::Team => self.page.current_channel_id.clone().unwrap(),
+                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                    _ => "".to_string(),
+                };
+
                 let html = parse_message_markdown(message_area_text);
 
                 let access_token = get_or_gen_token(
@@ -516,16 +545,13 @@ impl Counter {
                 );
 
                 let mut rng = rand::rng();
-                let message_id: u64 = rng.random(); // generate the mssage_id randomly
+                let message_id: u64 = rng.random(); // generate the message_id randomly
 
                 let message = TeamsMessage {
                     id: "-1".to_string(),
                     msg_type: "Message".to_string(),
-                    conversationid: self.page.current_channel_id.clone().unwrap(),
-                    conversation_link: format!(
-                        "blah/{}",
-                        self.page.current_channel_id.clone().unwrap()
-                    ),
+                    conversationid: conversation_id.clone(),
+                    conversation_link: format!("blah/{}", conversation_id),
                     from: format!("8:orgid:{}", self.me.read().unwrap().id.clone()),
                     composetime: "2025-03-06T11:04:18.265Z".to_string(),
                     originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
@@ -557,12 +583,7 @@ impl Counter {
                 // Convert the struct into a JSON string
                 let body = serde_json::to_string_pretty(&message).unwrap();
 
-                send_message(
-                    access_token,
-                    self.page.current_channel_id.clone().unwrap(),
-                    body,
-                )
-                .unwrap();
+                send_message(access_token, conversation_id, body).unwrap();
                 println!("Posted!");
 
                 Task::none()

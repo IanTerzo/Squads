@@ -54,7 +54,12 @@ pub fn team<'a>(
     )
     .height(Length::Fill);
 
-    let message_area = c_message_area(theme, message_area_content, message_area_height);
+    let message_area = c_message_area(
+        theme,
+        message_area_content,
+        message_area_height,
+        "team".to_string(),
+    );
     let content_page = column![conversation_scrollbar, message_area].spacing(7);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");

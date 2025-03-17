@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
-use crate::components::cached_image::c_cached_image;
-use crate::components::chat_message::c_chat_message;
+use crate::components::{
+    cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
+};
 use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 
 use iced::widget::scrollable::Id;
+use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, row, Space};
 use iced::widget::{scrollable, text};
 use iced::{padding, Alignment, Element, Length};
@@ -19,6 +21,8 @@ pub fn chat<'a>(
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
     user_id: String,
+    message_area_content: &'a Content,
+    message_area_height: &f32,
 ) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(8.5);
 
@@ -147,12 +151,18 @@ pub fn chat<'a>(
                     .spacing(10)
                     .scroller_width(8),
             ))
-            .style(|_, _| theme.stylesheet.scrollable)
+            .style(|_, _| theme.stylesheet.chat_scrollable)
             .id(Id::new("conversation_column")),
     )
     .height(Length::Fill);
 
-    row![chats_scrollable, conversation_scrollbar]
-        .spacing(10)
-        .into()
+    let message_area = c_message_area(
+        theme,
+        message_area_content,
+        message_area_height,
+        "chat".to_string(),
+    );
+    let content_page = column![conversation_scrollbar, message_area].spacing(7);
+
+    row![chats_scrollable, content_page].spacing(10).into()
 }

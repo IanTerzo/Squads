@@ -8,6 +8,7 @@ use iced::{
 pub struct Stylesheet {
     pub navbar: container::Style,
     pub scrollable: scrollable::Style,
+    pub chat_scrollable: scrollable::Style,
     pub list_tab: container::Style,
     pub list_tab_selected: container::Style,
     pub input: text_input::Style,
@@ -71,6 +72,30 @@ pub fn squads_dark() -> Theme {
             selection: colors.text_selection,
         },
         scrollable: scrollable::Style {
+            container: container::Style {
+                background: Some(colors.background.into()),
+                border: border::rounded(10),
+                ..Default::default()
+            },
+            vertical_rail: scrollable::Rail {
+                background: Some(colors.primary1.into()),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: colors.accent,
+                    border: border::rounded(10),
+                },
+            },
+            horizontal_rail: scrollable::Rail {
+                background: Some(colors.primary1.into()),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: colors.not_set,
+                    border: border::rounded(10),
+                },
+            },
+            gap: Some(colors.not_set.into()),
+        },
+        chat_scrollable: scrollable::Style {
             container: container::Style {
                 background: Some(colors.background.into()),
                 border: border::rounded(10),
