@@ -16,7 +16,7 @@ use iced::{padding, Alignment, Element, Length};
 
 pub fn chat<'a>(
     theme: &'a style::Theme,
-    chats: Vec<Chat>,
+    chats: &Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
@@ -31,8 +31,8 @@ pub fn chat<'a>(
 
         let mut title = "Chat".to_string();
 
-        if let Some(chat_title) = chat.title {
-            title = truncate_name(chat_title, 20);
+        if let Some(chat_title) = &chat.title {
+            title = truncate_name(chat_title.clone(), 20);
         } else if chat.members.len() == 2 {
             for member in chat.members.clone() {
                 let member_id = member.mri.replace("8:orgid:", "");
@@ -69,7 +69,7 @@ pub fn chat<'a>(
             title = truncate_name(member_names.join(", "), 24);
         }
 
-        if let Some(chat_picture) = chat.picture {
+        if let Some(chat_picture) = &chat.picture {
             let url = chat_picture.replace("URL@", "");
             let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
             picture = c_cached_image(
@@ -80,7 +80,7 @@ pub fn chat<'a>(
             );
         } else {
             let mut member_profiles = vec![];
-            for member in chat.members {
+            for member in &chat.members {
                 let member_id = member.mri.replace("8:orgid:", "");
                 if member_id != user_id {
                     if let Some(user_profile) = users.get(&member_id) {
@@ -118,7 +118,7 @@ pub fn chat<'a>(
             .width(220),
         )
         .on_enter(Message::PrefetchChat(chat.id.clone()))
-        .on_release(Message::OpenChat(chat.id));
+        .on_release(Message::OpenChat(chat.id.clone()));
 
         chats_column = chats_column.push(chat_item);
     }

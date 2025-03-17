@@ -4,17 +4,12 @@ use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-
 use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, fs, io::Write};
-
 use webbrowser;
-
 mod components;
 use components::cached_image::save_cached_image;
-
 use directories::ProjectDirs;
-
 mod api;
 mod parsing;
 use parsing::parse_message_markdown;
@@ -25,9 +20,8 @@ mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
     authorize_team_picture, conversations, me, send_message, team_conversations, teams_me, users,
-    AccessToken, Chat, Conversation, Conversations, Profile, Team, TeamConversations,
+    AccessToken, Chat, Conversations, Profile, Team, TeamConversations,
 };
-
 mod auth;
 use auth::{get_or_gen_skype_token, get_or_gen_token};
 mod pages;
@@ -72,15 +66,14 @@ struct Counter {
     window_width: f32,
     window_height: f32,
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
-    me: Arc<RwLock<Profile>>,
-    users: Arc<RwLock<HashMap<String, Profile>>>,
-    teams: Arc<RwLock<Vec<Team>>>,
-    teams_cached: Vec<Team>,
-    chats: Arc<RwLock<Vec<Chat>>>,
+    me: Profile,
+    users: HashMap<String, Profile>,
+    teams: Vec<Team>,
+    chats: Vec<Chat>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: Arc<RwLock<HashMap<String, Vec<api::Message>>>>, // String is the thread id
-    activities: Arc<RwLock<Vec<api::Message>>>,
+    activities: Vec<api::Message>,
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +95,9 @@ pub enum Message {
     OpenTeam(String, String),
     PrefetchTeam(String, String),
     GotConversations(String, Result<TeamConversations, String>),
+    GotActivities(Vec<api::Message>),
+    GotUsers(HashMap<String, Profile>, Profile),
+    GotUserDetails(Vec<Team>, Vec<Chat>),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
     FetchMergedProfilePicture(String, Vec<(String, String)>),
@@ -183,31 +179,21 @@ impl Counter {
         let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
-        let teams = Arc::new(RwLock::new(Vec::new()));
-        let chats = Arc::new(RwLock::new(Vec::new()));
-        let arc_users = Arc::new(RwLock::new(HashMap::new()));
+
         let arc_me = Arc::new(RwLock::new(Profile::default()));
 
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {
             *access_tokens.write().unwrap() = cached;
         }
 
-        let mut teams_cached = Vec::new();
-        if let Some(cached) = get_cache::<Vec<Team>>("teams.json") {
-            teams_cached = cached.clone();
-            *teams.write().unwrap() = cached;
-        }
-        if let Some(cached) = get_cache::<Vec<Chat>>("chats.json") {
-            *chats.write().unwrap() = cached;
-        }
-        if let Some(cached) = get_cache::<HashMap<String, Profile>>("users.json") {
-            *arc_users.write().unwrap() = cached;
-        }
-        if let Some(cached) = get_cache::<Profile>("me.json") {
-            *arc_me.write().unwrap() = cached;
-        }
+        let teams = get_cache::<Vec<Team>>("teams.json").unwrap_or(Vec::new());
 
-        let arc_activities = Arc::new(RwLock::new(Vec::new()));
+        let chats = get_cache::<Vec<Chat>>("chats.json").unwrap_or(Vec::new());
+
+        let user_profiles =
+            get_cache::<HashMap<String, Profile>>("users.json").unwrap_or(HashMap::new());
+
+        let profile = get_cache::<Profile>("me.json").unwrap_or(Profile::default());
 
         let mut counter_self = Self {
             page: Page {
@@ -228,18 +214,15 @@ impl Counter {
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
-            me: arc_me.clone(),
-            users: arc_users.clone(),
+            users: user_profiles,
+            me: profile,
             teams: teams.clone(),
-            teams_cached: teams_cached,
             chats: chats.clone(),
             activity_expanded_conversations: Arc::new(RwLock::new(HashMap::new())),
             team_conversations: HashMap::new(),
             chat_conversations: HashMap::new(),
-            activities: arc_activities.clone(),
+            activities: Vec::new(),
         };
-
-        //if cache.refresh_token.expires < get_epoch_s() {} show login page
 
         counter_self.history.push(counter_self.page.clone());
 
@@ -260,11 +243,10 @@ impl Counter {
                         let activity_messages =
                             conversations(access_token_ic3, "48:notifications".to_string(), None)
                                 .unwrap();
-                        let mut activities = arc_activities.write().unwrap();
 
-                        *activities = activity_messages.messages;
+                        activity_messages.messages
                     },
-                    Message::DoNothing,
+                    Message::GotActivities,
                 ),
                 Task::perform(
                     async move {
@@ -273,17 +255,17 @@ impl Counter {
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                         );
 
-                        let user_details = teams_me(access_token_chatsvcagg.clone()).unwrap();
-                        let mut teams = teams.write().unwrap();
-                        *teams = user_details.clone().teams;
+                        let user_details = teams_me(access_token_chatsvcagg).unwrap();
 
-                        let mut chats = chats.write().unwrap();
-                        *chats = user_details.clone().chats;
+                        let teams = user_details.teams;
+                        let chats = user_details.chats;
 
-                        save_to_cache("teams.json", &teams.to_owned());
-                        save_to_cache("chats.json", &chats.to_owned());
+                        save_to_cache("teams.json", &teams);
+                        save_to_cache("chats.json", &chats);
+
+                        (teams, chats)
                     },
-                    Message::DoNothing,
+                    |result| Message::GotUserDetails(result.0, result.1),
                 ),
                 Task::perform(
                     async move {
@@ -297,19 +279,17 @@ impl Counter {
                         let mut profile_map = HashMap::new();
 
                         for profile in users.unwrap().value {
-                            profile_map.insert(profile.clone().id, profile);
+                            profile_map.insert(profile.id.clone(), profile);
                         }
 
-                        let mut users = arc_users.write().unwrap();
-                        *users = profile_map;
+                        let profile = me(access_token_graph).unwrap();
 
-                        let mut profile = arc_me.write().unwrap();
-                        *profile = me(access_token_graph).unwrap();
-
-                        save_to_cache("users.json", &users.to_owned());
+                        save_to_cache("users.json", &profile_map.to_owned());
                         save_to_cache("me.json", &profile.to_owned());
+
+                        (profile_map, profile)
                     },
-                    Message::DoNothing,
+                    |result| Message::GotUsers(result.0, result.1),
                 ),
             ])
             .chain(Task::perform(
@@ -327,16 +307,6 @@ impl Counter {
         match self.page.view {
             View::Login => app(&self.theme, login()),
             View::Homepage => {
-                let teams = match self.teams.try_read() {
-                    Ok(guard) => guard.clone(),
-                    Err(_) => self.teams_cached.to_owned(), // A bit of a hotfix, but it works
-                };
-
-                let activities = match self.activities.try_read() {
-                    Ok(guard) => guard.clone(),
-                    Err(_) => Vec::new(),
-                };
-
                 let expanded_conversations = match self.activity_expanded_conversations.try_read() {
                     Ok(guard) => guard.clone(),
                     Err(_) => HashMap::new(),
@@ -348,8 +318,8 @@ impl Counter {
                     &self.theme,
                     home(
                         &self.theme,
-                        teams,
-                        activities,
+                        &self.teams,
+                        &self.activities,
                         expanded_conversations,
                         &self.emoji_map,
                         self.window_width,
@@ -362,8 +332,6 @@ impl Counter {
 
                 let mut current_team = self
                     .teams
-                    .read()
-                    .unwrap()
                     .iter()
                     .find(|team| &team.id == current_team_id)
                     .unwrap()
@@ -382,7 +350,6 @@ impl Counter {
 
                 let conversation = self.team_conversations.get(current_channel_id);
 
-                let users = self.users.read().unwrap();
                 app(
                     &self.theme,
                     team(
@@ -392,7 +359,7 @@ impl Counter {
                         &conversation,
                         &reply_options,
                         &self.emoji_map,
-                        &users,
+                        &self.users,
                         &self.team_message_area_content,
                         &self.team_message_area_height,
                     ),
@@ -410,11 +377,11 @@ impl Counter {
                     &self.theme,
                     chat(
                         &self.theme,
-                        self.chats.read().unwrap().to_owned(),
+                        &self.chats,
                         &conversation,
                         &self.emoji_map,
-                        &self.users.read().unwrap().to_owned(),
-                        self.me.read().unwrap().to_owned().id,
+                        &self.users.to_owned(),
+                        self.me.to_owned().id,
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
@@ -442,6 +409,21 @@ impl Counter {
 
                 Task::none()
             }
+            Message::GotUserDetails(teams, chats) => {
+                self.teams = teams;
+                self.chats = chats;
+                Task::none()
+            }
+            Message::GotActivities(activities) => {
+                self.activities = activities;
+                Task::none()
+            }
+            Message::GotUsers(user_profiles, profile) => {
+                self.users = user_profiles;
+                self.me = profile;
+                Task::none()
+            }
+
             Message::ExpandActivity(thread_id, message_id, message_activity_id) => Task::perform(
                 {
                     let access_token = get_or_gen_token(
@@ -552,13 +534,13 @@ impl Counter {
                     msg_type: "Message".to_string(),
                     conversationid: conversation_id.clone(),
                     conversation_link: format!("blah/{}", conversation_id),
-                    from: format!("8:orgid:{}", self.me.read().unwrap().id.clone()),
+                    from: format!("8:orgid:{}", self.me.id.clone()),
                     composetime: "2025-03-06T11:04:18.265Z".to_string(),
                     originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
                     content: html,
                     messagetype: "RichText/Html".to_string(),
                     contenttype: "Text".to_string(),
-                    imdisplayname: self.me.read().unwrap().display_name.clone().unwrap(),
+                    imdisplayname: self.me.display_name.clone().unwrap(),
                     clientmessageid: message_id.to_string(),
                     call_id: "".to_string(),
                     state: 0,
@@ -589,7 +571,6 @@ impl Counter {
                 Task::none()
             }
             Message::Authorized(_response) => {
-                self.page.view = View::Homepage;
                 self.history.push(self.page.clone());
                 Task::none()
             }

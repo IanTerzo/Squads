@@ -17,8 +17,8 @@ use crate::utils::truncate_name;
 
 pub fn home<'a>(
     theme: &'a style::Theme,
-    teams: Vec<Team>,
-    activities: Vec<crate::api::Message>,
+    teams: &Vec<Team>,
+    activities: &Vec<crate::api::Message>,
     expanded_conversations: HashMap<String, Vec<api::Message>>,
     emoji_map: &'a HashMap<String, String>,
     window_width: f32,
@@ -47,7 +47,7 @@ pub fn home<'a>(
                 team.picture_e_tag
                     .clone()
                     .unwrap_or(team.display_name.clone()),
-                team.picture_e_tag.unwrap_or("".to_string()),
+                team.picture_e_tag.clone().unwrap_or("".to_string()),
                 team.team_site_information.group_id.clone(),
                 team.display_name.clone(),
             ),
@@ -60,7 +60,7 @@ pub fn home<'a>(
                 container(
                     row![
                         container(team_picture).padding(padding::left(10)),
-                        text(truncate_name(team.display_name, 16)),
+                        text(truncate_name(team.display_name.clone(), 16)),
                     ]
                     .spacing(10)
                     .align_y(Alignment::Center),
@@ -70,7 +70,7 @@ pub fn home<'a>(
                 .width(220),
             )
             .on_press(Message::OpenTeam(team.id.clone(), team.id.clone()))
-            .on_enter(Message::PrefetchTeam(team.id.clone(), team.id)),
+            .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone())),
         );
     }
 
