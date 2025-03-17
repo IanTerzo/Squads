@@ -94,9 +94,11 @@ pub fn chat<'a>(
             let identifier = member_profiles
                 .iter()
                 .map(|(a, _)| a)
+                .take(3)
                 .cloned()
                 .collect::<Vec<_>>()
-                .join("-");
+                .join("-")
+                .replace(":", "");
 
             picture = c_cached_image(
                 identifier.clone(),

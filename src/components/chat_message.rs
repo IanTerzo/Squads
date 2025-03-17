@@ -24,7 +24,9 @@ pub fn c_chat_message<'a>(
 
     let mut message_row = row![].spacing(12);
 
-    let mut message_column = column![].spacing(2);
+    let mut message_column = column![].spacing(3);
+    let mut contents_column = column![].spacing(2);
+
     let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
     // Message info bar
@@ -77,7 +79,7 @@ pub fn c_chat_message<'a>(
         message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
     }
 
-    message_column = message_column.push(message_info);
+    contents_column = contents_column.push(message_info);
 
     // Message content
 
@@ -88,7 +90,7 @@ pub fn c_chat_message<'a>(
     };
 
     if deleted {
-        message_column = message_column.push(text("Message deleted").font(Font {
+        contents_column = contents_column.push(text("Message deleted").font(Font {
             style: font::Style::Italic,
             ..Font::default()
         }));
@@ -97,7 +99,7 @@ pub fn c_chat_message<'a>(
             if let Some(content) = message.content {
                 match parse_message_html(theme, content) {
                     Ok(result) => {
-                        message_column = message_column.push(result);
+                        contents_column = contents_column.push(result);
                     }
                     Err(e) => {
                         eprintln!("Error: {}", e);
@@ -108,7 +110,7 @@ pub fn c_chat_message<'a>(
             if let Some(content) = message.content {
                 match parse_card_html(content) {
                     Ok(result) => {
-                        message_column = message_column.push(result);
+                        contents_column = contents_column.push(result);
                     }
                     Err(e) => {
                         eprintln!("Error: {}", e);
@@ -127,14 +129,16 @@ pub fn c_chat_message<'a>(
                     }
                 }
 
-                message_column = message_column.push(text_row);
+                contents_column = contents_column.push(text_row);
             }
         } else {
             if let Some(content) = message.content {
-                message_column = message_column.push(text(content));
+                contents_column = contents_column.push(text(content));
             }
         }
     }
+
+    message_column = message_column.push(contents_column);
 
     // Message reactions
 
