@@ -18,6 +18,7 @@ pub fn chat<'a>(
     theme: &'a style::Theme,
     chats: &Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
+    chat_message_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
     user_id: String,
@@ -133,13 +134,15 @@ pub fn chat<'a>(
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
-    let mut message_column = column![].spacing(10);
+    let mut message_column = column![].spacing(8);
 
     if let Some(conversation) = conversation {
         let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
 
         for message in ordered_conversation {
-            if let Some(message_element) = c_chat_message(theme, message, emoji_map, users) {
+            if let Some(message_element) =
+                c_chat_message(theme, message, chat_message_options, emoji_map, users)
+            {
                 message_column = message_column.push(message_element);
             }
         }

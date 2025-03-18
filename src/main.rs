@@ -56,6 +56,7 @@ struct Counter {
     page: Page,
     theme: style::Theme,
     reply_options: HashMap<String, bool>, // String is the conversation id
+    chat_message_options: HashMap<String, bool>, // String is the message id
     history: Vec<Page>,
     emoji_map: HashMap<String, String>,
     search_teams_input_value: String,
@@ -91,6 +92,8 @@ pub enum Message {
     PrefetchChat(String),
     GotChatConversations(String, Result<Conversations, String>),
     ToggleReplyOptions(String),
+    ShowChatMessageOptions(String),
+    StopShowChatMessageOptions(String),
     HistoryBack,
     OpenTeam(String, String),
     PrefetchTeam(String, String),
@@ -208,6 +211,7 @@ impl Counter {
             chat_message_area_content: Content::new(),
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
+            chat_message_options: HashMap::new(),
             history: Vec::new(),
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
@@ -379,6 +383,7 @@ impl Counter {
                         &self.theme,
                         &self.chats,
                         &conversation,
+                        &self.chat_message_options,
                         &self.emoji_map,
                         &self.users.to_owned(),
                         self.me.to_owned().id,
@@ -421,6 +426,15 @@ impl Counter {
             Message::GotUsers(user_profiles, profile) => {
                 self.users = user_profiles;
                 self.me = profile;
+                Task::none()
+            }
+
+            Message::ShowChatMessageOptions(chat_id) => {
+                self.chat_message_options.insert(chat_id, true);
+                Task::none()
+            }
+            Message::StopShowChatMessageOptions(chat_id) => {
+                self.chat_message_options.insert(chat_id, false);
                 Task::none()
             }
 

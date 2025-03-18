@@ -3,7 +3,7 @@ use crate::components::cached_image::c_cached_image;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
-use iced::widget::{column, container, row, stack, text};
+use iced::widget::{column, container, mouse_area, row, stack, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
@@ -13,6 +13,7 @@ const LOG_THREAD_ACTIVITY: bool = false;
 pub fn c_chat_message<'a>(
     theme: &'a style::Theme,
     message: crate::api::Message,
+    chat_message_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
 ) -> Option<Element<'a, Message>> {
@@ -25,11 +26,10 @@ pub fn c_chat_message<'a>(
     let mut message_row = row![].spacing(3);
 
     let mut contents_column = column![].spacing(4);
-    let mut layer_column = column![];
-
-    let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
     // Message info bar
+
+    let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
     if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" || message_type == "Text" {
@@ -144,26 +144,17 @@ pub fn c_chat_message<'a>(
 
     message_row = message_row.push(container(contents_column).width(Length::Fill));
 
-    layer_column = layer_column.push(
-        container(message_row)
-            .style(|_| container::Style {
-                background: Some(theme.colors.primary1.into()),
-                border: border::rounded(4),
-                ..Default::default()
-            })
-            .padding(Padding {
-                top: 13.0,
-                right: 6.0,
-                bottom: 13.0,
-                left: 6.0,
-            }),
-    );
-
     // Message reactions
 
-    if !deleted {
-        let mut reactions_row = row![].spacing(10);
+    let mut reactions_row = row![]
+        .spacing(8)
+        .padding(padding::left(60))
+        .align_y(Alignment::End)
+        .height(Length::Fill);
 
+    let mut are_reactions = false;
+
+    if !deleted {
         if let Some(properties) = message.properties {
             if let Some(reactions) = properties.emotions {
                 for reaction in reactions {
@@ -190,21 +181,82 @@ pub fn c_chat_message<'a>(
                             })
                             .align_y(Alignment::Center);
                     reactions_row = reactions_row.push(reaction_container);
+
+                    are_reactions = true;
                 }
             }
         }
-        layer_column = layer_column.push(reactions_row);
     }
 
-    let add_reaction_container = container(
-        container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-            .style(|_| theme.stylesheet.primary_button)
-            .padding(3)
-            .align_y(Alignment::Center),
-    )
-    .align_right(iced::Length::Fill);
+    if are_reactions {
+        reactions_row = reactions_row.push(
+            container(text("+"))
+                .style(|_| theme.stylesheet.primary_button)
+                .padding(Padding {
+                    top: 3.0,
+                    right: 5.0,
+                    bottom: 3.0,
+                    left: 5.0,
+                }),
+        );
+    }
+    // Actions contaienr
+    let mut action_container = container(row![]);
 
-    let message_stack = stack!(layer_column, add_reaction_container);
+    // Fill the container if the message is being hovered.
+
+    let is_hovered = chat_message_options
+        .get(&message.id.clone().unwrap())
+        .unwrap_or(&false)
+        .to_owned();
+
+    if is_hovered {
+        action_container = container(
+            container(
+                row![container(text("+"))
+                    .style(|_| theme.stylesheet.primary_button)
+                    .padding(Padding {
+                        top: 2.0,
+                        right: 6.0,
+                        bottom: 2.0,
+                        left: 6.0
+                    })]
+                .spacing(4),
+            )
+            .padding(padding::right(10))
+            .align_y(Alignment::Center),
+        )
+        .align_right(iced::Length::Fill);
+    }
+
+    let message_stack = stack!(
+        container(
+            mouse_area(
+                container(message_row)
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.primary1.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
+                    .padding(Padding {
+                        top: 13.0,
+                        right: 6.0,
+                        bottom: 13.0,
+                        left: 6.0,
+                    })
+            )
+            .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
+            .on_exit(Message::StopShowChatMessageOptions(message.id.unwrap()))
+        )
+        .padding(Padding {
+            top: 5.0,
+            right: 0.0,
+            bottom: if are_reactions { 17.0 } else { 0.0 },
+            left: 0.0
+        }),
+        container(reactions_row),
+        action_container
+    );
 
     return Some(message_stack.into());
 }
