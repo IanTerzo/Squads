@@ -3,8 +3,8 @@ use crate::components::cached_image::c_cached_image;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
-use iced::widget::{column, container, row, text};
-use iced::{border, font, padding, Alignment, Element, Font, Padding};
+use iced::widget::{column, container, row, stack, text};
+use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
@@ -22,10 +22,10 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    let mut message_row = row![].spacing(12);
+    let mut message_row = row![].spacing(3);
 
-    let mut message_column = column![].spacing(4);
-    let mut contents_column = column![].spacing(2);
+    let mut contents_column = column![].spacing(4);
+    let mut layer_column = column![];
 
     let mut message_info = row![].spacing(10).align_y(Alignment::Center);
 
@@ -48,8 +48,12 @@ pub fn c_chat_message<'a>(
                         31.0,
                     );
 
-                    message_row =
-                        message_row.push(container(user_picture).padding(padding::top(3)));
+                    message_row = message_row.push(container(user_picture).padding(Padding {
+                        top: 7.0,
+                        right: 11.0,
+                        bottom: 4.0,
+                        left: 8.0,
+                    }));
                     message_info = message_info.push(text!("{}", display_name).font(Font {
                         weight: font::Weight::Bold,
                         ..Default::default()
@@ -138,18 +142,20 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    message_column = message_column.push(
-        container(contents_column)
+    message_row = message_row.push(container(contents_column).width(Length::Fill));
+
+    layer_column = layer_column.push(
+        container(message_row)
             .style(|_| container::Style {
                 background: Some(theme.colors.primary1.into()),
                 border: border::rounded(4),
                 ..Default::default()
             })
             .padding(Padding {
-                top: 4.0,
-                right: 8.0,
-                bottom: 4.0,
-                left: 8.0,
+                top: 13.0,
+                right: 6.0,
+                bottom: 13.0,
+                left: 6.0,
             }),
     );
 
@@ -187,24 +193,18 @@ pub fn c_chat_message<'a>(
                 }
             }
         }
-
-        let add_reaction_container =
-            container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-                .style(|_| theme.stylesheet.primary_button)
-                .padding(3)
-                .align_y(Alignment::Center);
-
-        reactions_row = reactions_row.push(add_reaction_container);
-
-        message_column = message_column.push(reactions_row);
+        layer_column = layer_column.push(reactions_row);
     }
 
-    message_row = message_row.push(message_column);
+    let add_reaction_container = container(
+        container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
+            .style(|_| theme.stylesheet.primary_button)
+            .padding(3)
+            .align_y(Alignment::Center),
+    )
+    .align_right(iced::Length::Fill);
 
-    return Some(
-        container(message_row)
-            .width(iced::Length::Fill)
-            .padding(8)
-            .into(),
-    );
+    let message_stack = stack!(layer_column, add_reaction_container);
+
+    return Some(message_stack.into());
 }
