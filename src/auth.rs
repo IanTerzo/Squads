@@ -1,27 +1,13 @@
+use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::sync::Arc;
 use std::{
     collections::HashMap,
-    process::{Child, Command},
+    process::{Command, Stdio},
     sync::RwLock,
-    thread,
     time::{SystemTime, UNIX_EPOCH},
 };
-
-use directories::ProjectDirs;
-use tokio::time::sleep;
-
-use std::sync::{Arc, Mutex};
-
-use rand::Rng;
-use sha2::{Digest, Sha256};
-
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-
-use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
-
-use std::time::Duration;
-use thirtyfour::prelude::*;
-use tokio::runtime::Builder;
-use url::form_urlencoded;
 
 fn get_epoch_s() -> u64 {
     SystemTime::now()
@@ -30,133 +16,41 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-const CHROMEDRIVER_PORT: u16 = 35101;
-
-fn start_chromedriver(port: u16) -> std::io::Result<Child> {
-    Command::new(std::option_env!("CHROMEDRIVER_PATH").unwrap_or("chromedriver"))
-        .arg(format!("--port={}", port))
-        .stdout(std::process::Stdio::inherit()) // Redirect output if needed
-        .stderr(std::process::Stdio::inherit())
-        .spawn()
-}
-
-async fn get_auth_code(challenge: String) -> WebDriverResult<String> {
-    let base_url = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
-
-    let mut params = vec![
-        ("client_id", "5e3ce6c0-2b1f-4285-8d4b-75ee78787346"),
-        ("scope", "openId profile openid offline_access"),
-        ("redirect_uri", "https://teams.microsoft.com/v2"),
-        ("response_mode", "fragment"),
-        ("response_type", "code"),
-        ("x-client-SKU", "msal.js.browser"),
-        ("x-client-VER", "3.18.0"),
-        ("client_info", "1"),
-        ("code_challenge", challenge.as_str()),
-        ("code_challenge_method", "plain"),
-        ("prompt", "none"),
-    ];
-
-    // Build initial auth URL
-    let encoded_params = form_urlencoded::Serializer::new(String::new())
-        .extend_pairs(&params)
-        .finish();
-    let auth_url = format!("{}?{}", base_url, encoded_params);
-
-    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
-    let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
-    cache_dir.push("chrome-data");
-    let dir = cache_dir.to_str().unwrap();
-
-    let mut chrome_options = DesiredCapabilities::chrome();
-    chrome_options.add_arg(&format!("--app={}", auth_url))?;
-    chrome_options.add_arg(&format!("--user-data-dir={}", dir))?;
-    chrome_options.add_arg("--window-size=550,500")?;
-    chrome_options.add_arg("--disable-infobars")?;
-    chrome_options.add_experimental_option("excludeSwitches", vec!["enable-automation"])?;
-    const CHROMEDRIVER_PATH: Option<&str> = std::option_env!("CHROMEDRIVER_PATH");
-    if CHROMEDRIVER_PATH.is_some() {
-        chrome_options.set_binary(CHROMEDRIVER_PATH.unwrap())?;
-    }
-
-    // Start WebDriver
-
-    let driver = WebDriver::new(
-        format!("http://localhost:{CHROMEDRIVER_PORT}"),
-        chrome_options,
-    )
-    .await?;
-
-    loop {
-        sleep(Duration::from_millis(250)).await;
-
-        let current_url = driver.current_url().await?.to_string();
-        if current_url.contains("https://teams.microsoft.com/v2/#code=") {
-            let code = current_url
-                .split("code=")
-                .nth(1)
-                .and_then(|s| s.split('&').next())
-                .unwrap();
-
-            driver.quit().await?;
-            return Ok(code.to_string());
-        } else if current_url.contains("https://teams.microsoft.com/v2/#error=interaction_require")
-        {
-            params.retain(|(k, _)| *k != "prompt");
-            let encoded_params = form_urlencoded::Serializer::new(String::new())
-                .extend_pairs(&params)
-                .finish();
-            let auth_url = format!("{}?{}", base_url, encoded_params);
-
-            driver.goto(&auth_url).await?;
-            continue;
-        }
-    }
-}
-
-fn gen_code_challenge() -> String {
-    let code_verifier: String = (0..64)
-        .map(|_| rand::rng().random_range(33..=126) as u8 as char)
-        .collect();
-
-    let hash = Sha256::digest(code_verifier.as_bytes());
-
-    let code_challenge = URL_SAFE_NO_PAD.encode(hash);
-
-    code_challenge
-}
-
+#[derive(Serialize, Deserialize, Debug)]
 pub struct AuthorizationCode {
     pub code: String,
     pub code_verifier: String,
 }
 
+use ipc_channel::ipc::IpcOneShotServer;
+
 pub fn authorize() -> Result<AuthorizationCode, String> {
-    let challenge = gen_code_challenge();
+    let (server, server_name) = IpcOneShotServer::<AuthorizationCode>::new().unwrap();
 
-    let rt = Builder::new_current_thread()
-        .enable_time()
-        .enable_io()
-        .build()
-        .map_err(|e| format!("Failed to build runtime: {:?}", e))?;
+    let default_path = if cfg!(windows) {
+        ".\\target\\debug\\auth_webview.exe"
+    } else {
+        "./target/debug/auth_webview"
+    };
 
-    let mut chromedriver = start_chromedriver(CHROMEDRIVER_PORT)
-        .map_err(|e| format!("Failed to start chromedriver: {:?}", e))?;
+    let auth_webview_path =
+        env::var("AUTH_WEBVIEW_PATH").unwrap_or_else(|_| default_path.to_string());
 
-    thread::sleep(Duration::from_millis(500)); // Wait 500 milliseconds to allow chromedriver to start
+    let _child = Command::new(auth_webview_path)
+        .stdin(Stdio::piped())
+        .args(&[server_name])
+        .stdout(Stdio::piped())
+        .env("WEBKIT_DISABLE_DMABUF_RENDERER", "1") // Linux fix
+        .spawn()
+        .expect("Failed to spawn client process (did you build auth_webview?)");
 
-    let code = rt
-        .block_on(get_auth_code(challenge.clone()))
-        .map_err(|e| format!("Error while getting auth code: {:?}", e));
+    let (_, authorization_codes) = server.accept().unwrap();
 
-    chromedriver
-        .kill()
-        .map_err(|e| format!("Failed to kill chromedriver: {:?}", e))?;
+    if authorization_codes.code == "" && authorization_codes.code_verifier == "" {
+        return Err("Failed to get authorization codes.".to_string());
+    }
 
-    code.map(|code| AuthorizationCode {
-        code,
-        code_verifier: challenge,
-    })
+    Ok(authorization_codes)
 }
 
 pub fn get_or_gen_token(

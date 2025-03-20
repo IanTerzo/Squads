@@ -180,10 +180,7 @@ impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content = fs::read_to_string("resources/emojis.json").unwrap();
         let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
-
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
-
-        let arc_me = Arc::new(RwLock::new(Profile::default()));
 
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {
             *access_tokens.write().unwrap() = cached;
