@@ -5,9 +5,8 @@ Because of major api differences in Teams, Squads only works with accounts that 
 ⚠️ Still in early development: expect things to be broken and the code unfinished ⚠️
 
 ## Run
-Install and add chromedriver to path. Chromedriver is only used for logging in with Teams.
 ```
-cargo run 
+cargo build --bin auth_webview && cargo run
 ```
 
 ## Contributing
