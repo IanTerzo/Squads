@@ -14,11 +14,25 @@ use tao::{
 use url::form_urlencoded;
 use wry::{WebViewBuilder, WebViewBuilderExtUnix};
 
-// Same as in auth.rs
+// Structs must be the exact same as in auth.rs
+
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AuthorizationCode {
+struct AuthorizationCode {
     pub code: String,
     pub code_verifier: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct Cookie {
+    name: String,
+    value: String,
+    domain: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct AuthorizationInfo {
+    authorization_codes: Option<AuthorizationCode>,
+    cookies: Option<Vec<Cookie>>,
+    success: bool,
 }
 
 fn gen_code_challenge() -> String {
@@ -93,9 +107,10 @@ fn main() {
                 ..
             } => {
                 let tx = IpcSender::connect(server_name.clone()).unwrap();
-                tx.send(AuthorizationCode {
-                    code: "".to_string(),
-                    code_verifier: "".to_string(),
+                tx.send(AuthorizationInfo {
+                    authorization_codes: None,
+                    cookies: None,
+                    success: false,
                 })
                 .unwrap();
                 *control_flow = tao::event_loop::ControlFlow::Exit
@@ -113,10 +128,27 @@ fn main() {
                         .unwrap()
                         .to_string();
 
-                    let tx = IpcSender::connect(server_name.clone()).unwrap();
-                    tx.send(AuthorizationCode {
-                        code: code,
+                    let cookies = webview.cookies().unwrap();
+
+                    let mut cookies_parsed = vec![];
+                    for cookie in cookies {
+                        cookies_parsed.push(Cookie {
+                            name: cookie.name().to_string(),
+                            value: cookie.value().to_string(),
+                            domain: cookie.domain().map(|s| s.to_string()),
+                        });
+                    }
+
+                    let authorization_codes = AuthorizationCode {
+                        code,
                         code_verifier: challenge.clone(),
+                    };
+
+                    let tx = IpcSender::connect(server_name.clone()).unwrap();
+                    tx.send(AuthorizationInfo {
+                        authorization_codes: Some(authorization_codes),
+                        cookies: Some(cookies_parsed),
+                        success: true,
                     })
                     .unwrap();
 
