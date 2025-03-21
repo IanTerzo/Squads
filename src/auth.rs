@@ -235,6 +235,13 @@ pub fn authorize_with_ests_persistant_token(
 
     let reprocess_info = get_reprocess_url(challenge.clone(), ests_auth_persistant_token)?;
 
+    if reprocess_info.light == "+" {
+        return Err(
+            "ESTS light token is empty: Did you choose to stay logged in when authenticating? Try clearing your cache to login again."
+                .to_string(),
+        );
+    }
+
     let login_url = format!(
         "{}&sessionid={}",
         reprocess_info.url_login,
@@ -274,7 +281,7 @@ pub fn authorize_with_webview() -> Result<(AuthorizationCode, Vec<Cookie>), Stri
         return Err("Failed to get authorization codes.".to_string());
     }
 
-    let mut cookies = authorization_info.cookies.unwrap();
+    let cookies = authorization_info.cookies.unwrap();
 
     Ok((authorization_info.authorization_codes.unwrap(), cookies))
 }

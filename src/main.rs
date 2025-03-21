@@ -6,7 +6,6 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, fs, io::Write};
-use url::form_urlencoded;
 use webbrowser;
 mod components;
 use components::cached_image::save_cached_image;
@@ -179,25 +178,6 @@ fn get_cache<T: DeserializeOwned>(filename: &str) -> Option<T> {
 
 impl Counter {
     fn new() -> (Self, Task<Message>) {
-        // If the user doesn't have any cookies, for example the first time the app is opened, authorize_with_ests_persistant_token cannot be used, instead get the cookies and codes with the webview.
-        if get_cache::<Vec<Cookie>>("cookies.json").is_none() {
-            let (authorization_code, mut cookies) = auth::authorize_with_webview().unwrap();
-
-            // Retain only useful cookies. Can be changed if more cookies are needed in the future.
-            cookies.retain(|cookie| cookie.name == "ESTSAUTHPERSISTENT");
-            save_to_cache("cookies.json", &cookies);
-
-            // Save the new fresh token to cache
-
-            let refresh_token = api::gen_refresh_token_from_code(
-                authorization_code.code,
-                authorization_code.code_verifier,
-            )
-            .unwrap();
-
-            save_to_cache("access_tokens.json", &vec![refresh_token]);
-        };
-
         let file_content = fs::read_to_string("resources/emojis.json").unwrap();
         let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
@@ -773,6 +753,31 @@ impl Counter {
 }
 
 pub fn main() -> iced::Result {
+    // If the user doesn't have any cookies, for example the first time the app is opened, authorize_with_ests_persistant_token cannot be used, instead get the cookies and codes with the webview.
+    if get_cache::<Vec<Cookie>>("cookies.json").map_or(true, |cookies| {
+        !cookies
+            .iter()
+            .any(|cookie| cookie.name == "ESTSAUTHPERSISTENT")
+    }) {
+        let (authorization_code, mut cookies) = auth::authorize_with_webview().unwrap();
+
+        // Retain only useful cookies. Can be changed if more cookies are needed in the future.
+        cookies.retain(|cookie| cookie.name == "ESTSAUTHPERSISTENT");
+        save_to_cache("cookies.json", &cookies);
+
+        // Save the new refresh token to cache
+
+        let refresh_token = api::gen_refresh_token_from_code(
+            authorization_code.code,
+            authorization_code.code_verifier,
+        )
+        .unwrap();
+
+        let mut tokens = HashMap::new();
+        tokens.insert("refresh_token", refresh_token);
+        save_to_cache("access_tokens.json", &tokens);
+    }
+
     iced::application("Squads", Counter::update, Counter::view)
         .window_size(Size {
             width: WINDOW_WIDTH,
