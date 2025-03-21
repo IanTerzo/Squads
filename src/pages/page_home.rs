@@ -109,7 +109,6 @@ pub fn home<'a>(
     let mut activities_colum = column![].spacing(8.5);
     let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
 
-    let mut message_order = 0;
     for message in activities_conversations {
         let activity = message.properties.clone().unwrap().activity.unwrap();
 
@@ -150,7 +149,6 @@ pub fn home<'a>(
                 ),
             );
         }
-        message_order += 1;
     }
 
     let activities_scrollbar = container(

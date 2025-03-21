@@ -416,7 +416,7 @@ impl Counter {
             Message::GotActivities(activities) => {
                 let mut tasks = vec![];
 
-                let mut message_order = 0;
+                // If not read, fetch the conversation of the activity and add it to activity_expanded_conversations with GotExpandedActivity
                 for activity_message in &activities {
                     if activity_message
                         .properties
@@ -463,8 +463,8 @@ impl Counter {
                         },
                         |result| Message::GotExpandedActivity(result.0, result.1),
                     ));
-                    message_order += 1;
                 }
+
                 self.activities = activities;
                 Task::batch(tasks)
             }
