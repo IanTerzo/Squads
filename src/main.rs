@@ -73,7 +73,7 @@ struct Counter {
     chats: Vec<Chat>,
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
-    activity_expanded_conversations: Arc<RwLock<HashMap<String, Vec<api::Message>>>>, // String is the thread id
+    activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activities: Vec<api::Message>,
 }
 
@@ -88,6 +88,7 @@ pub enum Message {
     Jump(Page),
     PostMessage,
     ExpandActivity(String, u64, String),
+    GotExpandedActivity(String, Vec<api::Message>),
     OpenChat(String),
     PrefetchChat(String),
     GotChatConversations(String, Result<Conversations, String>),
@@ -219,7 +220,7 @@ impl Counter {
             me: profile,
             teams: teams.clone(),
             chats: chats.clone(),
-            activity_expanded_conversations: Arc::new(RwLock::new(HashMap::new())),
+            activity_expanded_conversations: HashMap::new(),
             team_conversations: HashMap::new(),
             chat_conversations: HashMap::new(),
             activities: Vec::new(),
@@ -308,11 +309,6 @@ impl Counter {
         match self.page.view {
             View::Login => app(&self.theme, login()),
             View::Homepage => {
-                let expanded_conversations = match self.activity_expanded_conversations.try_read() {
-                    Ok(guard) => guard.clone(),
-                    Err(_) => HashMap::new(),
-                };
-
                 let search_value = self.search_teams_input_value.clone();
 
                 app(
@@ -321,7 +317,7 @@ impl Counter {
                         &self.theme,
                         &self.teams,
                         &self.activities,
-                        expanded_conversations,
+                        self.activity_expanded_conversations.clone(),
                         &self.emoji_map,
                         &self.users,
                         self.window_width,
@@ -418,8 +414,59 @@ impl Counter {
                 Task::none()
             }
             Message::GotActivities(activities) => {
+                let mut tasks = vec![];
+
+                let mut message_order = 0;
+                for activity_message in &activities {
+                    if activity_message
+                        .properties
+                        .clone()
+                        .unwrap()
+                        .is_read
+                        .unwrap_or(false)
+                    {
+                        continue;
+                    }
+
+                    let message_activity_id = activity_message.id.clone().unwrap().to_string();
+
+                    let activity = activity_message
+                        .properties
+                        .clone()
+                        .unwrap()
+                        .activity
+                        .unwrap();
+
+                    tasks.push(Task::perform(
+                        {
+                            let arc_access_tokens = self.access_tokens.clone();
+
+                            async move {
+                                let access_token = get_or_gen_token(
+                                    arc_access_tokens,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                );
+
+                                let conversation = conversations(
+                                    access_token,
+                                    activity.source_thread_id.clone(),
+                                    Some(
+                                        activity
+                                            .source_reply_chain_id
+                                            .unwrap_or(activity.source_message_id),
+                                    ),
+                                )
+                                .unwrap();
+
+                                (message_activity_id, conversation.messages)
+                            }
+                        },
+                        |result| Message::GotExpandedActivity(result.0, result.1),
+                    ));
+                    message_order += 1;
+                }
                 self.activities = activities;
-                Task::none()
+                Task::batch(tasks)
             }
             Message::GotUsers(user_profiles, profile) => {
                 self.users = user_profiles;
@@ -442,20 +489,21 @@ impl Counter {
                         self.access_tokens.clone(),
                         "https://ic3.teams.office.com/.default".to_string(),
                     );
-                    let arc_expanded_conversations = self.activity_expanded_conversations.clone();
                     async move {
                         let conversation =
                             conversations(access_token, thread_id.clone(), Some(message_id))
                                 .unwrap();
-                        arc_expanded_conversations
-                            .write()
-                            .unwrap()
-                            .insert(message_activity_id, conversation.messages.clone());
-                        println!("{conversation:#?}");
+
+                        (message_activity_id, conversation.messages)
                     }
                 },
-                Message::DoNothing,
+                |result| Message::GotExpandedActivity(result.0, result.1),
             ),
+            Message::GotExpandedActivity(message_activity_id, messages) => {
+                self.activity_expanded_conversations
+                    .insert(message_activity_id, messages);
+                Task::none()
+            }
             Message::OpenChat(thread_id) => {
                 let team_page = Page {
                     view: View::Chat,

@@ -119,7 +119,7 @@ pub fn home<'a>(
             .source_reply_chain_id
             .unwrap_or(activity.source_message_id);
 
-        let message_activity_id = format!("expandend_activity_{}", message_order);
+        let message_activity_id = message.id.unwrap().to_string();
 
         if let Some(value) = expanded_conversations.get(&message_activity_id) {
             if value.len() > 0 {
