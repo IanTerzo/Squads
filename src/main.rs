@@ -323,6 +323,7 @@ impl Counter {
                         &self.activities,
                         expanded_conversations,
                         &self.emoji_map,
+                        &self.users,
                         self.window_width,
                         search_value,
                     ),

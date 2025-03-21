@@ -142,6 +142,10 @@ pub struct MessageProperties {
     pub systemdelete: bool,
     pub title: Option<String>,
     pub emotions: Option<Vec<Emotion>>,
+    #[serde(rename = "isread")]
+    #[serde(default)]
+    #[serde(deserialize_with = "string_to_option_bool")]
+    pub is_read: Option<bool>,
     pub activity: Option<Activity>,
 }
 
@@ -357,6 +361,29 @@ where
             ))),
         },
         _ => Err(serde::de::Error::custom("Unexpected type")),
+    }
+}
+
+pub fn string_to_option_bool<'de, D>(deserializer: D) -> Result<Option<bool>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    if let Some(value) = value {
+        match value {
+            serde_json::Value::Bool(b) => Ok(Some(b)),
+            serde_json::Value::String(s) => match s.as_str() {
+                "true" => Ok(Some(true)),
+                "false" => Ok(Some(false)),
+                _ => Err(serde::de::Error::custom(format!(
+                    "Invalid boolean string: {}",
+                    s
+                ))),
+            },
+            _ => Err(serde::de::Error::custom("Unexpected type")),
+        }
+    } else {
+        Ok(None)
     }
 }
 

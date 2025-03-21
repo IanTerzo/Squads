@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use crate::api;
+use crate::api::Conversation;
+use crate::api::Profile;
 use crate::api::Team;
+use crate::components::conversation::c_conversation;
+use crate::components::message::c_message;
 use crate::style;
 use crate::Message;
 
@@ -21,6 +25,7 @@ pub fn home<'a>(
     activities: &Vec<crate::api::Message>,
     expanded_conversations: HashMap<String, Vec<api::Message>>,
     emoji_map: &'a HashMap<String, String>,
+    users: &HashMap<String, Profile>,
     window_width: f32,
     search_teams_input_value: String,
 ) -> Element<'a, Message> {
@@ -106,7 +111,7 @@ pub fn home<'a>(
 
     let mut message_order = 0;
     for message in activities_conversations {
-        let activity = message.properties.unwrap().activity.unwrap();
+        let activity = message.properties.clone().unwrap().activity.unwrap();
 
         let thread_id = activity.source_thread_id.clone();
 
@@ -117,7 +122,27 @@ pub fn home<'a>(
         let message_activity_id = format!("expandend_activity_{}", message_order);
 
         if let Some(value) = expanded_conversations.get(&message_activity_id) {
-            activities_colum = activities_colum.push(text!("Expanded"));
+            if value.len() > 0 {
+                let conversation = Conversation {
+                    messages: value.to_owned(),
+                    id: message_activity_id.clone(),
+                    container_id: "".to_string(),
+                    latest_delivery_time: "".to_string(),
+                };
+
+                let message = c_conversation(theme, conversation, false, emoji_map, users);
+                if let Some(message) = message {
+                    activities_colum = activities_colum.push(mouse_area(message).on_release(
+                        Message::ExpandActivity(thread_id, message_id, message_activity_id),
+                    ));
+                }
+            } else {
+                activities_colum = activities_colum.push(
+                    mouse_area(text("Failed to load conversation.")).on_release(
+                        Message::ExpandActivity(thread_id, message_id, message_activity_id),
+                    ),
+                );
+            }
         } else {
             activities_colum = activities_colum.push(
                 mouse_area(c_preview_message(theme, activity, window_width, emoji_map)).on_release(
