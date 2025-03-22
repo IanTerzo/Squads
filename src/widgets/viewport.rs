@@ -5,7 +5,7 @@ use iced::{event, mouse, Element, Length, Rectangle, Size};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-// TODO: Fix childrens children not being rendered wen inside viewport widget
+// TODO: Fix childrens children not being rendered when inside viewport widget
 // This widget could probably be improved since i'm not very good with Iced.
 
 static IDENTIFIERS: LazyLock<Mutex<HashMap<String, bool>>> =

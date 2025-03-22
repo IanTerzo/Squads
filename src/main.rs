@@ -1,6 +1,8 @@
+use iced::keyboard::key::Named;
+use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset};
-use iced::widget::text_editor::{self, Content};
-use iced::{event, window, Color, Element, Event, Size, Subscription, Task, Theme};
+use iced::widget::text_editor::{self, Action, Content, Edit};
+use iced::{event, keyboard, window, Color, Element, Event, Size, Subscription, Task, Theme};
 use rand::Rng;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -75,11 +77,12 @@ struct Counter {
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activities: Vec<api::Message>,
+    shift_held_down: bool, // Used for sending messages
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    MessageAreaEdit(text_editor::Action, String),
+    MessageAreaEdit(text_editor::Action),
     EventOccurred(Event),
     Authorized(()),
     DoNothing(()),
@@ -96,6 +99,7 @@ pub enum Message {
     ShowChatMessageOptions(String),
     StopShowChatMessageOptions(String),
     HistoryBack,
+    ToggleShift(bool),
     OpenTeam(String, String),
     PrefetchTeam(String, String),
     GotConversations(String, Result<TeamConversations, String>),
@@ -224,6 +228,7 @@ impl Counter {
             team_conversations: HashMap::new(),
             chat_conversations: HashMap::new(),
             activities: Vec::new(),
+            shift_held_down: false,
         };
 
         counter_self.history.push(counter_self.page.clone());
@@ -538,30 +543,126 @@ impl Counter {
                 Task::none()
             }
 
-            Message::MessageAreaEdit(action, area_id) => {
+            Message::MessageAreaEdit(action) => {
                 let max_area_height = 0.5 * self.window_height;
 
-                if area_id == "team" {
-                    self.team_message_area_content.perform(action);
-                    let line_count = self.team_message_area_content.line_count();
-                    let new_height = 33.0 + line_count as f32 * 21.0;
+                // Determine the current message area and height
+                let (message_area_content, message_area_height) = match self.page.view {
+                    View::Team => (
+                        &mut self.team_message_area_content,
+                        &mut self.team_message_area_height,
+                    ),
+                    View::Chat => (
+                        &mut self.chat_message_area_content,
+                        &mut self.chat_message_area_height,
+                    ),
+                    _ => return Task::none(), // Should never happen
+                };
 
-                    if new_height > max_area_height {
-                        self.team_message_area_height = max_area_height;
-                    } else {
-                        self.team_message_area_height = new_height;
-                    }
-                } else if area_id == "chat" {
-                    self.chat_message_area_content.perform(action);
-                    let line_count = self.chat_message_area_content.line_count();
-                    let new_height = 33.0 + line_count as f32 * 21.0;
+                let message_area_text = message_area_content.text();
 
-                    if new_height > max_area_height {
-                        self.team_message_area_height = max_area_height;
-                    } else {
-                        self.chat_message_area_height = new_height;
+                match action {
+                    Action::Edit(Edit::Enter) => {
+                        if self.shift_held_down {
+                            message_area_content.perform(action);
+                        } else {
+                            // Post a message instead
+
+                            match self.page.view {
+                                View::Team => self.team_message_area_content = Content::new(),
+                                View::Chat => self.chat_message_area_content = Content::new(),
+                                _ => {}
+                            }
+
+                            let conversation_id = match self.page.view {
+                                View::Team => self.page.current_channel_id.clone().unwrap(),
+                                View::Chat => self.page.current_chat_id.clone().unwrap(),
+                                _ => "".to_string(),
+                            };
+
+                            let me_id = self.me.id.clone();
+
+                            let me_display_name = self.me.display_name.clone().unwrap();
+
+                            let acess_tokens_arc = self.access_tokens.clone();
+
+                            return Task::perform(
+                                {
+                                    async move {
+                                        let html = parse_message_markdown(message_area_text);
+
+                                        let access_token = get_or_gen_token(
+                                            acess_tokens_arc,
+                                            "https://ic3.teams.office.com/.default".to_string(),
+                                        );
+
+                                        let mut rng = rand::rng();
+                                        let message_id: u64 = rng.random(); // generate the message_id randomly
+
+                                        let message = TeamsMessage {
+                                            id: "-1".to_string(),
+                                            msg_type: "Message".to_string(),
+                                            conversationid: conversation_id.clone(),
+                                            conversation_link: format!("blah/{}", conversation_id),
+                                            from: format!("8:orgid:{}", me_id),
+                                            composetime: "2025-03-06T11:04:18.265Z".to_string(),
+                                            originalarrivaltime: "2025-03-06T11:04:18.265Z"
+                                                .to_string(),
+                                            content: html,
+                                            messagetype: "RichText/Html".to_string(),
+                                            contenttype: "Text".to_string(),
+                                            imdisplayname: me_display_name,
+                                            clientmessageid: message_id.to_string(),
+                                            call_id: "".to_string(),
+                                            state: 0,
+                                            version: "0".to_string(),
+                                            amsreferences: vec![],
+                                            properties: Properties {
+                                                importance: "".to_string(),
+                                                subject: "SUBJECT".to_string(),
+                                                title: "".to_string(),
+                                                cards: "[]".to_string(),
+                                                links: "[]".to_string(),
+                                                mentions: "[]".to_string(),
+                                                onbehalfof: None,
+                                                files: "[]".to_string(),
+                                                policy_violation: None,
+                                                format_variant: "TEAMS".to_string(),
+                                            },
+                                            post_type: "Standard".to_string(),
+                                            cross_post_channels: vec![],
+                                        };
+
+                                        // Convert the struct into a JSON string
+                                        let body = serde_json::to_string_pretty(&message).unwrap();
+
+                                        send_message(access_token, conversation_id, body).unwrap();
+
+                                        println!("Posted!");
+                                    }
+                                },
+                                Message::DoNothing,
+                            );
+                        }
                     }
+                    _ => message_area_content.perform(action),
                 }
+
+                // Handle sizing
+
+                let line_count = message_area_content.line_count();
+                let new_height = 33.0 + line_count as f32 * 21.0;
+
+                *message_area_height = if new_height > max_area_height {
+                    max_area_height
+                } else {
+                    new_height
+                };
+
+                Task::none()
+            }
+            Message::ToggleShift(value) => {
+                self.shift_held_down = value;
                 Task::none()
             }
             Message::DoNothing(_) => Task::none(),
@@ -573,62 +674,80 @@ impl Counter {
                     _ => "".to_string(),
                 };
 
+                match self.page.view {
+                    View::Team => self.team_message_area_content = Content::new(),
+                    View::Chat => self.chat_message_area_content = Content::new(),
+                    _ => {}
+                }
+
                 let conversation_id = match self.page.view {
                     View::Team => self.page.current_channel_id.clone().unwrap(),
                     View::Chat => self.page.current_chat_id.clone().unwrap(),
                     _ => "".to_string(),
                 };
 
-                let html = parse_message_markdown(message_area_text);
+                let me_id = self.me.id.clone();
 
-                let access_token = get_or_gen_token(
-                    self.access_tokens.clone(),
-                    "https://ic3.teams.office.com/.default".to_string(),
-                );
+                let me_display_name = self.me.display_name.clone().unwrap();
 
-                let mut rng = rand::rng();
-                let message_id: u64 = rng.random(); // generate the message_id randomly
+                let acess_tokens_arc = self.access_tokens.clone();
 
-                let message = TeamsMessage {
-                    id: "-1".to_string(),
-                    msg_type: "Message".to_string(),
-                    conversationid: conversation_id.clone(),
-                    conversation_link: format!("blah/{}", conversation_id),
-                    from: format!("8:orgid:{}", self.me.id.clone()),
-                    composetime: "2025-03-06T11:04:18.265Z".to_string(),
-                    originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
-                    content: html,
-                    messagetype: "RichText/Html".to_string(),
-                    contenttype: "Text".to_string(),
-                    imdisplayname: self.me.display_name.clone().unwrap(),
-                    clientmessageid: message_id.to_string(),
-                    call_id: "".to_string(),
-                    state: 0,
-                    version: "0".to_string(),
-                    amsreferences: vec![],
-                    properties: Properties {
-                        importance: "".to_string(),
-                        subject: "SUBJECT".to_string(),
-                        title: "".to_string(),
-                        cards: "[]".to_string(),
-                        links: "[]".to_string(),
-                        mentions: "[]".to_string(),
-                        onbehalfof: None,
-                        files: "[]".to_string(),
-                        policy_violation: None,
-                        format_variant: "TEAMS".to_string(),
+                Task::perform(
+                    {
+                        async move {
+                            let html = parse_message_markdown(message_area_text);
+
+                            let access_token = get_or_gen_token(
+                                acess_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                            );
+
+                            let mut rng = rand::rng();
+                            let message_id: u64 = rng.random(); // generate the message_id randomly
+
+                            let message = TeamsMessage {
+                                id: "-1".to_string(),
+                                msg_type: "Message".to_string(),
+                                conversationid: conversation_id.clone(),
+                                conversation_link: format!("blah/{}", conversation_id),
+                                from: format!("8:orgid:{}", me_id),
+                                composetime: "2025-03-06T11:04:18.265Z".to_string(),
+                                originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
+                                content: html,
+                                messagetype: "RichText/Html".to_string(),
+                                contenttype: "Text".to_string(),
+                                imdisplayname: me_display_name,
+                                clientmessageid: message_id.to_string(),
+                                call_id: "".to_string(),
+                                state: 0,
+                                version: "0".to_string(),
+                                amsreferences: vec![],
+                                properties: Properties {
+                                    importance: "".to_string(),
+                                    subject: "SUBJECT".to_string(),
+                                    title: "".to_string(),
+                                    cards: "[]".to_string(),
+                                    links: "[]".to_string(),
+                                    mentions: "[]".to_string(),
+                                    onbehalfof: None,
+                                    files: "[]".to_string(),
+                                    policy_violation: None,
+                                    format_variant: "TEAMS".to_string(),
+                                },
+                                post_type: "Standard".to_string(),
+                                cross_post_channels: vec![],
+                            };
+
+                            // Convert the struct into a JSON string
+                            let body = serde_json::to_string_pretty(&message).unwrap();
+
+                            send_message(access_token, conversation_id, body).unwrap();
+
+                            println!("Posted!");
+                        }
                     },
-                    post_type: "Standard".to_string(),
-                    cross_post_channels: vec![],
-                };
-
-                // Convert the struct into a JSON string
-                let body = serde_json::to_string_pretty(&message).unwrap();
-
-                send_message(access_token, conversation_id, body).unwrap();
-                println!("Posted!");
-
-                Task::none()
+                    Message::DoNothing,
+                )
             }
             Message::Authorized(_response) => {
                 self.history.push(self.page.clone());
@@ -784,7 +903,17 @@ impl Counter {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        event::listen().map(Message::EventOccurred)
+        Subscription::batch(vec![
+            event::listen().map(Message::EventOccurred),
+            keyboard::on_key_press(|key, _modifiers| match key {
+                Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
+                _ => None,
+            }),
+            keyboard::on_key_release(|key, _modifiers| match key {
+                Key::Named(Named::Shift) => Some(Message::ToggleShift(false)),
+                _ => None,
+            }),
+        ])
     }
 
     // The default theming system is not used, except for the background

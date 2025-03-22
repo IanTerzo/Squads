@@ -161,12 +161,7 @@ pub fn chat<'a>(
     )
     .height(Length::Fill);
 
-    let message_area = c_message_area(
-        theme,
-        message_area_content,
-        message_area_height,
-        "chat".to_string(),
-    );
+    let message_area = c_message_area(theme, message_area_content, message_area_height);
     let content_page = column![conversation_scrollbar, message_area].spacing(7);
 
     row![chats_scrollable, content_page].spacing(10).into()

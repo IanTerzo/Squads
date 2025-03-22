@@ -2,7 +2,7 @@ use crate::widgets::viewport::ViewportHandler;
 use crate::Message;
 use bytes::Bytes;
 use directories::ProjectDirs;
-use iced::widget::{container, image, Space};
+use iced::widget::{container, image, stack, Space};
 use iced::{Color, ContentFit, Element};
 use std::{
     fs::{create_dir_all, File},
@@ -65,8 +65,6 @@ pub fn c_cached_image<'a>(
             )
             .on_enter_unique(identifier, on_enter_unique),
         )
-        .width(image_width)
-        .height(image_height)
     }
 
     team_picture.into()
