@@ -1,5 +1,5 @@
 use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
-use crate::{get_cache, save_to_cache};
+use crate::utils::get_cache;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ipc_channel::ipc::IpcOneShotServer;
 use rand::Rng;

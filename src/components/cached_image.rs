@@ -2,7 +2,7 @@ use crate::widgets::viewport::ViewportHandler;
 use crate::Message;
 use bytes::Bytes;
 use directories::ProjectDirs;
-use iced::widget::{container, image, stack, Space};
+use iced::widget::{container, image, Space};
 use iced::{Color, ContentFit, Element};
 use std::{
     fs::{create_dir_all, File},

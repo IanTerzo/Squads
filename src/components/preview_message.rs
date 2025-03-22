@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::widget::{column, container, row, text};
-use iced::{Alignment, Element, Font, Length};
+use iced::{Alignment, Element, Font};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
@@ -78,19 +78,6 @@ pub fn c_preview_message<'a>(
         let mut reaction_unicode = "(?)";
         if let Some(reaction_value) = emoji_map.get(&activity.activity_subtype.unwrap()) {
             reaction_unicode = reaction_value;
-        }
-
-        let max_len = (window_width * 0.09).round() as usize;
-        let mut lines = activity.message_preview.split("\n");
-        let mut first_line = lines.nth(0).unwrap().to_string();
-
-        if lines.count() >= 1 && first_line.len() < max_len {
-            first_line = format!(
-                "{}...",
-                first_line.strip_suffix('\r').unwrap_or(first_line.as_str())
-            );
-        } else {
-            first_line = truncate_name(first_line, max_len);
         }
 
         message_column = message_column.push(column![

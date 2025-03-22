@@ -5,15 +5,12 @@ use crate::api::Conversation;
 use crate::api::Profile;
 use crate::api::Team;
 use crate::components::conversation::c_conversation;
-use crate::components::message::c_message;
 use crate::style;
 use crate::Message;
 
 use iced::widget::mouse_area;
-use iced::widget::scrollable::Id;
 use iced::widget::{column, container, row, scrollable, text, text_input, Column, MouseArea};
 use iced::Length;
-use iced::Padding;
 use iced::{padding, Alignment, Element};
 
 use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};

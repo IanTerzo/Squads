@@ -4,20 +4,20 @@ use iced::widget::scrollable::{snap_to, Id, RelativeOffset};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{event, keyboard, window, Color, Element, Event, Size, Subscription, Task, Theme};
 use rand::Rng;
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
-use std::{collections::HashMap, fs, io::Write};
+use std::{collections::HashMap, fs};
 use webbrowser;
 mod components;
 use components::cached_image::save_cached_image;
-use directories::ProjectDirs;
 mod api;
+mod api_types;
 mod parsing;
 use parsing::parse_message_markdown;
 mod style;
 use style::global_theme;
 mod utils;
+use utils::{get_cache, save_to_cache};
 mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
@@ -151,34 +151,6 @@ struct Properties {
     files: String,
     policy_violation: Option<String>,
     format_variant: String,
-}
-
-fn save_to_cache<T>(filename: &str, content: &T)
-where
-    T: Serialize,
-{
-    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
-
-    let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
-    cache_dir.push(filename);
-
-    let json = serde_json::to_string_pretty(content).expect("Failed to serialize content");
-    let mut file = fs::File::create(cache_dir).unwrap();
-    file.write_all(json.as_bytes()).unwrap();
-}
-
-fn get_cache<T: DeserializeOwned>(filename: &str) -> Option<T> {
-    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
-
-    let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
-    cache_dir.push(filename);
-
-    if cache_dir.exists() {
-        let file_content = fs::read_to_string(cache_dir).ok()?;
-        serde_json::from_str(&file_content).ok()
-    } else {
-        None
-    }
 }
 
 impl Counter {

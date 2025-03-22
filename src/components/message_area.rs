@@ -1,6 +1,6 @@
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, rich_text, row, span, svg, text, text_editor};
-use iced::{border, font, padding, Alignment, Color, Element, Font, Length, Padding};
+use iced::{font, padding, Alignment, Element, Font, Length, Padding};
 
 use crate::style;
 use crate::Message;

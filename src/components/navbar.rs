@@ -1,5 +1,5 @@
-use iced::widget::{container, image, row, svg, MouseArea};
-use iced::{Color, Element, Fill, Padding, Rotation};
+use iced::widget::{container, row, svg, MouseArea};
+use iced::{Element, Fill, Padding};
 
 use crate::style;
 use crate::{Message, Page, View};
