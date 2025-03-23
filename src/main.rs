@@ -32,6 +32,7 @@ use pages::page_chat::chat;
 use pages::page_home::home;
 use pages::page_login::login;
 use pages::page_team::team;
+mod websockets;
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
