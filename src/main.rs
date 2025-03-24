@@ -22,10 +22,10 @@ mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
     authorize_team_picture, conversations, me, send_message, team_conversations, teams_me, users,
-    AccessToken, Chat, Conversations, Profile, Team, TeamConversations,
+    AccessToken, Chat, Conversations, DeviceCodeInfo, Profile, Team, TeamConversations,
 };
 mod auth;
-use auth::{get_or_gen_skype_token, get_or_gen_token, Cookie};
+use auth::{get_or_gen_skype_token, get_or_gen_token};
 mod pages;
 use pages::app;
 use pages::page_chat::chat;
@@ -58,6 +58,9 @@ struct Page {
 struct Counter {
     page: Page,
     theme: style::Theme,
+    device_user_code: Option<String>,
+    device_code: String,
+    tenant: String,
     reply_options: HashMap<String, bool>, // String is the conversation id
     chat_message_options: HashMap<String, bool>, // String is the message id
     history: Vec<Page>,
@@ -85,7 +88,7 @@ struct Counter {
 pub enum Message {
     MessageAreaEdit(text_editor::Action),
     EventOccurred(Event),
-    Authorized(()),
+    GotDeviceCodeInfo(DeviceCodeInfo),
     DoNothing(()),
     LinkClicked(String),
     Join,
@@ -173,14 +176,26 @@ impl Counter {
 
         let profile = get_cache::<Profile>("me.json").unwrap_or(Profile::default());
 
+        // If the user doesn't have a refresh token, prompt them to the login page.
+        let has_refresh_token = access_tokens.read().unwrap().get("refresh_token").is_some();
+
+        let tenant = "organizations".to_string(); // Why does this work?
+
         let mut counter_self = Self {
             page: Page {
-                view: View::Homepage,
+                view: if has_refresh_token {
+                    View::Homepage
+                } else {
+                    View::Login
+                },
                 current_team_id: None,
                 current_channel_id: None,
                 current_chat_id: None,
             },
             theme: global_theme(),
+            device_user_code: None,
+            device_code: "".to_string(),
+            tenant: tenant.clone(),
             team_message_area_content: Content::new(),
             team_message_area_height: 54.0,
             chat_message_area_content: Content::new(),
@@ -210,74 +225,91 @@ impl Counter {
         let access_tokens_clone = access_tokens.clone();
         let access_tokens_clone2 = access_tokens.clone();
         let access_tokens_clone3 = access_tokens.clone();
+
+        let tenant_clone = tenant.clone();
+        let tenant_clone2 = tenant.clone();
+
         (
             counter_self,
-            Task::batch(vec![
-                Task::perform(
+            if has_refresh_token {
+                Task::batch(vec![
+                    Task::perform(
+                        async move {
+                            let access_token_ic3 = get_or_gen_token(
+                                access_tokens,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            );
+
+                            let activity_messages = conversations(
+                                access_token_ic3,
+                                "48:notifications".to_string(),
+                                None,
+                            )
+                            .unwrap();
+
+                            activity_messages.messages
+                        },
+                        Message::GotActivities,
+                    ),
+                    Task::perform(
+                        async move {
+                            let access_token_chatsvcagg = get_or_gen_token(
+                                access_tokens_clone,
+                                "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                                &tenant_clone,
+                            );
+
+                            let user_details = teams_me(access_token_chatsvcagg).unwrap();
+
+                            let teams = user_details.teams;
+                            let chats = user_details.chats;
+
+                            save_to_cache("teams.json", &teams);
+                            save_to_cache("chats.json", &chats);
+
+                            (teams, chats)
+                        },
+                        |result| Message::GotUserDetails(result.0, result.1),
+                    ),
+                    Task::perform(
+                        async move {
+                            let access_token_graph = get_or_gen_token(
+                                access_tokens_clone2,
+                                "https://graph.microsoft.com/.default".to_string(),
+                                &tenant_clone2,
+                            );
+
+                            let users = users(access_token_graph.clone());
+
+                            let mut profile_map = HashMap::new();
+
+                            for profile in users.unwrap().value {
+                                profile_map.insert(profile.id.clone(), profile);
+                            }
+
+                            let profile = me(access_token_graph).unwrap();
+
+                            save_to_cache("users.json", &profile_map.to_owned());
+                            save_to_cache("me.json", &profile.to_owned());
+
+                            (profile_map, profile)
+                        },
+                        |result| Message::GotUsers(result.0, result.1),
+                    ),
+                ])
+                .chain(Task::perform(
                     async move {
-                        let access_token_ic3 = get_or_gen_token(
-                            access_tokens,
-                            "https://ic3.teams.office.com/.default".to_string(),
-                        );
-
-                        let activity_messages =
-                            conversations(access_token_ic3, "48:notifications".to_string(), None)
-                                .unwrap();
-
-                        activity_messages.messages
+                        save_to_cache("access_tokens.json", &access_tokens_clone3.to_owned());
                     },
-                    Message::GotActivities,
-                ),
+                    Message::DoNothing,
+                ))
+            } else {
                 Task::perform(
-                    async move {
-                        let access_token_chatsvcagg = get_or_gen_token(
-                            access_tokens_clone,
-                            "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
-                        );
-
-                        let user_details = teams_me(access_token_chatsvcagg).unwrap();
-
-                        let teams = user_details.teams;
-                        let chats = user_details.chats;
-
-                        save_to_cache("teams.json", &teams);
-                        save_to_cache("chats.json", &chats);
-
-                        (teams, chats)
-                    },
-                    |result| Message::GotUserDetails(result.0, result.1),
-                ),
-                Task::perform(
-                    async move {
-                        let access_token_graph = get_or_gen_token(
-                            access_tokens_clone2,
-                            "https://graph.microsoft.com/.default".to_string(),
-                        );
-
-                        let users = users(access_token_graph.clone());
-
-                        let mut profile_map = HashMap::new();
-
-                        for profile in users.unwrap().value {
-                            profile_map.insert(profile.id.clone(), profile);
-                        }
-
-                        let profile = me(access_token_graph).unwrap();
-
-                        save_to_cache("users.json", &profile_map.to_owned());
-                        save_to_cache("me.json", &profile.to_owned());
-
-                        (profile_map, profile)
-                    },
-                    |result| Message::GotUsers(result.0, result.1),
-                ),
-            ])
-            .chain(Task::perform(
-                async move {
-                    save_to_cache("access_tokens.json", &access_tokens_clone3.to_owned());
-                },
-                Message::Authorized,
-            )),
+                    async move { api::gen_device_code(tenant).unwrap() },
+                    Message::GotDeviceCodeInfo,
+                )
+            },
         )
     }
 
@@ -285,7 +317,7 @@ impl Counter {
         //println!("view called");
 
         match self.page.view {
-            View::Login => app(&self.theme, login()),
+            View::Login => app(&self.theme, login(&self.device_user_code)),
             View::Homepage => {
                 let search_value = self.search_teams_input_value.clone();
 
@@ -386,11 +418,19 @@ impl Counter {
 
                 Task::none()
             }
+
+            Message::GotDeviceCodeInfo(device_code_info) => {
+                self.device_user_code = Some(device_code_info.user_code);
+                self.device_code = device_code_info.device_code;
+                Task::none()
+            }
+
             Message::GotUserDetails(teams, chats) => {
                 self.teams = teams;
                 self.chats = chats;
                 Task::none()
             }
+
             Message::GotActivities(activities) => {
                 let mut tasks = vec![];
 
@@ -418,11 +458,12 @@ impl Counter {
                     tasks.push(Task::perform(
                         {
                             let arc_access_tokens = self.access_tokens.clone();
-
+                            let tenant = self.tenant.clone();
                             async move {
                                 let access_token = get_or_gen_token(
                                     arc_access_tokens,
                                     "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
                                 );
 
                                 let conversation = conversations(
@@ -446,6 +487,7 @@ impl Counter {
                 self.activities = activities;
                 Task::batch(tasks)
             }
+
             Message::GotUsers(user_profiles, profile) => {
                 self.users = user_profiles;
                 self.me = profile;
@@ -461,22 +503,25 @@ impl Counter {
                 Task::none()
             }
 
-            Message::ExpandActivity(thread_id, message_id, message_activity_id) => Task::perform(
-                {
-                    let access_token = get_or_gen_token(
-                        self.access_tokens.clone(),
-                        "https://ic3.teams.office.com/.default".to_string(),
-                    );
+            Message::ExpandActivity(thread_id, message_id, message_activity_id) => {
+                let arc_access_tokens = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
                     async move {
+                        let access_token = get_or_gen_token(
+                            arc_access_tokens,
+                            "https://ic3.teams.office.com/.default".to_string(),
+                            &tenant,
+                        );
                         let conversation =
                             conversations(access_token, thread_id.clone(), Some(message_id))
                                 .unwrap();
 
                         (message_activity_id, conversation.messages)
-                    }
-                },
-                |result| Message::GotExpandedActivity(result.0, result.1),
-            ),
+                    },
+                    |result| Message::GotExpandedActivity(result.0, result.1),
+                )
+            }
             Message::GotExpandedActivity(message_activity_id, messages) => {
                 self.activity_expanded_conversations
                     .insert(message_activity_id, messages);
@@ -498,13 +543,16 @@ impl Counter {
 
             Message::PrefetchChat(thread_id) => {
                 let channel_id_clone = thread_id.clone();
+                let arc_access_tokens = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
                 Task::perform(
-                    {
+                    async move {
                         let access_token = get_or_gen_token(
-                            self.access_tokens.clone(),
+                            arc_access_tokens,
                             "https://ic3.teams.office.com/.default".to_string(),
+                            &tenant,
                         );
-                        async move { conversations(access_token, thread_id, None) }
+                        conversations(access_token, thread_id, None)
                     },
                     move |result| Message::GotChatConversations(channel_id_clone.clone(), result), // This calls a message
                 )
@@ -558,61 +606,59 @@ impl Counter {
                             let me_display_name = self.me.display_name.clone().unwrap();
 
                             let acess_tokens_arc = self.access_tokens.clone();
-
+                            let tenant = self.tenant.clone();
                             return Task::perform(
-                                {
-                                    async move {
-                                        let html = parse_message_markdown(message_area_text);
+                                async move {
+                                    let html = parse_message_markdown(message_area_text);
 
-                                        let access_token = get_or_gen_token(
-                                            acess_tokens_arc,
-                                            "https://ic3.teams.office.com/.default".to_string(),
-                                        );
+                                    let access_token = get_or_gen_token(
+                                        acess_tokens_arc,
+                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        &tenant,
+                                    );
 
-                                        let mut rng = rand::rng();
-                                        let message_id: u64 = rng.random(); // generate the message_id randomly
+                                    let mut rng = rand::rng();
+                                    let message_id: u64 = rng.random(); // generate the message_id randomly
 
-                                        let message = TeamsMessage {
-                                            id: "-1".to_string(),
-                                            msg_type: "Message".to_string(),
-                                            conversationid: conversation_id.clone(),
-                                            conversation_link: format!("blah/{}", conversation_id),
-                                            from: format!("8:orgid:{}", me_id),
-                                            composetime: "2025-03-06T11:04:18.265Z".to_string(),
-                                            originalarrivaltime: "2025-03-06T11:04:18.265Z"
-                                                .to_string(),
-                                            content: html,
-                                            messagetype: "RichText/Html".to_string(),
-                                            contenttype: "Text".to_string(),
-                                            imdisplayname: me_display_name,
-                                            clientmessageid: message_id.to_string(),
-                                            call_id: "".to_string(),
-                                            state: 0,
-                                            version: "0".to_string(),
-                                            amsreferences: vec![],
-                                            properties: Properties {
-                                                importance: "".to_string(),
-                                                subject: "SUBJECT".to_string(),
-                                                title: "".to_string(),
-                                                cards: "[]".to_string(),
-                                                links: "[]".to_string(),
-                                                mentions: "[]".to_string(),
-                                                onbehalfof: None,
-                                                files: "[]".to_string(),
-                                                policy_violation: None,
-                                                format_variant: "TEAMS".to_string(),
-                                            },
-                                            post_type: "Standard".to_string(),
-                                            cross_post_channels: vec![],
-                                        };
+                                    let message = TeamsMessage {
+                                        id: "-1".to_string(),
+                                        msg_type: "Message".to_string(),
+                                        conversationid: conversation_id.clone(),
+                                        conversation_link: format!("blah/{}", conversation_id),
+                                        from: format!("8:orgid:{}", me_id),
+                                        composetime: "2025-03-06T11:04:18.265Z".to_string(),
+                                        originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
+                                        content: html,
+                                        messagetype: "RichText/Html".to_string(),
+                                        contenttype: "Text".to_string(),
+                                        imdisplayname: me_display_name,
+                                        clientmessageid: message_id.to_string(),
+                                        call_id: "".to_string(),
+                                        state: 0,
+                                        version: "0".to_string(),
+                                        amsreferences: vec![],
+                                        properties: Properties {
+                                            importance: "".to_string(),
+                                            subject: "SUBJECT".to_string(),
+                                            title: "".to_string(),
+                                            cards: "[]".to_string(),
+                                            links: "[]".to_string(),
+                                            mentions: "[]".to_string(),
+                                            onbehalfof: None,
+                                            files: "[]".to_string(),
+                                            policy_violation: None,
+                                            format_variant: "TEAMS".to_string(),
+                                        },
+                                        post_type: "Standard".to_string(),
+                                        cross_post_channels: vec![],
+                                    };
 
-                                        // Convert the struct into a JSON string
-                                        let body = serde_json::to_string_pretty(&message).unwrap();
+                                    // Convert the struct into a JSON string
+                                    let body = serde_json::to_string_pretty(&message).unwrap();
 
-                                        send_message(access_token, conversation_id, body).unwrap();
+                                    send_message(access_token, conversation_id, body).unwrap();
 
-                                        println!("Posted!");
-                                    }
+                                    println!("Posted!");
                                 },
                                 Message::DoNothing,
                             );
@@ -664,7 +710,7 @@ impl Counter {
                 let me_display_name = self.me.display_name.clone().unwrap();
 
                 let acess_tokens_arc = self.access_tokens.clone();
-
+                let tenant = self.tenant.clone();
                 Task::perform(
                     {
                         async move {
@@ -673,6 +719,7 @@ impl Counter {
                             let access_token = get_or_gen_token(
                                 acess_tokens_arc,
                                 "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
                             );
 
                             let mut rng = rand::rng();
@@ -722,10 +769,6 @@ impl Counter {
                     Message::DoNothing,
                 )
             }
-            Message::Authorized(_response) => {
-                self.history.push(self.page.clone());
-                Task::none()
-            }
 
             Message::Join => {
                 println!("Join message called!");
@@ -756,37 +799,42 @@ impl Counter {
             }
 
             Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
                 Task::perform(
-                    {
+                    async move {
                         let access_token = get_or_gen_token(
-                            self.access_tokens.clone(),
+                            acess_tokens_arc,
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                            &tenant,
                         );
-                        async {
-                            let picture_e_tag = picture_e_tag;
 
-                            let bytes = authorize_team_picture(
-                                access_token,
-                                group_id,
-                                picture_e_tag.clone(),
-                                display_name,
-                            )
-                            .unwrap();
+                        let picture_e_tag = picture_e_tag;
 
-                            save_cached_image(identifier, bytes);
-                        }
+                        let bytes = authorize_team_picture(
+                            access_token,
+                            group_id,
+                            picture_e_tag.clone(),
+                            display_name,
+                        )
+                        .unwrap();
+
+                        save_cached_image(identifier, bytes);
                     },
                     Message::DoNothing,
                 )
             }
 
-            Message::FetchUserImage(identifier, user_id, display_name) => Task::perform(
-                {
-                    let access_token = get_or_gen_token(
-                        self.access_tokens.clone(),
-                        "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
-                    );
-                    async {
+            Message::FetchUserImage(identifier, user_id, display_name) => {
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            acess_tokens_arc,
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            &tenant,
+                        );
                         let user_id = user_id;
 
                         let bytes =
@@ -794,46 +842,50 @@ impl Counter {
                                 .unwrap();
 
                         save_cached_image(identifier, bytes);
-                    }
-                },
-                Message::DoNothing,
-            ),
+                    },
+                    Message::DoNothing,
+                )
+            }
 
-            Message::FetchMergedProfilePicture(identifier, users) => Task::perform(
-                {
-                    let access_token = get_or_gen_token(
-                        self.access_tokens.clone(),
-                        "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
-                    );
-                    async {
+            Message::FetchMergedProfilePicture(identifier, users) => {
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            acess_tokens_arc,
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            &tenant,
+                        );
                         let bytes = authorize_merged_profile_picture(access_token, users).unwrap();
 
                         save_cached_image(identifier, bytes);
-                    }
-                },
-                Message::DoNothing,
-            ),
+                    },
+                    Message::DoNothing,
+                )
+            }
 
-            Message::AuthorizeImage(url, identifier) => Task::perform(
-                {
-                    let access_token = get_or_gen_token(
-                        self.access_tokens.clone(),
-                        "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
-                    );
+            Message::AuthorizeImage(url, identifier) => {
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            acess_tokens_arc.clone(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            &tenant,
+                        );
 
-                    let skype_token =
-                        get_or_gen_skype_token(self.access_tokens.clone(), access_token);
-
-                    async {
+                        let skype_token = get_or_gen_skype_token(acess_tokens_arc, access_token);
                         let url = url;
 
                         let bytes = authorize_image(skype_token, url.clone()).unwrap();
 
                         save_cached_image(identifier, bytes);
-                    }
-                },
-                Message::DoNothing,
-            ),
+                    },
+                    Message::DoNothing,
+                )
+            }
 
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
@@ -851,13 +903,16 @@ impl Counter {
 
             Message::PrefetchTeam(team_id, channel_id) => {
                 let channel_id_clone = channel_id.clone();
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
                 Task::perform(
-                    {
+                    async move {
                         let access_token = get_or_gen_token(
-                            self.access_tokens.clone(),
+                            acess_tokens_arc,
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                            &tenant,
                         );
-                        async move { team_conversations(access_token, team_id, channel_id) }
+                        team_conversations(access_token, team_id, channel_id)
                     },
                     move |result| Message::GotConversations(channel_id_clone.clone(), result), // This calls a message
                 )
@@ -904,30 +959,9 @@ impl Counter {
 }
 
 pub fn main() -> iced::Result {
-    // If the user doesn't have any cookies, for example the first time the app is opened, authorize_with_ests_persistant_token cannot be used, instead get the cookies and codes with the webview.
-    if get_cache::<Vec<Cookie>>("cookies.json").map_or(true, |cookies| {
-        !cookies
-            .iter()
-            .any(|cookie| cookie.name == "ESTSAUTHPERSISTENT")
-    }) {
-        let (authorization_code, mut cookies) = auth::authorize_with_webview().unwrap();
-
-        // Retain only useful cookies. Can be changed if more cookies are needed in the future.
-        cookies.retain(|cookie| cookie.name == "ESTSAUTHPERSISTENT");
-        save_to_cache("cookies.json", &cookies);
-
-        // Save the new refresh token to cache
-
-        let refresh_token = api::gen_refresh_token_from_code(
-            authorization_code.code,
-            authorization_code.code_verifier,
-        )
-        .unwrap();
-
-        let mut tokens = HashMap::new();
-        tokens.insert("refresh_token", refresh_token);
-        save_to_cache("access_tokens.json", &tokens);
-    }
+    //println!("{:#?}", x);
+    //let ressy = api::gen_refresh_token_from_device_code("CAQABIQEAAABVrSpeuWamRam2jAF1XRQEfkYMwJsHEe_5vbUiCReP2L7ubTy1vKiA-4sGdpUzBd1rL-5CWVwSUFB4Ufi_Q7qPq--3Fgfy2WNlOlIK29lhW70a1p4V6uSiNcNjyTUbREssYbFAQTEM2_trhFUq9cZ_kBT_nLQyhNxKigRMKkkkPAgNkhdO6hL-qGS4KP5JJrUgAA".to_string());
+    //println!("{ressy:#?}");
 
     iced::application("Squads", Counter::update, Counter::view)
         .window_size(Size {

@@ -1,4 +1,6 @@
-use crate::api::{gen_refresh_token_from_code, gen_skype_token, gen_tokens, AccessToken};
+use crate::api::{
+    gen_refresh_token_from_code, gen_skype_token, gen_token, renew_refresh_token, AccessToken,
+};
 use crate::utils::get_cache;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ipc_channel::ipc::IpcOneShotServer;
@@ -59,7 +61,7 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-fn gen_code_challenge() -> String {
+fn _gen_code_challenge() -> String {
     let code_verifier: String = (0..64)
         .map(|_| rand::rng().random_range(33..=126) as u8 as char)
         .collect();
@@ -71,7 +73,7 @@ fn gen_code_challenge() -> String {
     code_challenge
 }
 
-pub fn get_reprocess_url(
+pub fn _get_reprocess_url(
     code_challenge: String,
     ests_auth_persistant_token: String,
 ) -> Result<ReprocessInfo, String> {
@@ -186,7 +188,7 @@ pub fn get_reprocess_url(
     .to_string())
 }
 
-pub fn get_authorization_code_from_redirect(
+pub fn _get_authorization_code_from_redirect(
     login_url: String,
     ests_auth_persistent_token: String,
 ) -> Result<String, String> {
@@ -228,12 +230,12 @@ pub fn get_authorization_code_from_redirect(
     }
 }
 
-pub fn authorize_with_ests_persistant_token(
+pub fn _authorize_with_ests_persistant_token(
     ests_auth_persistant_token: String,
 ) -> Result<AuthorizationCode, String> {
-    let challenge = gen_code_challenge();
+    let challenge = _gen_code_challenge();
 
-    let reprocess_info = get_reprocess_url(challenge.clone(), ests_auth_persistant_token)?;
+    let reprocess_info = _get_reprocess_url(challenge.clone(), ests_auth_persistant_token)?;
 
     if reprocess_info.light == "+" {
         return Err(
@@ -248,14 +250,14 @@ pub fn authorize_with_ests_persistant_token(
         reprocess_info.light.strip_prefix("+").unwrap()
     );
 
-    let code = get_authorization_code_from_redirect(login_url, reprocess_info.persistent)?;
+    let code = _get_authorization_code_from_redirect(login_url, reprocess_info.persistent)?;
     Ok(AuthorizationCode {
         code,
         code_verifier: challenge,
     })
 }
 
-pub fn authorize_with_webview() -> Result<(AuthorizationCode, Vec<Cookie>), String> {
+pub fn _authorize_with_webview() -> Result<(AuthorizationCode, Vec<Cookie>), String> {
     let (server, server_name) = IpcOneShotServer::<AuthorizationInfo>::new().unwrap();
 
     let default_path = if cfg!(windows) {
@@ -289,40 +291,18 @@ pub fn authorize_with_webview() -> Result<(AuthorizationCode, Vec<Cookie>), Stri
 pub fn get_or_gen_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     scope: String,
+    tenant: &String,
 ) -> AccessToken {
-    let refresh_token = access_tokens
+    let mut refresh_token = access_tokens
         .write()
         .unwrap()
-        .entry("refresh_token".to_string())
-        .and_modify(|token| {
-            if token.expires < get_epoch_s() {
-                let ests_persistant_token = get_cache::<Vec<Cookie>>("cookies.json")
-                    .unwrap()
-                    .iter()
-                    .find(|s| s.name == "ESTSAUTHPERSISTENT")
-                    .unwrap()
-                    .value
-                    .clone();
-
-                let auth_code =
-                    authorize_with_ests_persistant_token(ests_persistant_token).unwrap();
-                *token =
-                    gen_refresh_token_from_code(auth_code.code, auth_code.code_verifier).unwrap()
-            }
-        })
-        .or_insert_with(|| {
-            let ests_persistant_token = get_cache::<Vec<Cookie>>("cookies.json")
-                .unwrap()
-                .iter()
-                .find(|s| s.name == "ESTSAUTHPERSISTENT")
-                .unwrap()
-                .value
-                .clone();
-
-            let auth_code = authorize_with_ests_persistant_token(ests_persistant_token).unwrap();
-            gen_refresh_token_from_code(auth_code.code, auth_code.code_verifier).unwrap()
-        })
+        .get(&"refresh_token".to_string())
+        .unwrap()
         .clone();
+
+    if refresh_token.expires < get_epoch_s() {
+        refresh_token = renew_refresh_token(refresh_token.to_owned(), tenant.clone()).unwrap();
+    }
 
     access_tokens
         .write()
@@ -330,10 +310,11 @@ pub fn get_or_gen_token(
         .entry(scope.to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
-                *token = gen_tokens(refresh_token.clone(), scope.to_string()).unwrap();
+                *token =
+                    gen_token(refresh_token.clone(), scope.to_string(), tenant.clone()).unwrap();
             }
         })
-        .or_insert_with(|| gen_tokens(refresh_token, scope.to_string()).unwrap())
+        .or_insert_with(|| gen_token(refresh_token, scope.to_string(), tenant.clone()).unwrap())
         .clone()
 }
 

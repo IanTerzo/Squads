@@ -4,15 +4,39 @@ use std::fmt;
 use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DeviceCodeInfo {
+    #[serde(rename = "user_code")]
+    pub user_code: String,
+    #[serde(rename = "device_code")]
+    pub device_code: String,
+    #[serde(rename = "verification_url")]
+    pub verification_url: String,
+    #[serde(rename = "expires_in")]
+    pub expires_in: String,
+    pub interval: String,
+    pub message: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceCodeResponse {
+    pub scope: String,
+    pub foci: u64,
+    pub refresh_token: String,
+    pub token_type: String,
+    pub not_before: u64,
+    pub expires_on: u64,
+    pub resource: String,
+    pub expires_in: u64,
+    pub id_token: String,
+    pub ext_expires_in: u64,
+    pub access_token: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccessToken {
     pub value: String,
     pub expires: u64,
-}
-
-#[derive(Debug, Clone)]
-pub enum ApiError {
-    RequestFailed(reqwest::StatusCode, String),
-    MissingTokenOrExpiry,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -292,17 +316,6 @@ pub struct UserProperties {
     pub skype_name: Option<String>,
 }
 
-impl fmt::Display for ApiError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ApiError::RequestFailed(status, body) => {
-                write!(f, "Request failed with status {}: {}", status, body)
-            }
-            ApiError::MissingTokenOrExpiry => write!(f, "Missing refresh_token or expires_in"),
-        }
-    }
-}
-
 pub fn strip_url<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -322,7 +335,6 @@ where
     let opt_s: Option<String> = Option::deserialize(deserializer)?;
     Ok(opt_s.map(|s| s.trim_matches('"').to_string()))
 }
-impl std::error::Error for ApiError {}
 
 fn string_to_i64<'de, D>(deserializer: D) -> Result<i64, D::Error>
 where

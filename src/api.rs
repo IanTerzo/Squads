@@ -8,6 +8,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const LOG_REQUESTS: bool = false;
 
+const TEAMS_CLIENT_ID: &str = "1fec8e78-bce4-4aaf-ab1b-5451cc387264";
+
 fn get_epoch_s() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -15,26 +17,18 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-pub fn gen_refresh_token_from_code(
-    code: String,
-    code_verifier: String,
-) -> Result<AccessToken, ApiError> {
+pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
-        HeaderName::from_static("origin"),
-        HeaderValue::from_static("https://teams.microsoft.com"),
+        HeaderName::from_static("content-type"),
+        HeaderValue::from_static("application/x-www-form-urlencoded"),
     );
 
     let body = format!(
-        "client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&\
-    redirect_uri=https://teams.microsoft.com/v2&\
-    scope=https://ic3.teams.office.com/.default openid profile offline_access&\
-    code={}&\
-    code_verifier={}&\
-    grant_type=authorization_code&\
-    claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
-        code, code_verifier
+        "client_id={}&\
+        resource=https://api.spaces.skype.com",
+        TEAMS_CLIENT_ID
     );
 
     let client = reqwest::blocking::Client::builder()
@@ -43,16 +37,82 @@ pub fn gen_refresh_token_from_code(
         .unwrap();
 
     let res = client
-        .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+        .post(format!(
+            "https://login.microsoftonline.com/{}/oauth2/devicecode",
+            tenant_id
+        ))
+        .headers(headers)
+        .body(body)
+        .send()
+        .unwrap();
+
+    if res.status().is_success() {
+        let body = res.text().unwrap();
+        let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
+        let pretty_json =
+            serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
+        let result: Result<DeviceCodeInfo, serde_json::Error> = serde_json::from_str(&pretty_json);
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                eprintln!("Error occurred while serializing: {}", err);
+                let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
+                eprintln!("Line: {}", line_content);
+
+                Err(err.to_string())
+            }
+        }
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        Err(error_message)
+    }
+}
+
+pub fn gen_refresh_token_from_device_code(
+    device_code: String,
+    tenant_id: String,
+) -> Result<AccessToken, String> {
+    // Generate new refresh token if needed
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("origin"),
+        HeaderValue::from_static("https://teams.microsoft.com"),
+    );
+
+    let body = format!(
+        "client_id={}&\
+    code={}&\
+    grant_type=urn:ietf:params:oauth:grant-type:device_code",
+        TEAMS_CLIENT_ID, device_code
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .post(format!(
+            "https://login.microsoftonline.com/{}/oauth2/token",
+            tenant_id
+        ))
         .headers(headers)
         .body(body)
         .send()
         .unwrap();
 
     if !res.status().is_success() {
-        let status = res.status();
-        let body = res.text().unwrap();
-        return Err(ApiError::RequestFailed(status, body));
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        return Err(error_message);
     }
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
@@ -67,11 +127,15 @@ pub fn gen_refresh_token_from_code(
 
         Ok(refresh_token)
     } else {
-        Err(ApiError::MissingTokenOrExpiry)
+        Err("Response does not have a value or a refresh_token.".to_string())
     }
 }
 
-pub fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessToken, ApiError> {
+pub fn gen_refresh_token_from_code(
+    code: String,
+    code_verifier: String,
+    tenant_id: String,
+) -> Result<AccessToken, String> {
     // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -80,15 +144,76 @@ pub fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessTok
     );
 
     let body = format!(
-        "client_id=5e3ce6c0-2b1f-4285-8d4b-75ee78787346&\
-        scope={} openid profile offline_access&\
+        "client_id={}&\
+    redirect_uri=https://teams.microsoft.com/v2&\
+    scope=https://ic3.teams.office.com/.default openid profile offline_access&\
+    code={}&\
+    code_verifier={}&\
+    grant_type=authorization_code&\
+    claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
+        TEAMS_CLIENT_ID, code, code_verifier
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .post(format!(
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+            tenant_id
+        ))
+        .headers(headers)
+        .body(body)
+        .send()
+        .unwrap();
+
+    if !res.status().is_success() {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        return Err(error_message);
+    }
+
+    let token_data: HashMap<String, Value> = res.json().unwrap();
+    if let (Some(value), Some(expires_in)) = (
+        token_data.get("refresh_token").and_then(|v| v.as_str()),
+        token_data.get("expires_in").and_then(|v| v.as_u64()),
+    ) {
+        let refresh_token = AccessToken {
+            value: value.to_string(),
+            expires: get_epoch_s() + expires_in,
+        };
+
+        Ok(refresh_token)
+    } else {
+        Err("Response does not have a value or a refresh_token.".to_string())
+    }
+}
+
+pub fn renew_refresh_token(
+    refresh_token: AccessToken,
+    tenant_id: String,
+) -> Result<AccessToken, String> {
+    // Generate new refresh token if needed
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("origin"),
+        HeaderValue::from_static("https://teams.microsoft.com"),
+    );
+
+    let body = format!(
+        "client_id={}&\
+        scope=openid profile offline_access&\
         grant_type=refresh_token&\
         client_info=1&\
         x-client-SKU=msal.js.browser&\
         x-client-VER=3.7.1&\
-        refresh_token={}&\
-        claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
-        scope, refresh_token.value
+        refresh_token={}",
+        TEAMS_CLIENT_ID, refresh_token.value
     );
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -96,30 +221,100 @@ pub fn gen_tokens(refresh_token: AccessToken, scope: String) -> Result<AccessTok
         .unwrap();
 
     let res = client
-        .post("https://login.microsoftonline.com/common/oauth2/v2.0/token")
+        .post(format!(
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+            tenant_id
+        ))
         .headers(headers)
         .body(body)
         .send()
         .unwrap();
 
     if !res.status().is_success() {
-        let status = res.status();
-        let body = res.text().unwrap();
-        return Err(ApiError::RequestFailed(status, body));
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        return Err(error_message);
     }
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
     if let (Some(value), Some(expires_in)) = (
-        token_data.get("access_token").and_then(|v| v.as_str()),
+        token_data.get("refresh_token").and_then(|v| v.as_str()),
         token_data.get("expires_in").and_then(|v| v.as_u64()),
     ) {
-        let access_token = AccessToken {
+        let refresh_token = AccessToken {
             value: value.to_string(),
             expires: get_epoch_s() + expires_in,
         };
-        Ok(access_token)
+
+        Ok(refresh_token)
     } else {
-        Err(ApiError::MissingTokenOrExpiry)
+        Err("Response does not have a value or a refresh_token.".to_string())
+    }
+}
+
+pub fn gen_token(
+    refresh_token: AccessToken,
+    scope: String,
+    tenant_id: String,
+) -> Result<AccessToken, String> {
+    // Generate new refresh token if needed
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("origin"),
+        HeaderValue::from_static("https://teams.microsoft.com"),
+    );
+
+    let body = format!(
+        "client_id={}&\
+        scope={} openid profile offline_access&\
+        grant_type=refresh_token&\
+        client_info=1&\
+        x-client-SKU=msal.js.browser&\
+        x-client-VER=3.7.1&\
+        refresh_token={}&\
+        claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
+        TEAMS_CLIENT_ID, scope, refresh_token.value
+    );
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .unwrap();
+
+    let res = client
+        .post(format!(
+            "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+            tenant_id
+        ))
+        .headers(headers)
+        .body(body)
+        .send()
+        .unwrap();
+
+    if !res.status().is_success() {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        return Err(error_message);
+    }
+
+    let token_data: HashMap<String, Value> = res.json().unwrap();
+    if let (Some(value), Some(expires_in)) = (
+        token_data.get("refresh_token").and_then(|v| v.as_str()),
+        token_data.get("expires_in").and_then(|v| v.as_u64()),
+    ) {
+        let refresh_token = AccessToken {
+            value: value.to_string(),
+            expires: get_epoch_s() + expires_in,
+        };
+
+        Ok(refresh_token)
+    } else {
+        Err("Response does not have a value or a refresh_token.".to_string())
     }
 }
 // Api: Emea v2
@@ -261,7 +456,7 @@ async fn gen_spoidcrl(
 
 // Api: Authsvc v1
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
-pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Error> {
+pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, String> {
     let url = "https://teams.microsoft.com/api/authsvc/v1.0/authz";
     if LOG_REQUESTS {
         println!("Log: POST {}", url);
@@ -272,40 +467,39 @@ pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, anyhow::Error>
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&req_access_token)?,
+        HeaderValue::from_str(&req_access_token).unwrap(),
     );
-    headers.insert("Content-Length", "0".parse()?);
+    headers.insert("Content-Length", "0".parse().unwrap());
 
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()?;
+        .build()
+        .unwrap();
 
-    let res = client.post(url).headers(headers).send()?;
+    let res = client.post(url).headers(headers).send().unwrap();
 
-    if res.status().is_success() {
-        let token_data: HashMap<String, Value> = res.json()?;
+    if !res.status().is_success() {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().unwrap()
+        );
+        return Err(error_message);
+    }
 
-        if let Some(tokens) = token_data.get("tokens").and_then(|v| v.as_object()) {
-            if let (Some(value), Some(expires_in)) = (
-                tokens.get("skypeToken").and_then(|v| v.as_str()),
-                tokens.get("expiresIn").and_then(|v| v.as_u64()),
-            ) {
-                let access_token = AccessToken {
-                    value: value.to_string(),
-                    expires: get_epoch_s() + expires_in,
-                };
+    let token_data: HashMap<String, Value> = res.json().unwrap();
+    if let (Some(value), Some(expires_in)) = (
+        token_data.get("skypeToken").and_then(|v| v.as_str()),
+        token_data.get("expiresIn").and_then(|v| v.as_u64()),
+    ) {
+        let refresh_token = AccessToken {
+            value: value.to_string(),
+            expires: get_epoch_s() + expires_in,
+        };
 
-                Ok(access_token)
-            } else {
-                Err(anyhow!("Couldn't get response skypeToken or expiresIn"))
-            }
-        } else {
-            Err(anyhow!("Couldn't get response tokens"))
-        }
+        Ok(refresh_token)
     } else {
-        let status = res.status();
-        let body = res.text()?;
-        Err(anyhow!("{}: {}", status, body))
+        Err("Response does not have a value or a refresh_token.".to_string())
     }
 }
 

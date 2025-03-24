@@ -83,13 +83,13 @@ async fn send_trouter_request(
 }
 
 fn start_ws() {
-    let url = "wss://pub-ent-dewc-04-t.trouter.teams.microsoft.com/v4/c?tc=%7B%22cv%22:%222025.07.01.5%22,%22ua%22:%22TeamsCDL%22,%22hr%22:%22%22,%22v%22:%221415/25030201008%22%7D&timeout=40&epid=5ec9e271-a754-4ec7-b780-c2ae6dcac9b1&ccid=&cor_id=35eabb8f-4d78-4f19-928b-92f926721c10&con_num=1742740397159_0";
+    let url = "wss://pub-ent-dewc-04-t.trouter.teams.microsoft.com/v4/c?tc=%7B%22cv%22:%222025.07.01.5%22,%22ua%22:%22TeamsCDL%22,%22hr%22:%22%22,%22v%22:%221415/25030201008%22%7D&timeout=40";
     let (mut socket, response) = connect(url).expect("Can't connect");
 
     println!("Connected to the server");
     println!("Response HTTP code: {}", response.status());
 
-    let token = "-";
+    let token = " eyJ0eXAiOiJKV1QiLCJub25jZSI6Imd2NzZHdmM3MVVSVWFNR1dhNzl5QXAyT0cwSjFKSUw0RlItWFhjanluaFkiLCJhbGciOiJSUzI1NiIsIng1dCI6IkpETmFfNGk0cjdGZ2lnTDNzSElsSTN4Vi1JVSIsImtpZCI6IkpETmFfNGk0cjdGZ2lnTDNzSElsSTN4Vi1JVSJ9.eyJhdWQiOiJodHRwczovL2ljMy50ZWFtcy5vZmZpY2UuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkLyIsImlhdCI6MTc0MjY4NTk5NywibmJmIjoxNzQyNjg1OTk3LCJleHAiOjE3NDI3NzI2OTcsImFjY3QiOjAsImFjciI6IjEiLCJhaW8iOiJBVVFBdS84WkFBQUF6WTBKWGxMc1U0ZkdYTnBsS0VQMVV1YnB6bjk2bVlwdXBzUVJiNnUxTE1Wenp3WVdtckI5MEpmd0pMa3o3KzFwTHRjcUI3RGRsU2xmRlNsbEF5ektxZz09IiwiYW1yIjpbInB3ZCJdLCJhcHBpZCI6IjVlM2NlNmMwLTJiMWYtNDI4NS04ZDRiLTc1ZWU3ODc4NzM0NiIsImFwcGlkYWNyIjoiMCIsImZhbWlseV9uYW1lIjoiQmFsZGVsbGkiLCJnaXZlbl9uYW1lIjoiSWFuIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiODEuMTYuMTYzLjE3NCIsIm5hbWUiOiJJYW4gQmFsZGVsbGkiLCJvaWQiOiIxNWRlNDI0MS1lOWJlLTQ5MTAtYTYwZi0zZjM3ZGQ4NjUyYjgiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMTQwOTA4MjIzMy00NDg1Mzk3MjMtNjgyMDAzMzMwLTE3MDM2IiwicHVpZCI6IjEwMDMyMDAyQ0RENEIxQjciLCJyaCI6IjEuQVhRQXRUQUtaaTZPYVVlNTYwcnlpXzBTdlZUd3FqbWxnY2RJcFBnQ2t3RWdsYm5pQVBKMEFBLiIsInNjcCI6IlRlYW1zLkFjY2Vzc0FzVXNlci5BbGwiLCJzaWQiOiIwMDMxMDJmOS0yNmIxLWMwOTUtNzQwMC03ZDE1YTk3OWM4NWYiLCJzdWIiOiJETVJpTjBOdUJYNkFWT255YzJrSVJ3VFR0cmw2LVNoTmZRZFNDblU0cF9ZIiwidGlkIjoiNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkIiwidW5pcXVlX25hbWUiOiJpYW4uYmFsZGVsbGlAaGl0YWNoaWd5bW5hc2lldC5zZSIsInVwbiI6Imlhbi5iYWxkZWxsaUBoaXRhY2hpZ3ltbmFzaWV0LnNlIiwidXRpIjoiTXN3UlZ5d29HRU9ZeGNXQ09XSlZBQSIsInZlciI6IjEuMCIsInhtc19jYyI6WyJDUDEiXSwieG1zX2lkcmVsIjoiMTAgMSIsInhtc19zc20iOiIxIn0.EmFCgkzF8wWJD09M-6iJeGITAvL0dOvyLfy74bM3PPtXj85I7xM-wt3XcvdHf0DIHs1l1diJUbsE9Y_8LX9kg-h8rW1niSNSDJwViNUKhbEgVH7eCD0Gds1elJOxrj_AvRax1d6O7AS1tlyZQZhsfDKPvp5JU-pMkFLettEBvHHUiZjUvUniVKGAGQ5OQ9a0iwoHe1K1g6g2_Si37FiLyNsG4V5oh2wcK9xafU3wZ8ppkCQp77C3aeOtpPYSN0qcRXy6DK_Jg3JbjeDZjbCdMqJxUv7yC4mQnW3zahByxqN7dVVIovqW7d6uSAVjZc68t9rkIA7kljfq5JvQ_kdP1Q";
     let token = format!("Bearer {}", token);
 
     let message = Authenticate {
