@@ -6,6 +6,8 @@ use iced::{event, keyboard, window, Color, Element, Event, Size, Subscription, T
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
+use std::thread;
+use std::time::Duration;
 use std::{collections::HashMap, fs};
 use webbrowser;
 mod components;
@@ -21,8 +23,9 @@ use utils::{get_cache, save_to_cache};
 mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
-    authorize_team_picture, conversations, me, send_message, team_conversations, teams_me, users,
-    AccessToken, Chat, Conversations, DeviceCodeInfo, Profile, Team, TeamConversations,
+    authorize_team_picture, conversations, gen_refresh_token_from_device_code, me, send_message,
+    team_conversations, teams_me, users, AccessToken, Chat, Conversations, DeviceCodeInfo, Profile,
+    Team, TeamConversations,
 };
 mod auth;
 use auth::{get_or_gen_skype_token, get_or_gen_token};
@@ -89,6 +92,8 @@ pub enum Message {
     MessageAreaEdit(text_editor::Action),
     EventOccurred(Event),
     GotDeviceCodeInfo(DeviceCodeInfo),
+    PollDeviceCode,
+    Authorized(AccessToken),
     DoNothing(()),
     LinkClicked(String),
     Join,
@@ -421,7 +426,69 @@ impl Counter {
 
             Message::GotDeviceCodeInfo(device_code_info) => {
                 self.device_user_code = Some(device_code_info.user_code);
-                self.device_code = device_code_info.device_code;
+                self.device_code = device_code_info.device_code.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async {
+                        thread::sleep(Duration::new(1, 0));
+
+                        let mut refresh_token: Option<AccessToken> = None;
+                        let result = gen_refresh_token_from_device_code(
+                            device_code_info.device_code,
+                            tenant,
+                        );
+                        if let Ok(access_token) = result {
+                            refresh_token = Some(access_token);
+                            println!("Code polling succeeded.")
+                        } else {
+                            println!("Code polling failed: {:#?}", result.err())
+                        }
+
+                        refresh_token
+                    },
+                    |refresh_token| {
+                        if let Some(refresh_token) = refresh_token {
+                            Message::Authorized(refresh_token)
+                        } else {
+                            Message::PollDeviceCode
+                        }
+                    },
+                )
+            }
+
+            Message::PollDeviceCode => {
+                let device_code = self.device_code.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async {
+                        thread::sleep(Duration::new(1, 0));
+
+                        let mut refresh_token: Option<AccessToken> = None;
+                        let result = gen_refresh_token_from_device_code(device_code, tenant);
+                        if let Ok(access_token) = result {
+                            refresh_token = Some(access_token);
+                            println!("Code polling succeeded.")
+                        } else {
+                            println!("Code polling failed: {:#?}", result.err())
+                        }
+
+                        refresh_token
+                    },
+                    |refresh_token| {
+                        if let Some(refresh_token) = refresh_token {
+                            Message::Authorized(refresh_token)
+                        } else {
+                            Message::PollDeviceCode
+                        }
+                    },
+                )
+            }
+
+            Message::Authorized(refresh_token) => {
+                self.access_tokens
+                    .write()
+                    .unwrap()
+                    .insert("refresh_token".to_string(), refresh_token);
                 Task::none()
             }
 

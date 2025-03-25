@@ -3,6 +3,7 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::{json, Value};
+use sha2::digest::consts::U5;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -117,12 +118,12 @@ pub fn gen_refresh_token_from_device_code(
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
     if let (Some(value), Some(expires_in)) = (
-        token_data.get("refresh_token").and_then(|v| v.as_str()),
-        token_data.get("expires_in").and_then(|v| v.as_u64()),
+        token_data.get("refresh_token"),
+        token_data.get("expires_in"),
     ) {
         let refresh_token = AccessToken {
             value: value.to_string(),
-            expires: get_epoch_s() + expires_in,
+            expires: get_epoch_s() + expires_in.as_str().unwrap().parse::<u64>().unwrap(),
         };
 
         Ok(refresh_token)
