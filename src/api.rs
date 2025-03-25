@@ -122,7 +122,7 @@ pub fn gen_refresh_token_from_device_code(
         token_data.get("expires_in"),
     ) {
         let refresh_token = AccessToken {
-            value: value.to_string(),
+            value: value.as_str().unwrap().to_string(),
             expires: get_epoch_s() + expires_in.as_str().unwrap().parse::<u64>().unwrap(),
         };
 
@@ -261,7 +261,6 @@ pub fn gen_token(
     scope: String,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
-    // Generate new refresh token if needed
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("origin"),
@@ -279,6 +278,8 @@ pub fn gen_token(
         claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
         TEAMS_CLIENT_ID, scope, refresh_token.value
     );
+    println!("{:#?}", body);
+
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
