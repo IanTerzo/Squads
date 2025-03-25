@@ -162,6 +162,88 @@ struct Properties {
     format_variant: String,
 }
 
+fn init_tasks(
+    access_tokens: std::sync::Arc<RwLock<HashMap<String, AccessToken>>>,
+    tenant: String,
+) -> Task<Message> {
+    let access_tokens1 = Arc::clone(&access_tokens);
+    let access_tokens2 = Arc::clone(&access_tokens);
+    let access_tokens3 = Arc::clone(&access_tokens);
+    let access_tokens4 = Arc::clone(&access_tokens);
+
+    let tenant1 = tenant.clone();
+    let tenant2 = tenant.clone();
+
+    Task::batch(vec![
+        Task::perform(
+            async move {
+                let access_token_ic3 = get_or_gen_token(
+                    access_tokens1,
+                    "https://ic3.teams.office.com/.default".to_string(),
+                    &tenant,
+                );
+
+                let activity_messages =
+                    conversations(access_token_ic3, "48:notifications".to_string(), None).unwrap();
+
+                activity_messages.messages
+            },
+            Message::GotActivities,
+        ),
+        Task::perform(
+            async move {
+                let access_token_chatsvcagg = get_or_gen_token(
+                    access_tokens2,
+                    "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                    &tenant1,
+                );
+
+                let user_details = teams_me(access_token_chatsvcagg).unwrap();
+
+                let teams = user_details.teams;
+                let chats = user_details.chats;
+
+                save_to_cache("teams.json", &teams);
+                save_to_cache("chats.json", &chats);
+
+                (teams, chats)
+            },
+            |result| Message::GotUserDetails(result.0, result.1),
+        ),
+        Task::perform(
+            async move {
+                let access_token_graph = get_or_gen_token(
+                    access_tokens3,
+                    "https://graph.microsoft.com/.default".to_string(),
+                    &tenant2,
+                );
+
+                let users = users(access_token_graph.clone());
+
+                let mut profile_map = HashMap::new();
+
+                for profile in users.unwrap().value {
+                    profile_map.insert(profile.id.clone(), profile);
+                }
+
+                let profile = me(access_token_graph).unwrap();
+
+                save_to_cache("users.json", &profile_map.to_owned());
+                save_to_cache("me.json", &profile.to_owned());
+
+                (profile_map, profile)
+            },
+            |result| Message::GotUsers(result.0, result.1),
+        ),
+    ])
+    .chain(Task::perform(
+        async move {
+            save_to_cache("access_tokens.json", &access_tokens4);
+        },
+        Message::DoNothing,
+    ))
+}
+
 impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content = fs::read_to_string("resources/emojis.json").unwrap();
@@ -226,89 +308,10 @@ impl Counter {
 
         counter_self.history.push(counter_self.page.clone());
 
-        // hotfix...
-        let access_tokens_clone = access_tokens.clone();
-        let access_tokens_clone2 = access_tokens.clone();
-        let access_tokens_clone3 = access_tokens.clone();
-
-        let tenant_clone = tenant.clone();
-        let tenant_clone2 = tenant.clone();
-
         (
             counter_self,
             if has_refresh_token {
-                Task::batch(vec![
-                    Task::perform(
-                        async move {
-                            let access_token_ic3 = get_or_gen_token(
-                                access_tokens,
-                                "https://ic3.teams.office.com/.default".to_string(),
-                                &tenant,
-                            );
-
-                            let activity_messages = conversations(
-                                access_token_ic3,
-                                "48:notifications".to_string(),
-                                None,
-                            )
-                            .unwrap();
-
-                            activity_messages.messages
-                        },
-                        Message::GotActivities,
-                    ),
-                    Task::perform(
-                        async move {
-                            let access_token_chatsvcagg = get_or_gen_token(
-                                access_tokens_clone,
-                                "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
-                                &tenant_clone,
-                            );
-
-                            let user_details = teams_me(access_token_chatsvcagg).unwrap();
-
-                            let teams = user_details.teams;
-                            let chats = user_details.chats;
-
-                            save_to_cache("teams.json", &teams);
-                            save_to_cache("chats.json", &chats);
-
-                            (teams, chats)
-                        },
-                        |result| Message::GotUserDetails(result.0, result.1),
-                    ),
-                    Task::perform(
-                        async move {
-                            let access_token_graph = get_or_gen_token(
-                                access_tokens_clone2,
-                                "https://graph.microsoft.com/.default".to_string(),
-                                &tenant_clone2,
-                            );
-
-                            let users = users(access_token_graph.clone());
-
-                            let mut profile_map = HashMap::new();
-
-                            for profile in users.unwrap().value {
-                                profile_map.insert(profile.id.clone(), profile);
-                            }
-
-                            let profile = me(access_token_graph).unwrap();
-
-                            save_to_cache("users.json", &profile_map.to_owned());
-                            save_to_cache("me.json", &profile.to_owned());
-
-                            (profile_map, profile)
-                        },
-                        |result| Message::GotUsers(result.0, result.1),
-                    ),
-                ])
-                .chain(Task::perform(
-                    async move {
-                        save_to_cache("access_tokens.json", &access_tokens_clone3.to_owned());
-                    },
-                    Message::DoNothing,
-                ))
+                init_tasks(access_tokens, tenant)
             } else {
                 Task::perform(
                     async move { api::gen_device_code(tenant).unwrap() },
@@ -485,11 +488,12 @@ impl Counter {
             }
 
             Message::Authorized(refresh_token) => {
+                self.page.view = View::Homepage;
                 self.access_tokens
                     .write()
                     .unwrap()
                     .insert("refresh_token".to_string(), refresh_token);
-                Task::none()
+                init_tasks(self.access_tokens.clone(), self.tenant.clone())
             }
 
             Message::GotUserDetails(teams, chats) => {
