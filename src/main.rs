@@ -317,7 +317,7 @@ impl Counter {
         //println!("view called");
 
         match self.page.view {
-            View::Login => app(&self.theme, login(&self.device_user_code)),
+            View::Login => login(&self.theme, &self.device_user_code),
             View::Homepage => {
                 let search_value = self.search_teams_input_value.clone();
 
