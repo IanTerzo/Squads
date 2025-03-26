@@ -485,17 +485,21 @@ pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, String> {
     }
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
-    if let (Some(value), Some(expires_in)) =
-        (token_data.get("skypeToken"), token_data.get("expiresIn"))
-    {
-        let refresh_token = AccessToken {
-            value: value.as_str().unwrap().to_string(),
-            expires: get_epoch_s() + expires_in.as_u64().unwrap(),
-        };
 
-        Ok(refresh_token)
+    if let Some(tokens) = token_data.get("tokens") {
+        if let (Some(value), Some(expires_in)) = (tokens.get("skypeToken"), tokens.get("expiresIn"))
+        {
+            let refresh_token = AccessToken {
+                value: value.as_str().unwrap().to_string(),
+                expires: get_epoch_s() + expires_in.as_u64().unwrap(),
+            };
+
+            Ok(refresh_token)
+        } else {
+            Err("Response does not have a token or a expiration.".to_string())
+        }
     } else {
-        Err("Response does not have a value or a refresh_token.".to_string())
+        Err("Response include tokens".to_string())
     }
 }
 
