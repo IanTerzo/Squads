@@ -273,7 +273,6 @@ pub fn gen_token(
         claims={{\"access_token\":{{\"xms_cc\":{{\"values\":[\"CP1\"]}}}}}}",
         TEAMS_CLIENT_ID, scope, refresh_token.value
     );
-    println!("{:#?}", body);
 
     let client = reqwest::blocking::Client::builder()
         .redirect(reqwest::redirect::Policy::none())

@@ -216,6 +216,71 @@ fn init_tasks(
     ])
 }
 
+fn post_message_task(
+    message_area_text: String,
+    acess_tokens_arc: Arc<RwLock<HashMap<String, AccessToken>>>,
+    tenant: String,
+    conversation_id: String,
+    me_id: String,
+    me_display_name: String,
+) -> Task<Message> {
+    Task::perform(
+        async move {
+            let html = parse_message_markdown(message_area_text);
+
+            let access_token = get_or_gen_token(
+                acess_tokens_arc,
+                "https://ic3.teams.office.com/.default".to_string(),
+                &tenant,
+            );
+
+            let mut rng = rand::rng();
+            let message_id: u64 = rng.random(); // generate the message_id randomly
+
+            let message = TeamsMessage {
+                id: "-1".to_string(),
+                msg_type: "Message".to_string(),
+                conversationid: conversation_id.clone(),
+                conversation_link: format!("blah/{}", conversation_id),
+                from: format!("8:orgid:{}", me_id),
+                composetime: "2025-03-06T11:04:18.265Z".to_string(),
+                originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
+                content: html,
+                messagetype: "RichText/Html".to_string(),
+                contenttype: "Text".to_string(),
+                imdisplayname: me_display_name,
+                clientmessageid: message_id.to_string(),
+                call_id: "".to_string(),
+                state: 0,
+                version: "0".to_string(),
+                amsreferences: vec![],
+                properties: Properties {
+                    importance: "".to_string(),
+                    subject: "SUBJECT".to_string(),
+                    title: "".to_string(),
+                    cards: "[]".to_string(),
+                    links: "[]".to_string(),
+                    mentions: "[]".to_string(),
+                    onbehalfof: None,
+                    files: "[]".to_string(),
+                    policy_violation: None,
+                    format_variant: "TEAMS".to_string(),
+                },
+                post_type: "Standard".to_string(),
+                cross_post_channels: vec![],
+            };
+
+            // Convert the struct into a JSON string
+            let body = serde_json::to_string_pretty(&message).unwrap();
+
+            send_message(&access_token, conversation_id, body).unwrap();
+
+            println!("Posted!");
+        },
+        Message::DoNothing,
+    )
+}
+
 impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content = fs::read_to_string("resources/emojis.json").unwrap();
@@ -511,60 +576,13 @@ impl Counter {
 
                             let acess_tokens_arc = self.access_tokens.clone();
                             let tenant = self.tenant.clone();
-                            return Task::perform(
-                                async move {
-                                    let html = parse_message_markdown(message_area_text);
-
-                                    let access_token = get_or_gen_token(
-                                        acess_tokens_arc,
-                                        "https://ic3.teams.office.com/.default".to_string(),
-                                        &tenant,
-                                    );
-
-                                    let mut rng = rand::rng();
-                                    let message_id: u64 = rng.random(); // generate the message_id randomly
-
-                                    let message = TeamsMessage {
-                                        id: "-1".to_string(),
-                                        msg_type: "Message".to_string(),
-                                        conversationid: conversation_id.clone(),
-                                        conversation_link: format!("blah/{}", conversation_id),
-                                        from: format!("8:orgid:{}", me_id),
-                                        composetime: "2025-03-06T11:04:18.265Z".to_string(),
-                                        originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
-                                        content: html,
-                                        messagetype: "RichText/Html".to_string(),
-                                        contenttype: "Text".to_string(),
-                                        imdisplayname: me_display_name,
-                                        clientmessageid: message_id.to_string(),
-                                        call_id: "".to_string(),
-                                        state: 0,
-                                        version: "0".to_string(),
-                                        amsreferences: vec![],
-                                        properties: Properties {
-                                            importance: "".to_string(),
-                                            subject: "SUBJECT".to_string(),
-                                            title: "".to_string(),
-                                            cards: "[]".to_string(),
-                                            links: "[]".to_string(),
-                                            mentions: "[]".to_string(),
-                                            onbehalfof: None,
-                                            files: "[]".to_string(),
-                                            policy_violation: None,
-                                            format_variant: "TEAMS".to_string(),
-                                        },
-                                        post_type: "Standard".to_string(),
-                                        cross_post_channels: vec![],
-                                    };
-
-                                    // Convert the struct into a JSON string
-                                    let body = serde_json::to_string_pretty(&message).unwrap();
-
-                                    send_message(&access_token, conversation_id, body).unwrap();
-
-                                    println!("Posted!");
-                                },
-                                Message::DoNothing,
+                            return post_message_task(
+                                message_area_text,
+                                acess_tokens_arc,
+                                tenant,
+                                conversation_id,
+                                me_id,
+                                me_display_name,
                             );
                         }
                     }
@@ -798,68 +816,17 @@ impl Counter {
                     _ => "".to_string(),
                 };
 
-                let me_id = self.me.id.clone();
-
-                let me_display_name = self.me.display_name.clone().unwrap();
-
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    {
-                        async move {
-                            let html = parse_message_markdown(message_area_text);
-
-                            let access_token = get_or_gen_token(
-                                acess_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
-                                &tenant,
-                            );
-
-                            let mut rng = rand::rng();
-                            let message_id: u64 = rng.random(); // generate the message_id randomly
-
-                            let message = TeamsMessage {
-                                id: "-1".to_string(),
-                                msg_type: "Message".to_string(),
-                                conversationid: conversation_id.clone(),
-                                conversation_link: format!("blah/{}", conversation_id),
-                                from: format!("8:orgid:{}", me_id),
-                                composetime: "2025-03-06T11:04:18.265Z".to_string(),
-                                originalarrivaltime: "2025-03-06T11:04:18.265Z".to_string(),
-                                content: html,
-                                messagetype: "RichText/Html".to_string(),
-                                contenttype: "Text".to_string(),
-                                imdisplayname: me_display_name,
-                                clientmessageid: message_id.to_string(),
-                                call_id: "".to_string(),
-                                state: 0,
-                                version: "0".to_string(),
-                                amsreferences: vec![],
-                                properties: Properties {
-                                    importance: "".to_string(),
-                                    subject: "SUBJECT".to_string(),
-                                    title: "".to_string(),
-                                    cards: "[]".to_string(),
-                                    links: "[]".to_string(),
-                                    mentions: "[]".to_string(),
-                                    onbehalfof: None,
-                                    files: "[]".to_string(),
-                                    policy_violation: None,
-                                    format_variant: "TEAMS".to_string(),
-                                },
-                                post_type: "Standard".to_string(),
-                                cross_post_channels: vec![],
-                            };
-
-                            // Convert the struct into a JSON string
-                            let body = serde_json::to_string_pretty(&message).unwrap();
-
-                            send_message(&access_token, conversation_id, body).unwrap();
-
-                            println!("Posted!");
-                        }
-                    },
-                    Message::DoNothing,
+                let me_id = self.me.id.clone();
+                let me_display_name = self.me.display_name.clone().unwrap();
+                post_message_task(
+                    message_area_text,
+                    acess_tokens_arc,
+                    tenant,
+                    conversation_id,
+                    me_id,
+                    me_display_name,
                 )
             }
             Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
@@ -989,10 +956,6 @@ impl Counter {
 }
 
 pub fn main() -> iced::Result {
-    //println!("{:#?}", x);
-    //let ressy = api::gen_refresh_token_from_device_code("CAQABIQEAAABVrSpeuWamRam2jAF1XRQEfkYMwJsHEe_5vbUiCReP2L7ubTy1vKiA-4sGdpUzBd1rL-5CWVwSUFB4Ufi_Q7qPq--3Fgfy2WNlOlIK29lhW70a1p4V6uSiNcNjyTUbREssYbFAQTEM2_trhFUq9cZ_kBT_nLQyhNxKigRMKkkkPAgNkhdO6hL-qGS4KP5JJrUgAA".to_string());
-    //println!("{ressy:#?}");
-
     iced::application("Squads", Counter::update, Counter::view)
         .window_size(Size {
             width: WINDOW_WIDTH,
