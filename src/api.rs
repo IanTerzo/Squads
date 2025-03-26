@@ -252,7 +252,7 @@ pub fn renew_refresh_token(
 
         Ok(refresh_token)
     } else {
-        Err("Response does not have a value or a refresh_token.".to_string())
+        Err("Response does not have a expiration or a refresh_token.".to_string())
     }
 }
 
@@ -306,17 +306,17 @@ pub fn gen_token(
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
     if let (Some(value), Some(expires_in)) = (
-        token_data.get("refresh_token").and_then(|v| v.as_str()),
+        token_data.get("access_token").and_then(|v| v.as_str()),
         token_data.get("expires_in").and_then(|v| v.as_u64()),
     ) {
-        let refresh_token = AccessToken {
+        let access_token = AccessToken {
             value: value.to_string(),
             expires: get_epoch_s() + expires_in,
         };
 
-        Ok(refresh_token)
+        Ok(access_token)
     } else {
-        Err("Response does not have a value or a refresh_token.".to_string())
+        Err("Response does not have a expiration date or a access_token.".to_string())
     }
 }
 // Api: Emea v2
@@ -628,6 +628,8 @@ pub fn conversations(
     } else {
         thread_id.clone()
     };
+
+    println!("{:#?}", token);
 
     let url = format!(
     "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages?pageSize=200",
