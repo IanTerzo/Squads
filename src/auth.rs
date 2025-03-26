@@ -1,7 +1,7 @@
 use crate::api::{
     gen_refresh_token_from_code, gen_skype_token, gen_token, renew_refresh_token, AccessToken,
 };
-use crate::utils::get_cache;
+use crate::utils::{get_cache, save_to_cache};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ipc_channel::ipc::IpcOneShotServer;
 use rand::Rng;
@@ -304,7 +304,7 @@ pub fn get_or_gen_token(
         refresh_token = renew_refresh_token(refresh_token.to_owned(), tenant.clone()).unwrap();
     }
 
-    access_tokens
+    let token = access_tokens
         .write()
         .unwrap()
         .entry(scope.to_string())
@@ -315,14 +315,18 @@ pub fn get_or_gen_token(
             }
         })
         .or_insert_with(|| gen_token(refresh_token, scope.to_string(), tenant.clone()).unwrap())
-        .clone()
+        .clone();
+
+    save_to_cache("access_tokens.json", &access_tokens);
+
+    token
 }
 
 pub fn get_or_gen_skype_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     access_token: AccessToken,
 ) -> AccessToken {
-    access_tokens
+    let token = access_tokens
         .write()
         .unwrap()
         .entry("skype_token".to_string())
@@ -332,5 +336,9 @@ pub fn get_or_gen_skype_token(
             }
         })
         .or_insert_with(|| gen_skype_token(access_token).unwrap())
-        .clone()
+        .clone();
+
+    save_to_cache("access_tokens.json", &access_tokens);
+
+    token
 }

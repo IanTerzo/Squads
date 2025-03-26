@@ -236,12 +236,6 @@ fn init_tasks(
             |result| Message::GotUsers(result.0, result.1),
         ),
     ])
-    .chain(Task::perform(
-        async move {
-            save_to_cache("access_tokens.json", &access_tokens4);
-        },
-        Message::DoNothing,
-    ))
 }
 
 impl Counter {
@@ -305,8 +299,6 @@ impl Counter {
             activities: Vec::new(),
             shift_held_down: false,
         };
-
-        counter_self.history.push(counter_self.page.clone());
 
         (
             counter_self,
@@ -489,6 +481,7 @@ impl Counter {
 
             Message::Authorized(refresh_token) => {
                 self.page.view = View::Homepage;
+                self.history.push(self.page.clone());
                 self.access_tokens
                     .write()
                     .unwrap()
