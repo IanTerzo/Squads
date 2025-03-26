@@ -1,7 +1,5 @@
-use crate::api::{
-    gen_refresh_token_from_code, gen_skype_token, gen_token, renew_refresh_token, AccessToken,
-};
-use crate::utils::{get_cache, save_to_cache};
+use crate::api::{gen_skype_token, gen_token, renew_refresh_token, AccessToken};
+use crate::utils::{get_epoch_s, save_to_cache};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use ipc_channel::ipc::IpcOneShotServer;
 use rand::Rng;
@@ -14,7 +12,6 @@ use std::{
     collections::HashMap,
     process::{Command, Stdio},
     sync::RwLock,
-    time::{SystemTime, UNIX_EPOCH},
 };
 use url::form_urlencoded;
 extern crate reqwest;
@@ -52,13 +49,6 @@ pub struct ReprocessInfo {
     url_login: String,
     light: String,
     persistent: String,
-}
-
-fn get_epoch_s() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
 }
 
 fn _gen_code_challenge() -> String {
@@ -301,7 +291,7 @@ pub fn get_or_gen_token(
         .clone();
 
     if refresh_token.expires < get_epoch_s() {
-        refresh_token = renew_refresh_token(refresh_token.to_owned(), tenant.clone()).unwrap();
+        refresh_token = renew_refresh_token(&refresh_token, tenant.clone()).unwrap();
     }
 
     let token = access_tokens
@@ -310,11 +300,10 @@ pub fn get_or_gen_token(
         .entry(scope.to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
-                *token =
-                    gen_token(refresh_token.clone(), scope.to_string(), tenant.clone()).unwrap();
+                *token = gen_token(&refresh_token, scope.to_string(), tenant.clone()).unwrap();
             }
         })
-        .or_insert_with(|| gen_token(refresh_token, scope.to_string(), tenant.clone()).unwrap())
+        .or_insert_with(|| gen_token(&refresh_token, scope.to_string(), tenant.clone()).unwrap())
         .clone();
 
     save_to_cache("access_tokens.json", &access_tokens);
@@ -332,10 +321,10 @@ pub fn get_or_gen_skype_token(
         .entry("skype_token".to_string())
         .and_modify(|token| {
             if token.expires < get_epoch_s() {
-                *token = gen_skype_token(access_token.clone()).unwrap();
+                *token = gen_skype_token(&access_token).unwrap();
             }
         })
-        .or_insert_with(|| gen_skype_token(access_token).unwrap())
+        .or_insert_with(|| gen_skype_token(&access_token).unwrap())
         .clone();
 
     save_to_cache("access_tokens.json", &access_tokens);

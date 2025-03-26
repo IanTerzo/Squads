@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const LOG_REQUESTS: bool = false;
-
 const TEAMS_CLIENT_ID: &str = "1fec8e78-bce4-4aaf-ab1b-5451cc387264";
 
 fn get_epoch_s() -> u64 {
@@ -194,7 +193,7 @@ pub fn gen_refresh_token_from_code(
 }
 
 pub fn renew_refresh_token(
-    refresh_token: AccessToken,
+    refresh_token: &AccessToken,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
     let url = format!(
@@ -253,7 +252,7 @@ pub fn renew_refresh_token(
 }
 
 pub fn gen_token(
-    refresh_token: AccessToken,
+    refresh_token: &AccessToken,
     scope: String,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
@@ -388,7 +387,7 @@ async fn user_aggregate_settings(
 // Api: Sharepoint
 // Scope: format!("{}/.default", web_url)
 async fn gen_spoidcrl(
-    token: AccessToken,
+    token: &AccessToken,
     section: String,
     web_url: Value,
 ) -> Result<AccessToken, anyhow::Error> {
@@ -453,7 +452,7 @@ async fn gen_spoidcrl(
 
 // Api: Authsvc v1
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
-pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, String> {
+pub fn gen_skype_token(token: &AccessToken) -> Result<AccessToken, String> {
     let url = "https://teams.microsoft.com/api/authsvc/v1.0/authz";
     if LOG_REQUESTS {
         println!("Log: POST {}", url);
@@ -505,7 +504,7 @@ pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, String> {
 
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
-pub fn teams_me(token: AccessToken) -> Result<UserDetails, String> {
+pub fn teams_me(token: &AccessToken) -> Result<UserDetails, String> {
     let url = "https://teams.microsoft.com/api/csa/emea/api/v2/teams/users/me";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -566,7 +565,7 @@ pub fn teams_me(token: AccessToken) -> Result<UserDetails, String> {
 
 // Api: Emea v1
 // Scope: TODO
-pub fn properties(token: AccessToken) -> Result<UserProperties, String> {
+pub fn properties(token: &AccessToken) -> Result<UserProperties, String> {
     let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/properties";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -617,7 +616,7 @@ pub fn properties(token: AccessToken) -> Result<UserProperties, String> {
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
 pub fn conversations(
-    token: AccessToken,
+    token: &AccessToken,
     thread_id: String,
     message_id: Option<u64>,
 ) -> Result<Conversations, String> {
@@ -681,7 +680,7 @@ pub fn conversations(
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub fn fetch_short_profile(
-    token: AccessToken,
+    token: &AccessToken,
     user_ids: Vec<String>,
 ) -> Result<FetchShortProfile, String> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/fetchShortProfile";
@@ -756,7 +755,7 @@ pub fn fetch_short_profile(
 }
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
-pub fn me(token: AccessToken) -> Result<Profile, String> {
+pub fn me(token: &AccessToken) -> Result<Profile, String> {
     let url = "https://graph.microsoft.com/v1.0/me";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -811,7 +810,7 @@ pub fn me(token: AccessToken) -> Result<Profile, String> {
 
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
-pub fn users(token: AccessToken) -> Result<Users, String> {
+pub fn users(token: &AccessToken) -> Result<Users, String> {
     let url = "https://graph.microsoft.com/v1.0/users?$top=999";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -867,7 +866,7 @@ pub fn users(token: AccessToken) -> Result<Users, String> {
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub fn team_conversations(
-    token: AccessToken,
+    token: &AccessToken,
     team_id: String,
     topic_id: String,
 ) -> Result<TeamConversations, String> {
@@ -925,7 +924,7 @@ pub fn team_conversations(
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
 async fn team_channel_info(
-    token: AccessToken,
+    token: &AccessToken,
     group_id: String,
     topic_id: String,
 ) -> Result<HashMap<String, Value>, String> {
@@ -964,7 +963,7 @@ async fn team_channel_info(
 // Api: Emea v2
 // Scope: https://api.spaces.skype.com/.default
 async fn document_libraries(
-    token: AccessToken,
+    token: &AccessToken,
     skype_token: AccessToken,
     topic_id: String,
 ) -> Result<Vec<Value>, String> {
@@ -1004,7 +1003,7 @@ async fn document_libraries(
 // Api: Sharepoint
 // Scope: SPOIDCRL
 async fn render_list_data_as_stream(
-    token: AccessToken,
+    token: &AccessToken,
     web_url: String,
     section: String,
     files_relative_path: String,
@@ -1062,7 +1061,7 @@ async fn render_list_data_as_stream(
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub fn authorize_team_picture(
-    token: AccessToken,
+    token: &AccessToken,
     group_id: String,
     etag: String,
     display_name: String,
@@ -1122,7 +1121,7 @@ pub fn authorize_team_picture(
 // Api: Emea v2
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
 pub fn authorize_profile_picture(
-    token: AccessToken,
+    token: &AccessToken,
     user_id: String,
     display_name: String,
 ) -> Result<Bytes, String> {
@@ -1184,7 +1183,7 @@ pub fn authorize_profile_picture(
 // Api: Emea v2
 // Scope: Skype
 // Supports: https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/, https://eu-api.asm.skype.com/v1/objects/
-pub fn authorize_image(token: AccessToken, url: String) -> Result<Bytes, String> {
+pub fn authorize_image(token: &AccessToken, url: String) -> Result<Bytes, String> {
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
@@ -1220,7 +1219,7 @@ pub fn authorize_image(token: AccessToken, url: String) -> Result<Bytes, String>
 // Api: Emea v2
 // Scope: Skype
 pub fn authorize_merged_profile_picture(
-    token: AccessToken,
+    token: &AccessToken,
     users: Vec<(String, String)>,
 ) -> Result<Bytes, String> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/mergedProfilePicturev2";
@@ -1282,7 +1281,7 @@ pub fn authorize_merged_profile_picture(
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
 pub fn send_message(
-    token: AccessToken,
+    token: &AccessToken,
     conversation_id: String,
     body: String,
 ) -> Result<String, String> {

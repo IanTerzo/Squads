@@ -1,7 +1,11 @@
 use directories::ProjectDirs;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use std::{fs, io::Write};
+use std::{
+    fs,
+    io::Write,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub fn truncate_name(name: String, max_length: usize) -> String {
     if name.len() > max_length {
@@ -49,4 +53,11 @@ pub fn get_cache<T: DeserializeOwned>(filename: &str) -> Option<T> {
     } else {
         None
     }
+}
+
+pub fn get_epoch_s() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
 }
