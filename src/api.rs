@@ -3,7 +3,6 @@ use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde_json::{json, Value};
-use sha2::digest::consts::U5;
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -19,8 +18,16 @@ fn get_epoch_s() -> u64 {
 }
 
 pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
-    // Generate new refresh token if needed
+    let url = format!(
+        "https://login.microsoftonline.com/{}/oauth2/devicecode",
+        tenant_id
+    );
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
+
     let mut headers = HeaderMap::new();
+
     headers.insert(
         HeaderName::from_static("content-type"),
         HeaderValue::from_static("application/x-www-form-urlencoded"),
@@ -37,15 +44,7 @@ pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
         .build()
         .unwrap();
 
-    let res = client
-        .post(format!(
-            "https://login.microsoftonline.com/{}/oauth2/devicecode",
-            tenant_id
-        ))
-        .headers(headers)
-        .body(body)
-        .send()
-        .unwrap();
+    let res = client.post(url).headers(headers).body(body).send().unwrap();
 
     if res.status().is_success() {
         let body = res.text().unwrap();
@@ -78,7 +77,15 @@ pub fn gen_refresh_token_from_device_code(
     device_code: String,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
-    // Generate new refresh token if needed
+    let url = format!(
+        "https://login.microsoftonline.com/{}/oauth2/token",
+        tenant_id
+    );
+
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
+
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("origin"),
@@ -97,15 +104,7 @@ pub fn gen_refresh_token_from_device_code(
         .build()
         .unwrap();
 
-    let res = client
-        .post(format!(
-            "https://login.microsoftonline.com/{}/oauth2/token",
-            tenant_id
-        ))
-        .headers(headers)
-        .body(body)
-        .send()
-        .unwrap();
+    let res = client.post(url).headers(headers).body(body).send().unwrap();
 
     if !res.status().is_success() {
         let error_message = format!(
@@ -137,7 +136,14 @@ pub fn gen_refresh_token_from_code(
     code_verifier: String,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
-    // Generate new refresh token if needed
+    let url = format!(
+        "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+        tenant_id
+    );
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
+
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("origin"),
@@ -160,15 +166,7 @@ pub fn gen_refresh_token_from_code(
         .build()
         .unwrap();
 
-    let res = client
-        .post(format!(
-            "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
-            tenant_id
-        ))
-        .headers(headers)
-        .body(body)
-        .send()
-        .unwrap();
+    let res = client.post(url).headers(headers).body(body).send().unwrap();
 
     if !res.status().is_success() {
         let error_message = format!(
@@ -181,12 +179,12 @@ pub fn gen_refresh_token_from_code(
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
     if let (Some(value), Some(expires_in)) = (
-        token_data.get("refresh_token").and_then(|v| v.as_str()),
-        token_data.get("expires_in").and_then(|v| v.as_u64()),
+        token_data.get("refresh_token"),
+        token_data.get("expires_in"),
     ) {
         let refresh_token = AccessToken {
-            value: value.to_string(),
-            expires: get_epoch_s() + expires_in,
+            value: value.as_str().unwrap().to_string(),
+            expires: get_epoch_s() + expires_in.as_u64().unwrap(),
         };
 
         Ok(refresh_token)
@@ -199,7 +197,13 @@ pub fn renew_refresh_token(
     refresh_token: AccessToken,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
-    // Generate new refresh token if needed
+    let url = format!(
+        "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
+        tenant_id
+    );
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("origin"),
@@ -221,15 +225,7 @@ pub fn renew_refresh_token(
         .build()
         .unwrap();
 
-    let res = client
-        .post(format!(
-            "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
-            tenant_id
-        ))
-        .headers(headers)
-        .body(body)
-        .send()
-        .unwrap();
+    let res = client.post(url).headers(headers).body(body).send().unwrap();
 
     if !res.status().is_success() {
         let error_message = format!(
@@ -242,12 +238,12 @@ pub fn renew_refresh_token(
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
     if let (Some(value), Some(expires_in)) = (
-        token_data.get("refresh_token").and_then(|v| v.as_str()),
-        token_data.get("expires_in").and_then(|v| v.as_u64()),
+        token_data.get("refresh_token"),
+        token_data.get("expires_in"),
     ) {
         let refresh_token = AccessToken {
-            value: value.to_string(),
-            expires: get_epoch_s() + expires_in,
+            value: value.as_str().unwrap().to_string(),
+            expires: get_epoch_s() + expires_in.as_u64().unwrap(),
         };
 
         Ok(refresh_token)
@@ -305,13 +301,12 @@ pub fn gen_token(
     }
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
-    if let (Some(value), Some(expires_in)) = (
-        token_data.get("access_token").and_then(|v| v.as_str()),
-        token_data.get("expires_in").and_then(|v| v.as_u64()),
-    ) {
+    if let (Some(value), Some(expires_in)) =
+        (token_data.get("access_token"), token_data.get("expires_in"))
+    {
         let access_token = AccessToken {
-            value: value.to_string(),
-            expires: get_epoch_s() + expires_in,
+            value: value.as_str().unwrap().to_string(),
+            expires: get_epoch_s() + expires_in.as_u64().unwrap(),
         };
 
         Ok(access_token)
@@ -490,13 +485,12 @@ pub fn gen_skype_token(token: AccessToken) -> Result<AccessToken, String> {
     }
 
     let token_data: HashMap<String, Value> = res.json().unwrap();
-    if let (Some(value), Some(expires_in)) = (
-        token_data.get("skypeToken").and_then(|v| v.as_str()),
-        token_data.get("expiresIn").and_then(|v| v.as_u64()),
-    ) {
+    if let (Some(value), Some(expires_in)) =
+        (token_data.get("skypeToken"), token_data.get("expiresIn"))
+    {
         let refresh_token = AccessToken {
-            value: value.to_string(),
-            expires: get_epoch_s() + expires_in,
+            value: value.as_str().unwrap().to_string(),
+            expires: get_epoch_s() + expires_in.as_u64().unwrap(),
         };
 
         Ok(refresh_token)
@@ -628,8 +622,6 @@ pub fn conversations(
     } else {
         thread_id.clone()
     };
-
-    println!("{:#?}", token);
 
     let url = format!(
     "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages?pageSize=200",
