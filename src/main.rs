@@ -322,7 +322,12 @@ impl Counter {
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
             chat_message_options: HashMap::new(),
-            history: Vec::new(),
+            history: vec![Page {
+                view: View::Homepage,
+                current_team_id: None,
+                current_channel_id: None,
+                current_chat_id: None,
+            }],
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
@@ -501,7 +506,7 @@ impl Counter {
             }
             Message::Authorized(refresh_token) => {
                 self.page.view = View::Homepage;
-                self.history.push(self.page.clone());
+
                 self.access_tokens
                     .write()
                     .unwrap()
@@ -627,15 +632,15 @@ impl Counter {
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenChat(thread_id) => {
-                let team_page = Page {
+                let chat_page = Page {
                     view: View::Chat,
                     current_team_id: None,
                     current_channel_id: None,
                     current_chat_id: Some(thread_id),
                 };
 
-                self.page = team_page.clone();
-                self.history.push(team_page);
+                self.page = chat_page.clone();
+                self.history.push(chat_page);
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
@@ -655,7 +660,8 @@ impl Counter {
                 Task::none()
             }
             Message::HistoryBack => {
-                self.page = self.history[0].clone(); // WILL FIX SOON!
+                let history_len = self.history.len();
+                self.page = self.history[history_len - 2].clone();
                 Task::none()
             }
             Message::ContentChanged(content) => {
