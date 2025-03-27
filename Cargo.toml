@@ -36,8 +36,3 @@ webbrowser = "1.0.3"
 [[bin]]
 name = "Squads"
 path = "src/main.rs"
-
-[[bin]]
-name = "auth_webview"
-path = "src/auth_webview/main.rs"
-optional = true
