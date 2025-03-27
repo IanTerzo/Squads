@@ -70,6 +70,7 @@ struct Counter {
     // App info
     page: Page,
     history: Vec<Page>,
+    history_index: usize,
     theme: style::Theme,
     emoji_map: HashMap<String, String>,
     window_width: f32,
@@ -117,6 +118,7 @@ pub enum Message {
     ShowChatMessageOptions(String),
     StopShowChatMessageOptions(String),
     HistoryBack,
+    HistoryForward,
     ContentChanged(String),
 
     // Teams requests
@@ -328,6 +330,7 @@ impl Counter {
                 current_channel_id: None,
                 current_chat_id: None,
             }],
+            history_index: 0,
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
@@ -628,6 +631,8 @@ impl Counter {
 
                 self.page = team_page.clone();
                 self.history.push(team_page);
+                self.history_index += 1;
+                self.history.truncate(self.history_index + 1);
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
@@ -641,6 +646,8 @@ impl Counter {
 
                 self.page = chat_page.clone();
                 self.history.push(chat_page);
+                self.history_index += 1;
+                self.history.truncate(self.history_index + 1);
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
@@ -660,8 +667,17 @@ impl Counter {
                 Task::none()
             }
             Message::HistoryBack => {
-                let history_len = self.history.len();
-                self.page = self.history[history_len - 2].clone();
+                if self.history_index != 0 {
+                    self.history_index -= 1;
+                    self.page = self.history[self.history_index].clone();
+                }
+                Task::none()
+            }
+            Message::HistoryForward => {
+                if self.history_index != self.history.len() - 1 {
+                    self.history_index += 1;
+                    self.page = self.history[self.history_index].clone();
+                }
                 Task::none()
             }
             Message::ContentChanged(content) => {
