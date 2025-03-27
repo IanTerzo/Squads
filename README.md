@@ -6,7 +6,7 @@ Because of major api differences in Teams, Squads only works with accounts that 
 
 ## Run
 ```
-cargo build --bin auth_webview && cargo run
+cargo run
 ```
 
 ## Contributing
