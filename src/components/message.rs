@@ -78,10 +78,11 @@ pub fn c_message<'a>(
 
     if let Some(properties) = message.properties.clone() {
         if let Some(subject) = properties.subject {
-            if subject != "" {
-                // Edgecase
+            let trimmed_subject = subject.trim_start();
+            // Edgecase
+            if trimmed_subject != "" {
                 let mut text_row = row![];
-                for c in subject.chars() {
+                for c in trimmed_subject.chars() {
                     if c.is_emoji_char() && !c.is_digit(10) {
                         text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
                     } else {

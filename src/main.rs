@@ -681,6 +681,7 @@ impl Counter {
                 Task::none()
             }
             Message::ContentChanged(content) => {
+                println!("{}", content);
                 self.search_teams_input_value = content;
                 Task::none()
             }
