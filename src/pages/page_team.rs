@@ -32,8 +32,17 @@ pub fn team<'a>(
             if let Some(option) = reply_options.get(&conversation.id) {
                 show_replies = option.clone();
             }
-            let conversaton_element =
-                c_conversation(theme, conversation, show_replies, emoji_map, users);
+
+            let conversaton_element = c_conversation(
+                theme,
+                conversation.messages.iter().rev().cloned().collect(),
+                conversation.id,
+                show_replies,
+                emoji_map,
+                users,
+            );
+
+            // let ordered_conversation: Vec<_> = c;
 
             if let Some(conversation_element_un) = conversaton_element {
                 conversation_column = conversation_column.push(conversation_element_un)

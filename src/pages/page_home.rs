@@ -119,14 +119,14 @@ pub fn home<'a>(
 
         if let Some(value) = expanded_conversations.get(&message_activity_id) {
             if value.len() > 0 {
-                let conversation = Conversation {
-                    messages: value.to_owned(),
-                    id: message_activity_id.clone(),
-                    container_id: "".to_string(),
-                    latest_delivery_time: "".to_string(),
-                };
-
-                let message = c_conversation(theme, conversation, false, emoji_map, users);
+                let message = c_conversation(
+                    theme,
+                    value.to_owned(),
+                    message_activity_id.clone(),
+                    false,
+                    emoji_map,
+                    users,
+                );
                 if let Some(message) = message {
                     activities_colum = activities_colum.push(mouse_area(message).on_release(
                         Message::ExpandActivity(thread_id, message_id, message_activity_id),
