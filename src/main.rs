@@ -618,7 +618,10 @@ impl Counter {
                 Task::none()
             }
             Message::Jump(page) => {
-                self.page = page;
+                self.page = page.clone();
+                self.history.push(page);
+                self.history_index += 1;
+                self.history.truncate(self.history_index + 1);
                 Task::none()
             }
             Message::OpenTeam(team_id, channel_id) => {

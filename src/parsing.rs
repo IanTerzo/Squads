@@ -231,6 +231,40 @@ pub fn parse_message_html<'a>(
     }
 }
 
+use serde::Serialize;
+use serde_json::Value;
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaCard {
+    pub attachments: Vec<Attachment>,
+    #[serde(rename = "type")]
+    pub media_card_type: String,
+    pub entities: Vec<Value>, // Not sure
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Attachment {
+    pub content: Content,
+    pub content_type: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Content {
+    #[serde(rename = "type")]
+    pub content_type: String,
+    pub body: Value,
+    pub actions: Value,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MsTeams {
+    pub width: String,
+}
+
 pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, String> {
     let document = Html::parse_document(content.as_str());
 
@@ -240,7 +274,7 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
         let b64_value = swift_element.value().attr("b64").unwrap();
         let decoded_bytes = decode(b64_value).unwrap();
         let decoded_string = std::str::from_utf8(&decoded_bytes).unwrap();
-
+        println!("{decoded_string}");
         Ok(text!("{decoded_string}").into())
     } else {
         Err("Couldn't find Swift tag from card HTML".to_string())
