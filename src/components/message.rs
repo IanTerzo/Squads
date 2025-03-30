@@ -98,6 +98,14 @@ pub fn c_message<'a>(
         }
     }
 
+    // Cards
+
+    if let Some(properties) = message.properties.clone() {
+        if let Some(cards) = properties.cards {
+            for card in cards {}
+        }
+    }
+
     // Message content
 
     let deleted = if let Some(properties) = message.properties.clone() {

@@ -8,6 +8,7 @@ use iced::widget::{
 use iced::{font, Element, Font};
 use markdown_it::{plugins, MarkdownIt};
 use scraper::{Html, Selector};
+use serde::Deserialize;
 use std::collections::HashMap;
 
 pub fn parse_message_markdown(text: String) -> String {
@@ -234,7 +235,7 @@ pub fn parse_message_html<'a>(
 use serde::Serialize;
 use serde_json::Value;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaCard {
     pub attachments: Vec<Attachment>,
@@ -243,23 +244,23 @@ pub struct MediaCard {
     pub entities: Vec<Value>, // Not sure
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub content: Content,
     pub content_type: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Content {
     #[serde(rename = "type")]
     pub content_type: String,
-    pub body: Value,
-    pub actions: Value,
+    pub body: Vec<Value>, // Vec of items
+    pub actions: Vec<Value>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MsTeams {
     pub width: String,
@@ -274,7 +275,8 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
         let b64_value = swift_element.value().attr("b64").unwrap();
         let decoded_bytes = decode(b64_value).unwrap();
         let decoded_string = std::str::from_utf8(&decoded_bytes).unwrap();
-        println!("{decoded_string}");
+        let parsed: MediaCard = serde_json::from_str(decoded_string).unwrap();
+        //println!("{parsed:#?}");
         Ok(text!("{decoded_string}").into())
     } else {
         Err("Couldn't find Swift tag from card HTML".to_string())

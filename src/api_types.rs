@@ -1,6 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
-use std::fmt;
 use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -152,6 +151,9 @@ pub struct MessageProperties {
     #[serde(default)]
     pub files: String, // is string that should be parsed to vec of File
     #[serde(default)]
+    #[serde(deserialize_with = "deserialize_cards")]
+    pub cards: Option<Vec<Card>>,
+    #[serde(default)]
     #[serde(deserialize_with = "string_to_i64")]
     pub deletetime: i64,
     #[serde(default)]
@@ -164,6 +166,36 @@ pub struct MessageProperties {
     #[serde(deserialize_with = "string_to_option_bool")]
     pub is_read: Option<bool>,
     pub activity: Option<Activity>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CardContentButton {
+    #[serde(rename = "type")]
+    pub button_type: String,
+    pub title: String,
+    pub value: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CardContent {
+    pub text: Option<String>,
+    pub component_url: Option<String>,
+    pub source_type: Option<String>,
+    pub buttons: Option<Vec<CardContentButton>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Card {
+    pub app_id: Option<String>,
+    pub app_name: Option<String>,
+    pub app_icon: Option<String>,
+    pub card_client_id: String,
+    pub content: CardContent,
+    pub content_type: String,
+    pub preview_hidden: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -389,5 +421,18 @@ where
         }
     } else {
         Ok(None)
+    }
+}
+
+fn deserialize_cards<'de, D>(deserializer: D) -> Result<Option<Vec<Card>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        Some(json_str) => serde_json::from_str(&json_str)
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+        None => Ok(None),
     }
 }
