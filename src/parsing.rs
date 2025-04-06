@@ -2,10 +2,12 @@ use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
 use base64::decode;
+use directories::ProjectDirs;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
 use iced::{font, Element, Font};
+use image::image_dimensions;
 use markdown_it::{plugins, MarkdownIt};
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -122,17 +124,52 @@ fn transform_html<'a>(
                             .replace("/", "")
                             .replace(":", ""); // Windows
 
-                        let mut image_width = 20.0;
-                        let mut image_height = 20.0;
+                        let mut image_width = 400.0;
+                        let mut image_height = 400.0;
 
-                        if let Some(width) = child_element.attr("width") {
-                            let width = width.parse().unwrap();
-                            image_width = width;
+                        let mut image_path = ProjectDirs::from("", "ianterzo", "squads")
+                            .unwrap()
+                            .cache_dir()
+                            .to_path_buf();
+                        image_path.push("image-cache");
+                        image_path.push(format!("{}.jpeg", &identifier));
+
+                        // Use the html sizes if not able to fetch the image dimensions or if the image has not been downloaded yet
+                        match image_dimensions(&image_path) {
+                            Ok((width, height)) => {
+                                image_width = width as f32;
+                                image_height = height as f32;
+                            }
+                            Err(e) => {
+                                if let Some(width) = child_element.attr("width") {
+                                    let width = width.parse().unwrap();
+                                    image_width = width;
+                                }
+
+                                if let Some(height) = child_element.attr("height") {
+                                    let height = height.parse().unwrap();
+                                    image_height = height;
+                                }
+                            }
                         }
 
-                        if let Some(height) = child_element.attr("height") {
-                            let height = height.parse().unwrap();
-                            image_height = height;
+                        // Limit image sizes
+
+                        if image_width == image_height && image_width > 280.0 {
+                            image_width = 250.0;
+                            image_height = 250.0;
+                        }
+
+                        if image_width >= 420.0 {
+                            let factor = 400.0 / image_width;
+                            image_width = 400.0;
+                            image_height = image_height * factor;
+                        }
+
+                        if image_height >= 380.0 {
+                            let factor = 400.0 / image_height;
+                            image_height = 400.0;
+                            image_width = image_width * factor;
                         }
 
                         let team_picture = c_cached_image(
