@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration;
 use tungstenite::{connect, Message};
+use urlencoding::encode;
 
 #[derive(Serialize)]
 struct Authenticate<'a> {
@@ -44,52 +46,114 @@ pub struct DroppedIndicator {
     pub etag: String,
 }
 
-use reqwest::Client;
+use reqwest::{header::HeaderMap, Client};
 use url::form_urlencoded;
 
-// Generate endpoint (random?) ->
-// Subscribe (/v2/users/ME/endpoints/%s) ->
-// Begin trouter (https://go.trouter.teams.microsoft.com/v4/a?) and get socketio ->
-// Fetch socketio for sessionid ->
-// connect to socketio websocket with sessionid and con_num (arbitrary: 1234567890123_u64) and (endpoint)
-
-// Endpoint is random?
-// sa->endpoint = purple_uuid_random();
-async fn send_trouter_request(
-    endpoint: &str,
+fn teams_trouter_register_one(
     skype_token: &str,
-    client: &Client,
+    endpoint: &str,
+    app_id: &str,
+    template_key: &str,
+    path: &str,
 ) -> Result<(), reqwest::Error> {
-    // Build the URL with the encoded endpoint
-    let encoded_epid: String = form_urlencoded::byte_serialize(endpoint.as_bytes()).collect();
-    let url = format!(
-        "https://go.trouter.teams.microsoft.com/v4/a?epid={}",
-        encoded_epid
-    );
+    let body = json!({
+        "clientDescription": {
+            "appId": app_id,
+            "aesKey": "",
+            "languageId": "en-US",
+            "platform": "edge",
+            "templateKey": template_key,
+            "platformUIVersion": "49/24062722442",
 
-    // Send POST request with headers
-    let response = client
-        .post(&url)
-        .header("x-skypetoken", skype_token)
-        .header("Content-Length", "0")
-        .body("") // Empty body to match Content-Length: 0
-        .send()
-        .await?;
+        },
+        "registrationId": endpoint,
+        "nodeId": "",
+        "transports": {
+            "TROUTER": [{
+                "context": "",
+                "path": path,
+                "ttl": 86400,
+            }]
+        },
+    });
 
-    // Optionally handle response status or body
-    println!("Status: {}", response.status());
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let _res = client
+        .post("https://edge.skype.com/registrar/prod/v2/registrations")
+        .header("Content-Type", "application/json")
+        .header("X-Skypetoken", skype_token)
+        .body(body.to_string())
+        .send()?;
 
     Ok(())
 }
 
-fn start_ws() {
-    let url = "wss://pub-ent-dewc-04-t.trouter.teams.microsoft.com/v4/c?tc=%7B%22cv%22:%222025.07.01.5%22,%22ua%22:%22TeamsCDL%22,%22hr%22:%22%22,%22v%22:%221415/25030201008%22%7D&timeout=40";
+struct trouter_connection_info {
+    socketio: String,
+    surl: String,
+    ccid: Option<String>,
+    connectparams: Value,
+}
+
+fn teams_trouter_start(
+    endpoint: &str,
+    skype_token: &str,
+) -> Result<trouter_connection_info, reqwest::Error> {
+    let url = format!(
+        "https://go.trouter.teams.microsoft.com/v4/a?epid={}",
+        endpoint
+    );
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let mut headers = HeaderMap::new();
+    headers.insert("Content-Length", "0".parse().unwrap());
+    headers.insert("X-Skypetoken", skype_token.parse().unwrap());
+
+    let res = client.post(&url).headers(headers).body("").send()?;
+    let text = res.text()?;
+
+    let value: Value = serde_json::from_str(&text).expect("Invalid JSON");
+
+    Ok(trouter_connection_info {
+        socketio: value.get("socketio").unwrap().as_str().unwrap().to_string(),
+        surl: value.get("surl").unwrap().as_str().unwrap().to_string(),
+        ccid: value
+            .get("ccid")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string()),
+        connectparams: value.get("connectparams").unwrap().to_owned(),
+    })
+}
+
+fn teams_trouter_get_sessionid(url: &str, skype_token: &str) -> Result<String, reqwest::Error> {
+    let mut headers = HeaderMap::new();
+    headers.insert("X-Skypetoken", skype_token.parse().unwrap());
+
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.get(url).headers(headers).send()?;
+    let text = res.text()?;
+    let session_id = text.split(":").nth(0).unwrap();
+
+    Ok(session_id.to_string())
+}
+
+fn start_ws(url: &str) {
     let (mut socket, response) = connect(url).expect("Can't connect");
 
     println!("Connected to the server");
     println!("Response HTTP code: {}", response.status());
 
-    let token = " eyJ0eXAiOiJKV1QiLCJub25jZSI6Imd2NzZHdmM3MVVSVWFNR1dhNzl5QXAyT0cwSjFKSUw0RlItWFhjanluaFkiLCJhbGciOiJSUzI1NiIsIng1dCI6IkpETmFfNGk0cjdGZ2lnTDNzSElsSTN4Vi1JVSIsImtpZCI6IkpETmFfNGk0cjdGZ2lnTDNzSElsSTN4Vi1JVSJ9.eyJhdWQiOiJodHRwczovL2ljMy50ZWFtcy5vZmZpY2UuY29tIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkLyIsImlhdCI6MTc0MjY4NTk5NywibmJmIjoxNzQyNjg1OTk3LCJleHAiOjE3NDI3NzI2OTcsImFjY3QiOjAsImFjciI6IjEiLCJhaW8iOiJBVVFBdS84WkFBQUF6WTBKWGxMc1U0ZkdYTnBsS0VQMVV1YnB6bjk2bVlwdXBzUVJiNnUxTE1Wenp3WVdtckI5MEpmd0pMa3o3KzFwTHRjcUI3RGRsU2xmRlNsbEF5ektxZz09IiwiYW1yIjpbInB3ZCJdLCJhcHBpZCI6IjVlM2NlNmMwLTJiMWYtNDI4NS04ZDRiLTc1ZWU3ODc4NzM0NiIsImFwcGlkYWNyIjoiMCIsImZhbWlseV9uYW1lIjoiQmFsZGVsbGkiLCJnaXZlbl9uYW1lIjoiSWFuIiwiaWR0eXAiOiJ1c2VyIiwiaXBhZGRyIjoiODEuMTYuMTYzLjE3NCIsIm5hbWUiOiJJYW4gQmFsZGVsbGkiLCJvaWQiOiIxNWRlNDI0MS1lOWJlLTQ5MTAtYTYwZi0zZjM3ZGQ4NjUyYjgiLCJvbnByZW1fc2lkIjoiUy0xLTUtMjEtMTQwOTA4MjIzMy00NDg1Mzk3MjMtNjgyMDAzMzMwLTE3MDM2IiwicHVpZCI6IjEwMDMyMDAyQ0RENEIxQjciLCJyaCI6IjEuQVhRQXRUQUtaaTZPYVVlNTYwcnlpXzBTdlZUd3FqbWxnY2RJcFBnQ2t3RWdsYm5pQVBKMEFBLiIsInNjcCI6IlRlYW1zLkFjY2Vzc0FzVXNlci5BbGwiLCJzaWQiOiIwMDMxMDJmOS0yNmIxLWMwOTUtNzQwMC03ZDE1YTk3OWM4NWYiLCJzdWIiOiJETVJpTjBOdUJYNkFWT255YzJrSVJ3VFR0cmw2LVNoTmZRZFNDblU0cF9ZIiwidGlkIjoiNjYwYTMwYjUtOGUyZS00NzY5LWI5ZWItNGFmMjhiZmQxMmJkIiwidW5pcXVlX25hbWUiOiJpYW4uYmFsZGVsbGlAaGl0YWNoaWd5bW5hc2lldC5zZSIsInVwbiI6Imlhbi5iYWxkZWxsaUBoaXRhY2hpZ3ltbmFzaWV0LnNlIiwidXRpIjoiTXN3UlZ5d29HRU9ZeGNXQ09XSlZBQSIsInZlciI6IjEuMCIsInhtc19jYyI6WyJDUDEiXSwieG1zX2lkcmVsIjoiMTAgMSIsInhtc19zc20iOiIxIn0.EmFCgkzF8wWJD09M-6iJeGITAvL0dOvyLfy74bM3PPtXj85I7xM-wt3XcvdHf0DIHs1l1diJUbsE9Y_8LX9kg-h8rW1niSNSDJwViNUKhbEgVH7eCD0Gds1elJOxrj_AvRax1d6O7AS1tlyZQZhsfDKPvp5JU-pMkFLettEBvHHUiZjUvUniVKGAGQ5OQ9a0iwoHe1K1g6g2_Si37FiLyNsG4V5oh2wcK9xafU3wZ8ppkCQp77C3aeOtpPYSN0qcRXy6DK_Jg3JbjeDZjbCdMqJxUv7yC4mQnW3zahByxqN7dVVIovqW7d6uSAVjZc68t9rkIA7kljfq5JvQ_kdP1Q";
+    // https://ic3.teams.office.com/Teams.AccessAsUser.All https://ic3.teams.office.com/.default
+    let token = "";
     let token = format!("Bearer {}", token);
 
     let message = Authenticate {
@@ -166,6 +230,96 @@ mod tests {
 
     #[test]
     fn websockets() {
-        start_ws();
+        let endpoint = "94e0c9c2-8408-4d38-995b-1cf5f4e14fef";
+
+        let skype_token = "";
+
+        let connection_info = teams_trouter_start(endpoint, skype_token).unwrap();
+
+        let mut url = format!("{}socket.io/1/?v=v4&", connection_info.socketio);
+
+        if let Some(params) = connection_info.connectparams.as_object() {
+            for (key, value) in params {
+                if let Some(val_str) = value.as_str() {
+                    url.push_str(&format!("{}={}&", key, encode(val_str)));
+                }
+            }
+        }
+
+        let tc_value =
+            r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
+        url.push_str(&format!("tc={}&", encode(tc_value)));
+        url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
+        url.push_str(&format!("epid={}&", encode(endpoint)));
+
+        if let Some(ccid) = &connection_info.ccid {
+            url.push_str(&format!("ccid={}&", encode(ccid)));
+        }
+
+        url.push_str("auth=true&timeout=40&");
+
+        let session_id = teams_trouter_get_sessionid(&url, skype_token).unwrap();
+
+        let mut websocket_url = format!(
+            "{}socket.io/1/websocket/{}?v=v4&",
+            connection_info.socketio, session_id
+        );
+
+        if let Some(params) = connection_info.connectparams.as_object() {
+            for (key, value) in params {
+                if let Some(val_str) = value.as_str() {
+                    websocket_url.push_str(&format!("{}={}&", key, encode(val_str)));
+                }
+            }
+        }
+
+        let tc_value =
+            r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
+        websocket_url.push_str(&format!("tc={}&", encode(tc_value)));
+        websocket_url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
+        websocket_url.push_str(&format!("epid={}&", encode(endpoint)));
+
+        if let Some(ccid) = &connection_info.ccid {
+            url.push_str(&format!("ccid={}&", encode(ccid)));
+        }
+
+        websocket_url.push_str("auth=true&timeout=40&");
+
+        let surl_trimmed = connection_info.surl.trim_end_matches('/');
+
+        let ngc_path = format!("{}/{}", surl_trimmed, "NGCallManagerWin");
+        teams_trouter_register_one(
+            skype_token,
+            endpoint,
+            "NextGenCalling",
+            "DesktopNgc_2.3:SkypeNgc",
+            &ngc_path,
+        )
+        .unwrap();
+
+        let ssw_path = format!("{}/{}", surl_trimmed, "SkypeSpacesWeb");
+        teams_trouter_register_one(
+            skype_token,
+            endpoint,
+            "SkypeSpacesWeb",
+            "SkypeSpacesWeb_2.3",
+            &ssw_path,
+        )
+        .unwrap();
+
+        teams_trouter_register_one(
+            skype_token,
+            endpoint,
+            "TeamsCDLWebWorker",
+            "TeamsCDLWebWorker_1.9",
+            &connection_info.surl,
+        )
+        .unwrap();
+
+        let handle = thread::spawn(move || {
+            start_ws(&websocket_url.replace("https://", "wss://"));
+        });
+
+        handle.join().expect("WebSocket thread panicked");
     }
 }
