@@ -39,56 +39,77 @@ pub struct ReprocessInfo {
     persistent: String,
 }
 
-pub fn get_or_gen_token(
+pub async fn get_or_gen_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     scope: String,
     tenant: &String,
 ) -> AccessToken {
-    let mut refresh_token = access_tokens
-        .write()
-        .unwrap()
-        .get(&"refresh_token".to_string())
-        .unwrap()
-        .clone();
+    let refresh_token = {
+        let tokens = access_tokens.read().unwrap();
+        tokens.get("refresh_token").unwrap().clone()
+    };
 
-    if refresh_token.expires < get_epoch_s() {
-        refresh_token = renew_refresh_token(&refresh_token, tenant.clone()).unwrap();
+    let refresh_token = if refresh_token.expires < get_epoch_s() {
+        let new_token = renew_refresh_token(&refresh_token, tenant.clone())
+            .await
+            .unwrap();
+
+        {
+            let mut tokens = access_tokens.write().unwrap();
+            tokens.insert("refresh_token".to_string(), new_token.clone());
+        }
+
+        new_token
+    } else {
+        refresh_token
+    };
+
+    let maybe_token = {
+        let tokens = access_tokens.read().unwrap();
+        tokens.get(&scope).cloned()
+    };
+
+    if let Some(token) = maybe_token {
+        if token.expires >= get_epoch_s() {
+            return token;
+        }
     }
 
-    let token = access_tokens
-        .write()
-        .unwrap()
-        .entry(scope.to_string())
-        .and_modify(|token| {
-            if token.expires < get_epoch_s() {
-                *token = gen_token(&refresh_token, scope.to_string(), tenant.clone()).unwrap();
-            }
-        })
-        .or_insert_with(|| gen_token(&refresh_token, scope.to_string(), tenant.clone()).unwrap())
-        .clone();
+    let new_token = gen_token(&refresh_token, scope.clone(), tenant.clone())
+        .await
+        .unwrap();
+
+    {
+        let mut tokens = access_tokens.write().unwrap();
+        tokens.insert(scope.clone(), new_token.clone());
+    }
 
     save_to_cache("access_tokens.json", &*access_tokens.read().unwrap());
 
-    token
+    new_token
 }
 
-pub fn get_or_gen_skype_token(
+pub async fn get_or_gen_skype_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     access_token: AccessToken,
 ) -> AccessToken {
-    let token = access_tokens
-        .write()
-        .unwrap()
-        .entry("skype_token".to_string())
-        .and_modify(|token| {
-            if token.expires < get_epoch_s() {
-                *token = gen_skype_token(&access_token).unwrap();
-            }
-        })
-        .or_insert_with(|| gen_skype_token(&access_token).unwrap())
-        .clone();
+    let maybe_token = {
+        let tokens = access_tokens.read().unwrap();
+        tokens.get("skype_token").cloned()
+    };
+    if let Some(token) = maybe_token {
+        if token.expires >= get_epoch_s() {
+            return token;
+        }
+    }
+    let new_token = gen_skype_token(&access_token).await.unwrap();
+
+    {
+        let mut tokens = access_tokens.write().unwrap();
+        tokens.insert("skype_token".to_string(), new_token.clone());
+    }
 
     save_to_cache("access_tokens.json", &*access_tokens.read().unwrap());
 
-    token
+    new_token
 }

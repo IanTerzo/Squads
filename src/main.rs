@@ -28,7 +28,8 @@ use pages::page_chat::chat;
 use pages::page_home::home;
 use pages::page_login::login;
 use pages::page_team::team;
-use rand::Rng;
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -38,6 +39,7 @@ use style::global_theme;
 use types::*;
 use utils::{get_cache, save_to_cache};
 use webbrowser;
+use websockets::connect;
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -129,9 +131,9 @@ pub enum Message {
     ExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
     PrefetchChat(String),
-    GotChatConversations(String, Result<Conversations, String>), //callback
+    GotChatConversations(String, Conversations), //callback
     PrefetchTeam(String, String),
-    GotConversations(String, Result<TeamConversations, String>), //callback
+    GotConversations(String, TeamConversations), //callback
     PostMessage,
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
@@ -140,7 +142,8 @@ pub enum Message {
 
     // Other
     DoNothing(()),
-    Join, // For testing
+    Join,          // For testing
+    Hello(String), // For testing
 }
 
 fn init_tasks(
@@ -161,10 +164,12 @@ fn init_tasks(
                     access_tokens1,
                     "https://ic3.teams.office.com/.default".to_string(),
                     &tenant,
-                );
-
+                )
+                .await;
                 let activity_messages =
-                    conversations(&access_token_ic3, "48:notifications".to_string(), None).unwrap();
+                    conversations(&access_token_ic3, "48:notifications".to_string(), None)
+                        .await
+                        .unwrap();
 
                 activity_messages.messages
             },
@@ -176,9 +181,10 @@ fn init_tasks(
                     access_tokens2,
                     "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                     &tenant1,
-                );
+                )
+                .await;
 
-                let user_details = teams_me(&access_token_chatsvcagg).unwrap();
+                let user_details = teams_me(&access_token_chatsvcagg).await.unwrap();
 
                 let teams = user_details.teams;
                 let chats = user_details.chats;
@@ -196,17 +202,18 @@ fn init_tasks(
                     access_tokens3,
                     "https://graph.microsoft.com/.default".to_string(),
                     &tenant2,
-                );
+                )
+                .await;
 
                 let users = users(&access_token_graph);
 
                 let mut profile_map = HashMap::new();
 
-                for profile in users.unwrap().value {
+                for profile in users.await.unwrap().value {
                     profile_map.insert(profile.id.clone(), profile);
                 }
 
-                let profile = me(&access_token_graph).unwrap();
+                let profile = me(&access_token_graph).await.unwrap();
 
                 save_to_cache("users.json", &profile_map.to_owned());
                 save_to_cache("me.json", &profile.to_owned());
@@ -234,9 +241,10 @@ fn post_message_task(
                 acess_tokens_arc,
                 "https://ic3.teams.office.com/.default".to_string(),
                 &tenant,
-            );
+            )
+            .await;
 
-            let mut rng = rand::rng();
+            let mut rng = StdRng::from_os_rng();
             let message_id: u64 = rng.random(); // generate the message_id randomly
 
             let message = TeamsMessage {
@@ -275,7 +283,9 @@ fn post_message_task(
             // Convert the struct into a JSON string
             let body = serde_json::to_string_pretty(&message).unwrap();
 
-            send_message(&access_token, conversation_id, body).unwrap();
+            send_message(&access_token, conversation_id, body)
+                .await
+                .unwrap();
 
             println!("Posted!");
         },
@@ -714,30 +724,30 @@ impl Counter {
                         .activity
                         .unwrap();
 
+                    let access_tokens_arc = self.access_tokens.clone();
+                    let tenant = self.tenant.clone();
                     tasks.push(Task::perform(
-                        {
-                            let access_tokens_arc = self.access_tokens.clone();
-                            let tenant = self.tenant.clone();
-                            async move {
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
-                                    &tenant,
-                                );
+                        async move {
+                            let access_token = get_or_gen_token(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
 
-                                let conversation = conversations(
-                                    &access_token,
-                                    activity.source_thread_id.clone(),
-                                    Some(
-                                        activity
-                                            .source_reply_chain_id
-                                            .unwrap_or(activity.source_message_id),
-                                    ),
-                                )
-                                .unwrap();
+                            let conversation = conversations(
+                                &access_token,
+                                activity.source_thread_id.clone(),
+                                Some(
+                                    activity
+                                        .source_reply_chain_id
+                                        .unwrap_or(activity.source_message_id),
+                                ),
+                            )
+                            .await
+                            .unwrap();
 
-                                (message_activity_id, conversation.messages)
-                            }
+                            (message_activity_id, conversation.messages)
                         },
                         |result| Message::GotExpandedActivity(result.0, result.1),
                     ));
@@ -766,9 +776,12 @@ impl Counter {
                             access_tokens_arc,
                             "https://ic3.teams.office.com/.default".to_string(),
                             &tenant,
-                        );
+                        )
+                        .await;
+
                         let conversation =
                             conversations(&access_token, thread_id.clone(), Some(message_id))
+                                .await
                                 .unwrap();
 
                         (message_activity_id, conversation.messages)
@@ -791,8 +804,10 @@ impl Counter {
                             access_tokens_arc,
                             "https://ic3.teams.office.com/.default".to_string(),
                             &tenant,
-                        );
-                        conversations(&access_token, thread_id, None)
+                        )
+                        .await;
+
+                        conversations(&access_token, thread_id, None).await.unwrap()
                     },
                     move |result| Message::GotChatConversations(channel_id_clone.clone(), result), // This calls a message
                 )
@@ -807,20 +822,23 @@ impl Counter {
                             acess_tokens_arc,
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                             &tenant,
-                        );
+                        )
+                        .await;
+
                         team_conversations(&access_token, team_id, channel_id)
+                            .await
+                            .unwrap()
                     },
                     move |result| Message::GotConversations(channel_id_clone.clone(), result), // This calls a message
                 )
             }
             Message::GotConversations(channel_id, conversations) => {
-                self.team_conversations
-                    .insert(channel_id, conversations.unwrap());
+                self.team_conversations.insert(channel_id, conversations);
                 Task::none()
             }
             Message::GotChatConversations(thread_id, conversations) => {
                 self.chat_conversations
-                    .insert(thread_id, conversations.unwrap().messages);
+                    .insert(thread_id, conversations.messages);
                 Task::none()
             }
             Message::PostMessage => {
@@ -864,7 +882,8 @@ impl Counter {
                             acess_tokens_arc,
                             "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
                             &tenant,
-                        );
+                        )
+                        .await;
 
                         let picture_e_tag = picture_e_tag;
 
@@ -874,6 +893,7 @@ impl Counter {
                             picture_e_tag.clone(),
                             display_name,
                         )
+                        .await
                         .unwrap();
 
                         save_cached_image(identifier, bytes);
@@ -891,11 +911,14 @@ impl Counter {
                             acess_tokens_arc,
                             "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
                             &tenant,
-                        );
+                        )
+                        .await;
+
                         let user_id = user_id;
 
                         let bytes =
                             authorize_profile_picture(&access_token, user_id.clone(), display_name)
+                                .await
                                 .unwrap();
 
                         save_cached_image(identifier, bytes);
@@ -913,8 +936,12 @@ impl Counter {
                             acess_tokens_arc,
                             "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
                             &tenant,
-                        );
-                        let bytes = authorize_merged_profile_picture(&access_token, users).unwrap();
+                        )
+                        .await;
+
+                        let bytes = authorize_merged_profile_picture(&access_token, users)
+                            .await
+                            .unwrap();
 
                         save_cached_image(identifier, bytes);
                     },
@@ -931,12 +958,14 @@ impl Counter {
                             acess_tokens_arc.clone(),
                             "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
                             &tenant,
-                        );
+                        )
+                        .await;
 
-                        let skype_token = get_or_gen_skype_token(acess_tokens_arc, access_token);
+                        let skype_token =
+                            get_or_gen_skype_token(acess_tokens_arc, access_token).await;
                         let url = url;
 
-                        let bytes = authorize_image(&skype_token, url.clone()).unwrap();
+                        let bytes = authorize_image(&skype_token, url.clone()).await.unwrap();
 
                         save_cached_image(identifier, bytes);
                     },
@@ -950,12 +979,17 @@ impl Counter {
                 println!("Join message called!");
                 Task::none()
             }
+            Message::Hello(message) => {
+                println!("Hello {message}");
+                Task::none()
+            }
         }
     }
 
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
             event::listen().map(Message::EventOccurred),
+            Subscription::run(connect).map(Message::Hello),
             keyboard::on_key_press(|key, _modifiers| match key {
                 Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
                 _ => None,

@@ -2,6 +2,7 @@ pub use crate::api_types::*; // expose the type
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -192,7 +193,7 @@ pub fn gen_refresh_token_from_code(
     }
 }
 
-pub fn renew_refresh_token(
+pub async fn renew_refresh_token(
     refresh_token: &AccessToken,
     tenant_id: String,
 ) -> Result<AccessToken, String> {
@@ -219,23 +220,30 @@ pub fn renew_refresh_token(
         refresh_token={}",
         TEAMS_CLIENT_ID, refresh_token.value
     );
-    let client = reqwest::blocking::Client::builder()
+
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
-
-    let res = client.post(url).headers(headers).body(body).send().unwrap();
+    let res = client
+        .post(url)
+        .headers(headers)
+        .body(body)
+        .send()
+        .await
+        .unwrap();
 
     if !res.status().is_success() {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await.unwrap()
         );
         return Err(error_message);
     }
 
-    let token_data: HashMap<String, Value> = res.json().unwrap();
+    let token_data: HashMap<String, Value> = res.json().await.unwrap();
+
     if let (Some(value), Some(expires_in)) = (
         token_data.get("refresh_token"),
         token_data.get("expires_in"),
@@ -251,7 +259,7 @@ pub fn renew_refresh_token(
     }
 }
 
-pub fn gen_token(
+pub async fn gen_token(
     refresh_token: &AccessToken,
     scope: String,
     tenant_id: String,
@@ -274,7 +282,7 @@ pub fn gen_token(
         TEAMS_CLIENT_ID, scope, refresh_token.value
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
@@ -287,18 +295,19 @@ pub fn gen_token(
         .headers(headers)
         .body(body)
         .send()
+        .await
         .unwrap();
 
     if !res.status().is_success() {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await.unwrap()
         );
         return Err(error_message);
     }
 
-    let token_data: HashMap<String, Value> = res.json().unwrap();
+    let token_data: HashMap<String, Value> = res.json().await.unwrap();
     if let (Some(value), Some(expires_in)) =
         (token_data.get("access_token"), token_data.get("expires_in"))
     {
@@ -451,7 +460,9 @@ async fn gen_spoidcrl(
 
 // Api: Authsvc v1
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
-pub fn gen_skype_token(token: &AccessToken) -> Result<AccessToken, String> {
+pub async fn gen_skype_token(
+    token: &AccessToken,
+) -> Result<AccessToken, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/authsvc/v1.0/authz";
     if LOG_REQUESTS {
         println!("Log: POST {}", url);
@@ -462,27 +473,26 @@ pub fn gen_skype_token(token: &AccessToken) -> Result<AccessToken, String> {
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&req_access_token).unwrap(),
+        HeaderValue::from_str(&req_access_token)?,
     );
-    headers.insert("Content-Length", "0".parse().unwrap());
+    headers.insert("Content-Length", "0".parse()?);
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.post(url).headers(headers).send().unwrap();
+    let res = client.post(url).headers(headers).send().await?;
 
     if !res.status().is_success() {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        return Err(error_message);
+        return Err(error_message.into());
     }
 
-    let token_data: HashMap<String, Value> = res.json().unwrap();
+    let token_data: HashMap<String, Value> = res.json().await?;
 
     if let Some(tokens) = token_data.get("tokens") {
         if let (Some(value), Some(expires_in)) = (tokens.get("skypeToken"), tokens.get("expiresIn"))
@@ -494,16 +504,16 @@ pub fn gen_skype_token(token: &AccessToken) -> Result<AccessToken, String> {
 
             Ok(refresh_token)
         } else {
-            Err("Response does not have a token or a expiration.".to_string())
+            Err("Response does not have a token or a expiration.".into())
         }
     } else {
-        Err("Response include tokens".to_string())
+        Err("Response include tokens".into())
     }
 }
 
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
-pub fn teams_me(token: &AccessToken) -> Result<UserDetails, String> {
+pub async fn teams_me(token: &AccessToken) -> Result<UserDetails, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/csa/emea/api/v2/teams/users/me";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -514,7 +524,7 @@ pub fn teams_me(token: &AccessToken) -> Result<UserDetails, String> {
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
 
     let params = [
@@ -523,20 +533,19 @@ pub fn teams_me(token: &AccessToken) -> Result<UserDetails, String> {
         ("enableRC2Fetch", "false"),
     ];
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
     let res = client
         .get(url)
         .headers(headers)
         .query(&params)
         .send()
-        .unwrap();
+        .await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -549,16 +558,16 @@ pub fn teams_me(token: &AccessToken) -> Result<UserDetails, String> {
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
@@ -614,11 +623,11 @@ pub fn properties(token: &AccessToken) -> Result<UserProperties, String> {
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub fn conversations(
+pub async fn conversations(
     token: &AccessToken,
     thread_id: String,
     message_id: Option<u64>,
-) -> Result<Conversations, String> {
+) -> Result<Conversations, Box<dyn std::error::Error>> {
     let thread_part = if let Some(msg_id) = message_id {
         format!("{};messageid={}", thread_id, msg_id)
     } else {
@@ -626,9 +635,9 @@ pub fn conversations(
     };
 
     let url = format!(
-    "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages?pageSize=200",
-    thread_part
-);
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages?pageSize=200",
+        thread_part
+    );
 
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -639,40 +648,36 @@ pub fn conversations(
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
-        let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
-        let pretty_json =
-            serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
+        let body = res.text().await?;
+        let parsed_body: Value = serde_json::from_str(&body)?;
+        let pretty_json = serde_json::to_string_pretty(&parsed_body)?;
         let result: Result<Conversations, serde_json::Error> = serde_json::from_str(&pretty_json);
 
         match result {
             Ok(value) => Ok(value),
             Err(err) => {
                 println!("Error occurred while serializing: {}", err);
-                let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
-                println!("Line: {}", line_content);
-
-                Err(err.to_string())
+                if let Some(line) = pretty_json.lines().nth(err.line().saturating_sub(1)) {
+                    println!("Line: {}", line);
+                }
+                Err(Box::new(err))
             }
         }
     } else {
-        let error_message = format!(
-            "Status code: {}, Response body: {}",
-            res.status(),
-            res.text().unwrap()
-        );
-        Err(error_message)
+        let status = res.status();
+        let body = res.text().await?;
+        let error_message = format!("Status code: {}, Response body: {}", status, body);
+        Err(error_message.into())
     }
 }
 
@@ -754,7 +759,7 @@ pub fn fetch_short_profile(
 }
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
-pub fn me(token: &AccessToken) -> Result<Profile, String> {
+pub async fn me(token: &AccessToken) -> Result<Profile, Box<dyn std::error::Error>> {
     let url = "https://graph.microsoft.com/v1.0/me";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -766,22 +771,21 @@ pub fn me(token: &AccessToken) -> Result<Profile, String> {
 
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
     headers.insert(
         reqwest::header::CONTENT_TYPE,
-        HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
+        HeaderValue::from_str("application/json;charset=UTF-8")?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -794,22 +798,22 @@ pub fn me(token: &AccessToken) -> Result<Profile, String> {
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
-pub fn users(token: &AccessToken) -> Result<Users, String> {
+pub async fn users(token: &AccessToken) -> Result<Users, Box<dyn std::error::Error>> {
     let url = "https://graph.microsoft.com/v1.0/users?$top=999";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -821,22 +825,21 @@ pub fn users(token: &AccessToken) -> Result<Users, String> {
 
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
     headers.insert(
         reqwest::header::CONTENT_TYPE,
-        HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
+        HeaderValue::from_str("application/json;charset=UTF-8")?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -849,26 +852,26 @@ pub fn users(token: &AccessToken) -> Result<Users, String> {
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
-pub fn team_conversations(
+pub async fn team_conversations(
     token: &AccessToken,
     team_id: String,
     topic_id: String,
-) -> Result<TeamConversations, String> {
+) -> Result<TeamConversations, Box<dyn std::error::Error>> {
     let url = format!(
         "https://teams.microsoft.com/api/csa/emea/api/v2/teams/{}/channels/{}",
         team_id, topic_id
@@ -882,18 +885,17 @@ pub fn team_conversations(
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -907,16 +909,16 @@ pub fn team_conversations(
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
@@ -1059,12 +1061,12 @@ async fn render_list_data_as_stream(
 
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
-pub fn authorize_team_picture(
+pub async fn authorize_team_picture(
     token: &AccessToken,
     group_id: String,
     etag: String,
     display_name: String,
-) -> Result<Bytes, String> {
+) -> Result<Bytes, Box<dyn std::error::Error>> {
     let url = format!(
             "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/{}",
             group_id
@@ -1086,44 +1088,42 @@ pub fn authorize_team_picture(
                 token.value
             )
             .as_str(),
-        )
-        .unwrap(),
+        )?,
     );
 
     let params = [("etag", etag), ("displayName", display_name)];
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
     let res = client
         .get(url)
         .headers(headers)
         .query(&params)
         .send()
-        .unwrap();
+        .await?;
 
     if res.status().is_success() {
-        let bytes = res.bytes().unwrap();
+        let bytes = res.bytes().await?;
         Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Emea v2
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
-pub fn authorize_profile_picture(
+pub async fn authorize_profile_picture(
     token: &AccessToken,
     user_id: String,
     display_name: String,
-) -> Result<Bytes, String> {
+) -> Result<Bytes, Box<dyn std::error::Error>> {
     let url = format!(
         "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{}/profilepicturev2",
         user_id
@@ -1145,8 +1145,7 @@ pub fn authorize_profile_picture(
                 token.value
             )
             .as_str(),
-        )
-        .unwrap(),
+        )?,
     );
 
     let params = [
@@ -1154,35 +1153,37 @@ pub fn authorize_profile_picture(
         ("size", "HR64x64".to_string()),
     ];
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
     let res = client
         .get(url)
         .headers(headers)
         .query(&params)
         .send()
-        .unwrap();
+        .await?;
 
     if res.status().is_success() {
-        let bytes = res.bytes().unwrap();
+        let bytes = res.bytes().await?;
         Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Emea v2
 // Scope: Skype
 // Supports: https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/, https://eu-api.asm.skype.com/v1/objects/
-pub fn authorize_image(token: &AccessToken, url: String) -> Result<Bytes, String> {
+pub async fn authorize_image(
+    token: &AccessToken,
+    url: String,
+) -> Result<Bytes, Box<dyn std::error::Error>> {
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
@@ -1192,35 +1193,34 @@ pub fn authorize_image(token: &AccessToken, url: String) -> Result<Bytes, String
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let bytes = res.bytes().unwrap();
+        let bytes = res.bytes().await?;
         Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Emea v2
 // Scope: Skype
-pub fn authorize_merged_profile_picture(
+pub async fn authorize_merged_profile_picture(
     token: &AccessToken,
     users: Vec<(String, String)>,
-) -> Result<Bytes, String> {
+) -> Result<Bytes, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/mergedProfilePicturev2";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -1233,14 +1233,10 @@ pub fn authorize_merged_profile_picture(
             "authtoken=Bearer={}&origin=https://teams.microsoft.com;",
             token.value
         )
-        .parse()
-        .unwrap(),
+        .parse()?,
     );
 
-    headers.insert(
-        "Referer",
-        "https://teams.microsoft.com/v2/".parse().unwrap(),
-    );
+    headers.insert("Referer", "https://teams.microsoft.com/v2/".parse()?);
 
     let json_array: Vec<Value> = users
         .iter()
@@ -1248,42 +1244,41 @@ pub fn authorize_merged_profile_picture(
         .collect();
 
     let params = [
-        ("usersInfo", serde_json::to_string(&json_array).unwrap()),
+        ("usersInfo", serde_json::to_string(&json_array)?),
         ("size", "HR64x64".to_string()),
     ];
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
     let res = client
         .get(url)
         .headers(headers)
         .query(&params)
         .send()
-        .unwrap();
+        .await?;
 
     if res.status().is_success() {
-        let bytes = res.bytes().unwrap();
+        let bytes = res.bytes().await?;
         Ok(bytes)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub fn send_message(
+pub async fn send_message(
     token: &AccessToken,
     conversation_id: String,
     body: String,
-) -> Result<String, String> {
+) -> Result<String, Box<dyn std::error::Error>> {
     let url = format!(
         "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages",
         conversation_id
@@ -1296,25 +1291,24 @@ pub fn send_message(
     let mut headers = HeaderMap::new();
     headers.insert(
         HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token).unwrap(),
+        HeaderValue::from_str(&access_token)?,
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.post(url).body(body).headers(headers).send().unwrap();
+    let res = client.post(url).body(body).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         Ok(body)
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }

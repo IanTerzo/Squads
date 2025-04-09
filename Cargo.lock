@@ -7,6 +7,7 @@ name = "Squads"
 version = "0.7.0"
 dependencies = [
  "anyhow",
+ "async-tungstenite",
  "base64",
  "bytes",
  "directories",
@@ -19,9 +20,10 @@ dependencies = [
  "scraper",
  "serde",
  "serde_json",
- "tungstenite",
+ "tokio",
  "unicode-properties",
  "url",
+ "urlencoding",
  "webbrowser",
 ]
 
@@ -343,6 +345,26 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "async-tungstenite"
+version = "0.29.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef0f7efedeac57d9b26170f72965ecfd31473ca52ca7a64e925b0b6f5f079886"
+dependencies = [
+ "atomic-waker",
+ "futures-core",
+ "futures-io",
+ "futures-task",
+ "futures-util",
+ "log",
+ "pin-project-lite",
+ "rustls-pki-types",
+ "tokio",
+ "tokio-rustls",
+ "tungstenite",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -2118,6 +2140,7 @@ dependencies = [
  "iced_core",
  "log",
  "rustc-hash 2.1.1",
+ "tokio",
  "wasm-bindgen-futures",
  "wasm-timer",
 ]
@@ -5021,9 +5044,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.43.0"
+version = "1.44.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d61fa4ffa3de412bfea335c6ecff681de2b609ba3c77ef3e00e521813a9ed9e"
+checksum = "e6b88822cbe49de4185e3a4cbf8321dd487cf5fe0c5c65695fef6346371e9c48"
 dependencies = [
  "backtrace",
  "bytes",
@@ -5200,7 +5223,6 @@ dependencies = [
  "sha1",
  "thiserror 2.0.11",
  "utf-8",
- "webpki-roots",
 ]
 
 [[package]]
@@ -5317,6 +5339,12 @@ dependencies = [
  "idna 1.0.3",
  "percent-encoding",
 ]
+
+[[package]]
+name = "urlencoding"
+version = "2.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "daf8dba3b7eb870caf1ddeed7bc9d2a049f3cfdfae7cb521b087cc33ae4c49da"
 
 [[package]]
 name = "usvg"

@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::thread;
 use std::time::Duration;
-use tungstenite::{connect, Message};
 use urlencoding::encode;
 
 #[derive(Serialize)]
@@ -146,180 +145,238 @@ fn teams_trouter_get_sessionid(url: &str, skype_token: &str) -> Result<String, r
     Ok(session_id.to_string())
 }
 
-fn start_ws(url: &str) {
-    let (mut socket, response) = connect(url).expect("Can't connect");
+fn websockets() {
+    let endpoint = "94e0c9c2-8408-4d38-995b-1cf5f4e14fef";
 
-    println!("Connected to the server");
-    println!("Response HTTP code: {}", response.status());
+    let skype_token = "";
 
-    // https://ic3.teams.office.com/Teams.AccessAsUser.All https://ic3.teams.office.com/.default
-    let token = "";
-    let token = format!("Bearer {}", token);
+    let connection_info = teams_trouter_start(endpoint, skype_token).unwrap();
 
-    let message = Authenticate {
-        name: "user.authenticate",
-        args: vec![Args {
-            headers: Headers {
-                x_ms_test_user: "False",
-                authorization: &token,
-                x_ms_migration: "True",
-            },
-        }],
-    };
+    let mut url = format!("{}socket.io/1/?v=v4&", connection_info.socketio);
 
-    let json_str = serde_json::to_string(&message).unwrap();
-    let final_message = format!("5:::{}", json_str);
-
-    socket.send(Message::Text(final_message.into())).unwrap();
-
-    let ping = r#"5:4+::{"name":"ping"}"#;
-
-    let mut initial_message_batch = vec![];
-    loop {
-        let msg = socket.read().expect("Error reading message");
-
-        let msg_text = msg.into_text().unwrap().to_string();
-        println!("Received: {}", msg_text);
-
-        let message_id = msg_text
-            .find(|c| c == '[' || c == '{')
-            .map(|idx| &msg_text[..idx])
-            .unwrap_or(&msg_text);
-
-        let body = msg_text.strip_prefix(message_id).unwrap();
-
-        let chain_id = message_id.split(":").nth(0).unwrap();
-        let chain_order = message_id.split(":").nth(1).unwrap();
-        // Auth chain
-        if chain_id == "5" {
-            let mut message_r: Reply = serde_json::from_str(body).expect("Error deserializing");
-            if message_r.name == "trouter.connected" {
-                let response = format!("5:{}+::{{\"name\":\"user.activity\",\"args\":[{{\"state\":\"active\",\"cv\":\"2zAuo1xx7w6IaNkQ5VxMHQ.0.1\"}}]}}", chain_order);
-                initial_message_batch.push(response);
-            } else if message_r.name == "trouter.message_loss" {
-                message_r.name = "trouter.processed_message_loss".to_string();
-
-                let message_loss_reply = format!(
-                    "5:{}+::{}",
-                    chain_order,
-                    serde_json::to_string(&message_r).expect("Error serializing"),
-                );
-
-                initial_message_batch.push(message_loss_reply.clone());
+    if let Some(params) = connection_info.connectparams.as_object() {
+        for (key, value) in params {
+            if let Some(val_str) = value.as_str() {
+                url.push_str(&format!("{}={}&", key, encode(val_str)));
             }
         }
+    }
 
-        if chain_id == "5" && chain_order == "3" {
-            thread::sleep(Duration::from_millis(400));
-            for message in initial_message_batch.clone() {
-                socket.send(Message::Text(message.clone().into())).unwrap();
-                println!("Sent: {}", message)
+    let tc_value =
+        r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
+    url.push_str(&format!("tc={}&", encode(tc_value)));
+    url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
+    url.push_str(&format!("epid={}&", encode(endpoint)));
+
+    if let Some(ccid) = &connection_info.ccid {
+        url.push_str(&format!("ccid={}&", encode(ccid)));
+    }
+
+    url.push_str("auth=true&timeout=40&");
+
+    let session_id = teams_trouter_get_sessionid(&url, skype_token).unwrap();
+
+    let mut websocket_url = format!(
+        "{}socket.io/1/websocket/{}?v=v4&",
+        connection_info.socketio, session_id
+    );
+
+    if let Some(params) = connection_info.connectparams.as_object() {
+        for (key, value) in params {
+            if let Some(val_str) = value.as_str() {
+                websocket_url.push_str(&format!("{}={}&", key, encode(val_str)));
             }
+        }
+    }
 
-            thread::sleep(Duration::from_millis(300));
+    let tc_value =
+        r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
+    websocket_url.push_str(&format!("tc={}&", encode(tc_value)));
+    websocket_url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
+    websocket_url.push_str(&format!("epid={}&", encode(endpoint)));
 
-            let ping = r#"5:4+::{"name":"ping"}"#;
-            socket.send(Message::Text(ping.into()));
+    if let Some(ccid) = &connection_info.ccid {
+        url.push_str(&format!("ccid={}&", encode(ccid)));
+    }
+
+    websocket_url.push_str("auth=true&timeout=40&");
+
+    let surl_trimmed = connection_info.surl.trim_end_matches('/');
+
+    let ngc_path = format!("{}/{}", surl_trimmed, "NGCallManagerWin");
+    teams_trouter_register_one(
+        skype_token,
+        endpoint,
+        "NextGenCalling",
+        "DesktopNgc_2.3:SkypeNgc",
+        &ngc_path,
+    )
+    .unwrap();
+
+    let ssw_path = format!("{}/{}", surl_trimmed, "SkypeSpacesWeb");
+    teams_trouter_register_one(
+        skype_token,
+        endpoint,
+        "SkypeSpacesWeb",
+        "SkypeSpacesWeb_2.3",
+        &ssw_path,
+    )
+    .unwrap();
+
+    teams_trouter_register_one(
+        skype_token,
+        endpoint,
+        "TeamsCDLWebWorker",
+        "TeamsCDLWebWorker_1.9",
+        &connection_info.surl,
+    )
+    .unwrap();
+
+    //let handle = thread::spawn(move || {
+    //start_ws(&websocket_url.replace("https://", "wss://"));
+    //});
+
+    //handle.join().expect("WebSocket thread panicked");
+}
+
+use iced::futures;
+use iced::stream;
+use iced::widget::text;
+
+use futures::channel::mpsc;
+use futures::sink::SinkExt;
+use futures::stream::{Stream, StreamExt};
+
+use async_tungstenite::tungstenite;
+use std::fmt;
+
+pub fn connect() -> impl Stream<Item = String> {
+    stream::channel(100, |mut output| async move {
+        let mut state = State::Disconnected;
+        println!("Once?");
+        loop {
+            match &mut state {
+                State::Disconnected => {
+                    const ECHO_SERVER: &str = "ws://127.0.0.1:3030";
+
+                    match async_tungstenite::tokio::connect_async(ECHO_SERVER).await {
+                        Ok((websocket, _)) => {
+                            let (sender, receiver) = mpsc::channel(100);
+
+                            let _ = output.send("Hello5".to_string()).await;
+
+                            state = State::Connected(websocket, receiver);
+                        }
+                        Err(_) => {
+                            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
+                            let _ = output.send("Hello4".to_string()).await;
+                        }
+                    }
+                }
+                State::Connected(websocket, input) => {
+                    let mut fused_websocket = websocket.by_ref().fuse();
+
+                    futures::select! {
+                        received = fused_websocket.select_next_some() => {
+                            match received {
+                                Ok(tungstenite::Message::Text(message)) => {
+                                   let _ = output.send("Hello1".to_string()).await;
+                                }
+                                Err(_) => {
+                                    let _ = output.send("Hello2".to_string()).await;
+
+                                    state = State::Disconnected;
+                                }
+                                Ok(_) => continue,
+                            }
+                        }
+
+                        message = input.select_next_some() => {
+                            let result = websocket.send(tungstenite::Message::Text(message.to_string().into())).await;
+
+                            if result.is_err() {
+                                let _ = output.send("Hello3".to_string()).await;
+
+                                state = State::Disconnected;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    })
+}
+
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
+enum State {
+    Disconnected,
+    Connected(
+        async_tungstenite::WebSocketStream<async_tungstenite::tokio::ConnectStream>,
+        mpsc::Receiver<Message>,
+    ),
+}
+
+#[derive(Debug, Clone)]
+pub enum Event {
+    Connected(Connection),
+    Disconnected,
+    MessageReceived(Message),
+}
+
+#[derive(Debug, Clone)]
+pub struct Connection(mpsc::Sender<Message>);
+
+impl Connection {
+    pub fn send(&mut self, message: Message) {
+        self.0
+            .try_send(message)
+            .expect("Send message to echo server");
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+    Connected,
+    Disconnected,
+    User(String),
+}
+
+impl Message {
+    pub fn new(message: &str) -> Option<Self> {
+        if message.is_empty() {
+            None
+        } else {
+            Some(Self::User(message.to_string()))
+        }
+    }
+
+    pub fn connected() -> Self {
+        Message::Connected
+    }
+
+    pub fn disconnected() -> Self {
+        Message::Disconnected
+    }
+
+    pub fn as_str(&self) -> &str {
+        match self {
+            Message::Connected => "Connected successfully!",
+            Message::Disconnected => "Connection lost... Retrying...",
+            Message::User(message) => message.as_str(),
         }
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+impl fmt::Display for Message {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
-    #[test]
-    fn websockets() {
-        let endpoint = "94e0c9c2-8408-4d38-995b-1cf5f4e14fef";
-
-        let skype_token = "";
-
-        let connection_info = teams_trouter_start(endpoint, skype_token).unwrap();
-
-        let mut url = format!("{}socket.io/1/?v=v4&", connection_info.socketio);
-
-        if let Some(params) = connection_info.connectparams.as_object() {
-            for (key, value) in params {
-                if let Some(val_str) = value.as_str() {
-                    url.push_str(&format!("{}={}&", key, encode(val_str)));
-                }
-            }
-        }
-
-        let tc_value =
-            r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
-        url.push_str(&format!("tc={}&", encode(tc_value)));
-        url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
-        url.push_str(&format!("epid={}&", encode(endpoint)));
-
-        if let Some(ccid) = &connection_info.ccid {
-            url.push_str(&format!("ccid={}&", encode(ccid)));
-        }
-
-        url.push_str("auth=true&timeout=40&");
-
-        let session_id = teams_trouter_get_sessionid(&url, skype_token).unwrap();
-
-        let mut websocket_url = format!(
-            "{}socket.io/1/websocket/{}?v=v4&",
-            connection_info.socketio, session_id
-        );
-
-        if let Some(params) = connection_info.connectparams.as_object() {
-            for (key, value) in params {
-                if let Some(val_str) = value.as_str() {
-                    websocket_url.push_str(&format!("{}={}&", key, encode(val_str)));
-                }
-            }
-        }
-
-        let tc_value =
-            r#"{"cv":"TEAMS_TROUTER_TCCV","ua":"TeamsCDL","hr":"","v":"TEAMS_CLIENTINFO_VERSION"}"#;
-        websocket_url.push_str(&format!("tc={}&", encode(tc_value)));
-        websocket_url.push_str(&format!("con_num={}_{}&", 1234567890123_i64, 1));
-        websocket_url.push_str(&format!("epid={}&", encode(endpoint)));
-
-        if let Some(ccid) = &connection_info.ccid {
-            url.push_str(&format!("ccid={}&", encode(ccid)));
-        }
-
-        websocket_url.push_str("auth=true&timeout=40&");
-
-        let surl_trimmed = connection_info.surl.trim_end_matches('/');
-
-        let ngc_path = format!("{}/{}", surl_trimmed, "NGCallManagerWin");
-        teams_trouter_register_one(
-            skype_token,
-            endpoint,
-            "NextGenCalling",
-            "DesktopNgc_2.3:SkypeNgc",
-            &ngc_path,
-        )
-        .unwrap();
-
-        let ssw_path = format!("{}/{}", surl_trimmed, "SkypeSpacesWeb");
-        teams_trouter_register_one(
-            skype_token,
-            endpoint,
-            "SkypeSpacesWeb",
-            "SkypeSpacesWeb_2.3",
-            &ssw_path,
-        )
-        .unwrap();
-
-        teams_trouter_register_one(
-            skype_token,
-            endpoint,
-            "TeamsCDLWebWorker",
-            "TeamsCDLWebWorker_1.9",
-            &connection_info.surl,
-        )
-        .unwrap();
-
-        let handle = thread::spawn(move || {
-            start_ws(&websocket_url.replace("https://", "wss://"));
-        });
-
-        handle.join().expect("WebSocket thread panicked");
+impl<'a> text::IntoFragment<'a> for &'a Message {
+    fn into_fragment(self) -> text::Fragment<'a> {
+        text::Fragment::Borrowed(self.as_str())
     }
 }
