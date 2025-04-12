@@ -25,20 +25,6 @@ struct AuthorizationInfo {
     success: bool,
 }
 
-// This struct does not cover everything given by the api
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct OauthCredentialInfo {
-    pub url_login: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ReprocessInfo {
-    url_login: String,
-    light: String,
-    persistent: String,
-}
-
 pub async fn get_or_gen_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     scope: String,

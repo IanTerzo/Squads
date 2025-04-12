@@ -39,7 +39,7 @@ use style::global_theme;
 use types::*;
 use utils::{get_cache, save_to_cache};
 use webbrowser;
-use websockets::connect;
+use websockets::{connect, WebsocketMessage, WebsocketResponse};
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -139,6 +139,8 @@ pub enum Message {
     FetchUserImage(String, String, String),
     FetchMergedProfilePicture(String, Vec<(String, String)>),
     AuthorizeImage(String, String),
+    // Websockets
+    GotWSMessage(WebsocketMessage),
 
     // Other
     DoNothing(()),
@@ -901,7 +903,6 @@ impl Counter {
                     Message::DoNothing,
                 )
             }
-
             Message::FetchUserImage(identifier, user_id, display_name) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
@@ -926,7 +927,6 @@ impl Counter {
                     Message::DoNothing,
                 )
             }
-
             Message::FetchMergedProfilePicture(identifier, users) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
@@ -948,7 +948,6 @@ impl Counter {
                     Message::DoNothing,
                 )
             }
-
             Message::AuthorizeImage(url, identifier) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
@@ -972,6 +971,11 @@ impl Counter {
                     Message::DoNothing,
                 )
             }
+            // Websockets
+            Message::GotWSMessage(message) => {
+                println!("Recieved {message:#?}");
+                Task::none()
+            }
 
             // Other
             Message::DoNothing(_) => Task::none(),
@@ -989,7 +993,14 @@ impl Counter {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch(vec![
             event::listen().map(Message::EventOccurred),
-            Subscription::run(connect).map(Message::Hello),
+            Subscription::run_with_id(
+                "websockets",
+                connect(self.access_tokens.clone(), self.tenant.clone()),
+            )
+            .map(|response_type| match response_type {
+                WebsocketResponse::Message(value) => Message::GotWSMessage(value),
+                WebsocketResponse::Other(value) => Message::DoNothing(()),
+            }),
             keyboard::on_key_press(|key, _modifiers| match key {
                 Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
                 _ => None,
