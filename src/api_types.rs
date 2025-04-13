@@ -361,10 +361,12 @@ where
 {
     let opt = Option::<String>::deserialize(deserializer)?;
     Ok(opt.map(|url| {
-        url.strip_prefix("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/")
-            .unwrap_or(&url)
+        let pass1 = url
+            .strip_prefix("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/")
+            .unwrap_or(&url);
+        pass1
             .strip_prefix("https://notifications.skype.net/v1/users/ME/contacts/")
-            .unwrap_or(&url)
+            .unwrap_or(&pass1)
             .to_string()
     }))
 }
