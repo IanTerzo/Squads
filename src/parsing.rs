@@ -312,7 +312,7 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
         let b64_value = swift_element.value().attr("b64").unwrap();
         let decoded_bytes = decode(b64_value).unwrap();
         let decoded_string = std::str::from_utf8(&decoded_bytes).unwrap();
-        let parsed: MediaCard = serde_json::from_str(decoded_string).unwrap();
+        //let parsed: MediaCard = serde_json::from_str(decoded_string).unwrap();
         //println!("{parsed:#?}");
         Ok(text!("{decoded_string}").into())
     } else {

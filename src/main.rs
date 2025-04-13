@@ -433,23 +433,32 @@ impl Counter {
                 )
             }
             View::Chat => {
-                let conversation =
-                    if let Some(current_channel_id) = self.page.current_chat_id.as_ref() {
-                        self.chat_conversations.get(current_channel_id)
-                    } else {
-                        None
-                    };
+                // TODO: Handle if the user has no chats
+                let current_chat_id = self
+                    .page
+                    .current_chat_id
+                    .as_ref()
+                    .unwrap_or(&self.chats.get(0).unwrap().id);
+
+                let current_chat = self
+                    .chats
+                    .iter()
+                    .find(|chat| &chat.id == current_chat_id)
+                    .unwrap();
+
+                let conversation = self.chat_conversations.get(current_chat_id);
 
                 app(
                     &self.theme,
                     chat(
                         &self.theme,
+                        &current_chat,
                         &self.chats,
                         &conversation,
                         &self.chat_message_options,
                         &self.emoji_map,
-                        &self.users.to_owned(),
-                        self.me.to_owned().id,
+                        &self.users,
+                        &self.me,
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
@@ -974,6 +983,32 @@ impl Counter {
             // Websockets
             Message::GotWSMessage(message) => {
                 println!("Recieved {message:#?}");
+                let message = message.body.resource;
+                if let Some(message_type) = &message.message_type {
+                    if message_type == "RichText/Html" {
+                        match self.page.view {
+                            View::Chat => {
+                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                    if let Some(conversation) =
+                                        self.chat_conversations.get_mut(current_chat_id)
+                                    {
+                                        if let Some(pos) = conversation
+                                            .iter()
+                                            .position(|item| item.id == message.id)
+                                        {
+                                            conversation[pos] = message;
+                                        } else {
+                                            conversation.insert(0, message);
+                                        }
+                                    }
+                                }
+                            }
+
+                            _ => {}
+                        }
+                    }
+                }
+
                 Task::none()
             }
 

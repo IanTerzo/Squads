@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use urlencoding::encode;
 
-use crate::api::AccessToken;
+use crate::api::{self, AccessToken};
 use crate::auth::{get_or_gen_skype_token, get_or_gen_token};
 
 #[derive(Debug)]
@@ -22,12 +22,13 @@ enum State {
     Connected(async_tungstenite::WebSocketStream<async_tungstenite::tokio::ConnectStream>),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WebsocketResponse {
     Message(WebsocketMessage),
     Other(String),
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebsocketMessage {
     pub id: i64,
@@ -36,7 +37,7 @@ pub struct WebsocketMessage {
     pub body: WebsocketMessageBody,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebsocketMessageBody {
     pub time: String,
@@ -44,7 +45,7 @@ pub struct WebsocketMessageBody {
     pub type_field: String,
     pub resource_link: String,
     pub resource_type: String,
-    pub resource: Value,
+    pub resource: api::Message,
     pub isactive: bool,
 }
 

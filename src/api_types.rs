@@ -81,7 +81,7 @@ pub struct File {
     pub state: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct EmotionUser {
     pub mri: String,
@@ -89,14 +89,14 @@ pub struct EmotionUser {
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Emotion {
     pub key: String,
     pub users: Vec<EmotionUser>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ActivityContext {
     pub teams_app_id: Option<String>,
@@ -119,7 +119,7 @@ pub struct ActivityContext {
     pub activity_processing_latency: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Activity {
     pub activity_type: String,
@@ -141,7 +141,7 @@ pub struct Activity {
     pub activityContext: ActivityContext,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageProperties {
     #[serde(default)]
@@ -168,7 +168,7 @@ pub struct MessageProperties {
     pub activity: Option<Activity>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CardContentButton {
     #[serde(rename = "type")]
@@ -177,7 +177,7 @@ pub struct CardContentButton {
     pub value: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CardContent {
     pub text: Option<String>,
@@ -186,7 +186,7 @@ pub struct CardContent {
     pub buttons: Option<Vec<CardContentButton>>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Card {
     pub app_id: Option<String>,
@@ -198,7 +198,7 @@ pub struct Card {
     pub preview_hidden: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub content: Option<String>,
@@ -251,6 +251,14 @@ pub struct ChatMember {
 #[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: String,
+    pub members: Vec<ChatMember>,
+    pub is_read: bool,
+    pub is_high_importance: bool,
+    pub is_one_on_one: bool,
+    pub is_conversation_deleted: bool,
+    pub is_external: bool,
+    pub is_messaging_disabled: bool,
+    pub is_disabled: bool,
     pub title: Option<String>,
     pub last_message: Option<Message>,
     pub is_last_message_from_me: Option<bool>,
@@ -258,7 +266,6 @@ pub struct Chat {
     pub last_join_at: Option<String>,
     pub created_at: Option<String>,
     pub creator: String,
-    pub members: Vec<ChatMember>,
     pub hidden: bool,
     pub added_by: Option<String>,
     pub chat_type: Option<String>,
@@ -355,6 +362,8 @@ where
     let opt = Option::<String>::deserialize(deserializer)?;
     Ok(opt.map(|url| {
         url.strip_prefix("https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/")
+            .unwrap_or(&url)
+            .strip_prefix("https://notifications.skype.net/v1/users/ME/contacts/")
             .unwrap_or(&url)
             .to_string()
     }))

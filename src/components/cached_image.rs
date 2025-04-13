@@ -44,7 +44,9 @@ pub fn c_cached_image<'a>(
         ),
 
         ..Default::default()
-    });
+    })
+    .width(image_width)
+    .height(image_height);
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
     let mut image_path = project_dirs.unwrap().cache_dir().to_path_buf();

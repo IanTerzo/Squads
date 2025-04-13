@@ -12,113 +12,157 @@ use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, row, Space};
 use iced::widget::{scrollable, text};
-use iced::{padding, Alignment, Element, Length};
+use iced::{padding, Alignment, Color, Element, Length, Padding};
+
+fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
+    if let Some(chat_title) = &chat.title {
+        chat_title.clone()
+    } else {
+        // Filter out the current user
+        let other_members: Vec<_> = chat
+            .members
+            .iter()
+            .filter_map(|member| {
+                let member_id = member.mri.replace("8:orgid:", "");
+                if &member_id != user_id {
+                    Some(member_id)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if other_members.len() == 1 {
+            // One-on-one chat
+            let member_id = &other_members[0];
+            users
+                .get(member_id)
+                .and_then(|profile| profile.display_name.clone())
+                .unwrap_or_else(|| "Unknown User".to_string())
+        } else {
+            // Group chat
+            let names: Vec<_> = other_members
+                .iter()
+                .map(|member_id| {
+                    users
+                        .get(member_id)
+                        .and_then(|profile| profile.display_name.clone())
+                        .unwrap_or_else(|| "Unknown User".to_string())
+                })
+                .collect();
+
+            names.join(", ")
+        }
+    }
+}
+
+fn get_chat_picture<'a>(
+    chat: &'a Chat,
+    user_id: &'a String,
+    users: &'a HashMap<String, Profile>,
+) -> Element<'a, Message> {
+    if let Some(chat_picture) = &chat.picture {
+        let url = chat_picture.strip_prefix("URL@").unwrap_or(chat_picture);
+        let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
+
+        c_cached_image(
+            identifier.clone(),
+            Message::AuthorizeImage(url.to_string(), identifier),
+            28.0,
+            28.0,
+        )
+    } else {
+        let member_profiles: Vec<_> = chat
+            .members
+            .iter()
+            .filter_map(|member| {
+                let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
+                if member_id != user_id {
+                    users
+                        .get(member_id)
+                        .and_then(|profile| profile.display_name.clone())
+                        .map(|name| (member.mri.clone(), name))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let identifier = member_profiles
+            .iter()
+            .take(3)
+            .map(|(mri, _)| mri)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("-")
+            .replace(":", "");
+
+        if identifier != "" {
+            c_cached_image(
+                identifier.clone(),
+                Message::FetchMergedProfilePicture(identifier, member_profiles),
+                31.0,
+                31.0,
+            )
+        } else {
+            container(container(Space::new(0, 0)))
+                .style(|_| container::Style {
+                    background: Some(
+                        Color::parse("#b8b4b4")
+                            .expect("Background color is invalid.")
+                            .into(),
+                    ),
+
+                    ..Default::default()
+                })
+                .width(31.0)
+                .height(31.0)
+                .into()
+        }
+    }
+}
 
 pub fn chat<'a>(
     theme: &'a style::Theme,
-    chats: &Vec<Chat>,
+    current_chat: &'a Chat,
+    chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
-    chat_message_options: &HashMap<String, bool>,
-    emoji_map: &HashMap<String, String>,
-    users: &HashMap<String, Profile>,
-    user_id: String,
+    chat_message_options: &'a HashMap<String, bool>,
+    emoji_map: &'a HashMap<String, String>,
+    users: &'a HashMap<String, Profile>,
+    me: &'a Profile,
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(8.5);
 
     for chat in chats {
-        let mut picture = Space::new(0, 0).into(); // Temporary
+        let mut chat_items = row![]
+            .spacing(10)
+            .padding(padding::left(10))
+            .align_y(Alignment::Center);
 
-        let mut title = "Chat".to_string();
-
-        if let Some(chat_title) = &chat.title {
-            title = truncate_name(chat_title.clone(), 20);
-        } else if chat.members.len() == 2 {
-            for member in chat.members.clone() {
-                let member_id = member.mri.replace("8:orgid:", "");
-                if member_id != user_id {
-                    if let Some(user_profile) = users.get(&member_id) {
-                        if let Some(display_name) = user_profile.clone().display_name {
-                            title = truncate_name(display_name.clone(), 24);
-                        } else {
-                            title = "Unknown User".to_string();
-                        }
-                    } else {
-                        title = "Unknown User".to_string();
-                    }
-                }
-            }
-        } else {
-            let mut member_names = vec![];
-            for member in chat.members.clone() {
-                let member_id = member.mri.replace("8:orgid:", "");
-                if member_id != user_id {
-                    if let Some(user_profile) = users.get(&member_id) {
-                        if let Some(display_name) = user_profile.clone().display_name {
-                            member_names.push(display_name);
-                        } else {
-                            member_names.push("Unknown User".to_string());
-                        }
-                    } else {
-                        // This should never happen
-                        member_names.push("Unknown User".to_string());
-                    }
-                }
-            }
-
-            title = truncate_name(member_names.join(", "), 24);
+        if !chat.is_read {
+            chat_items = chat_items.push(text("•").size(24)); // Permafix
         }
 
-        if let Some(chat_picture) = &chat.picture {
-            let url = chat_picture.replace("URL@", "");
-            let identifier = url.replace("https:", "").replace("/", "").replace(":", "");
-            picture = c_cached_image(
-                identifier.clone(),
-                Message::AuthorizeImage(url, identifier),
-                28.0,
-                28.0,
-            );
-        } else {
-            let mut member_profiles = vec![];
-            for member in &chat.members {
-                let member_id = member.mri.replace("8:orgid:", "");
-                if member_id != user_id {
-                    if let Some(user_profile) = users.get(&member_id) {
-                        if let Some(display_name) = user_profile.clone().display_name {
-                            member_profiles.push((member.mri.clone(), display_name.clone()));
-                        }
-                    }
-                }
-            }
+        let title = text(get_chat_title(&chat, &me.id, &users));
+        let picture = get_chat_picture(&chat, &me.id, &users);
 
-            let identifier = member_profiles
-                .iter()
-                .map(|(a, _)| a)
-                .take(3)
-                .cloned()
-                .collect::<Vec<_>>()
-                .join("-")
-                .replace(":", "");
-
-            picture = c_cached_image(
-                identifier.clone(),
-                Message::FetchMergedProfilePicture(identifier, member_profiles),
-                31.0,
-                31.0,
-            );
-        }
+        chat_items = chat_items.push(picture);
+        chat_items = chat_items.push(title);
 
         let chat_item = mouse_area(
-            container(
-                row![picture, text(title)]
-                    .spacing(10)
-                    .padding(padding::left(10))
-                    .align_y(Alignment::Center),
-            )
-            .style(|_| theme.stylesheet.list_tab)
-            .center_y(47)
-            .width(220),
+            container(chat_items)
+                .style(move |_| {
+                    if chat.id == current_chat.id {
+                        theme.stylesheet.list_tab_selected
+                    } else {
+                        theme.stylesheet.list_tab
+                    }
+                })
+                .center_y(47)
+                .width(220),
         )
         .on_enter(Message::PrefetchChat(chat.id.clone()))
         .on_release(Message::OpenChat(chat.id.clone()));
@@ -162,7 +206,17 @@ pub fn chat<'a>(
     .height(Length::Fill);
 
     let message_area = c_message_area(theme, message_area_content, message_area_height);
-    let content_page = column![conversation_scrollbar, message_area].spacing(7);
+
+    let title = get_chat_title(&current_chat, &me.id, &users);
+    let picture = get_chat_picture(&current_chat, &me.id, &users);
+    let tile_row = row![picture, text(title)].spacing(15).padding(Padding {
+        top: 0.0,
+        right: 14.0,
+        bottom: 6.0,
+        left: 14.0,
+    });
+
+    let content_page = column![tile_row, conversation_scrollbar, message_area].spacing(7);
 
     row![chats_scrollable, content_page].spacing(10).into()
 }

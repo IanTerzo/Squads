@@ -51,9 +51,9 @@ pub fn squads_dark() -> Theme {
         background: Color::parse("#0d0e12").expect("Color is invalid."),
         text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,
-        primary1: Color::parse("#1b2023").expect("Color is invalid."),
-        primary1_selected: Color::parse("#45525a").expect("Color is invalid."),
-        primary2: Color::parse("#5c6265").expect("Color is invalid."),
+        primary1: Color::parse("#1c2124").expect("Color is invalid."),
+        primary1_selected: Color::parse("#30393e").expect("Color is invalid."),
+        primary2: Color::parse("#161b1d").expect("Color is invalid."),
         primary3: Color::parse("#2b3338").expect("Color is invalid."),
     };
 
