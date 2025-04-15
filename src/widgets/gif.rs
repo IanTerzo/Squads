@@ -9,10 +9,12 @@ use iced::{
 };
 use image_rs::codecs::gif;
 use image_rs::{AnimationDecoder, ImageDecoder};
-use std::fmt;
 use std::io;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use std::{fmt, fs};
 /// The frames of a decoded gif
+#[derive(Clone)]
 pub struct Frames {
     first: Frame,
     frames: Vec<Frame>,
@@ -69,8 +71,8 @@ impl From<image_rs::Frame> for Frame {
 
 struct State {
     index: usize,
+    frames: Frames,
     current: Current,
-    total_bytes: u64,
 }
 
 struct Current {
@@ -90,7 +92,7 @@ impl From<Frame> for Current {
 /// A frame that displays a GIF while keeping aspect ratio
 #[derive(Debug)]
 pub struct Gif {
-    frames: Frames,
+    path: PathBuf,
     width: Length,
     height: Length,
     content_fit: ContentFit,
@@ -101,9 +103,9 @@ pub struct Gif {
 
 impl<'a> Gif {
     /// Creates a new [`Gif`] with the given [`Frames`]
-    pub fn new(frames: Frames) -> Self {
+    pub fn new(path: PathBuf) -> Self {
         Gif {
-            frames,
+            path: path,
             width: Length::Shrink,
             height: Length::Shrink,
             content_fit: ContentFit::default(),
@@ -168,40 +170,26 @@ where
     }
 
     fn state(&self) -> tree::State {
+        let file_bytes = fs::read(self.path.clone()).unwrap();
+        let frames = Frames::from_bytes(file_bytes).unwrap();
+
         tree::State::new(State {
             index: 0,
-            current: self.frames.first.clone().into(),
-            total_bytes: self.frames.total_bytes,
+            frames: frames.clone(),
+            current: frames.first.into(),
         })
-    }
-
-    fn diff(&self, tree: &mut Tree) {
-        let state = tree.state.downcast_mut::<State>();
-
-        // Reset state if new gif Frames is used w/
-        // same state tree.
-        //
-        // Total bytes of the gif should be a good enough
-        // proxy for it changing.
-        if state.total_bytes != self.frames.total_bytes {
-            *state = State {
-                index: 0,
-                current: self.frames.first.clone().into(),
-                total_bytes: self.frames.total_bytes,
-            };
-        }
     }
 
     fn layout(
         &self,
-        _tree: &mut Tree,
+        tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         layout(
             renderer,
             limits,
-            &self.frames.first.handle,
+            &tree.state.downcast_mut::<State>().frames.first.handle,
             self.width,
             self.height,
             self.content_fit,
@@ -226,9 +214,9 @@ where
             let elapsed = now.duration_since(state.current.started);
 
             if elapsed > state.current.frame.delay {
-                state.index = (state.index + 1) % self.frames.frames.len();
+                state.index = (state.index + 1) % state.frames.frames.len();
 
-                state.current = self.frames.frames[state.index].clone().into();
+                state.current = state.frames.frames[state.index].clone().into();
 
                 shell.request_redraw(window::RedrawRequest::At(now + state.current.frame.delay));
             } else {

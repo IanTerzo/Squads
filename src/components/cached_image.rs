@@ -96,11 +96,9 @@ pub fn c_cached_gif<'a>(
     image_path.push("image-cache");
     image_path.push(format!("{}.gif", identifier));
     if Path::new(&image_path).exists() {
-        let file_bytes = fs::read(image_path).unwrap();
-        let frames = Frames::from_bytes(file_bytes).unwrap(); // THIS IS INSANELY SLOW AND SHOULD NOT BE FETCHED IN VIEW
         team_picture = container(
             ViewportHandler::new(
-                Gif::new(frames)
+                Gif::new(image_path)
                     .content_fit(ContentFit::Fill)
                     .width(image_width.into())
                     .height(image_height.into()),
