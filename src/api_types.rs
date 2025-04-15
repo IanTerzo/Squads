@@ -213,6 +213,7 @@ pub struct Message {
     pub compose_time: Option<String>,
     #[serde(alias = "originalarrivaltime")]
     pub original_arrival_time: Option<String>,
+    pub conversation_link: Option<String>,
     pub id: Option<String>,
     pub container_id: Option<String>,
 }

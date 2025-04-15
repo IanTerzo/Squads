@@ -1,3 +1,4 @@
+use crate::components::cached_image::c_cached_gif;
 use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
@@ -179,6 +180,36 @@ fn transform_html<'a>(
                             image_height,
                         );
 
+                        dynamic_container = dynamic_container.push(team_picture.into());
+                    } else if itemtype == "http://schema.skype.com/Giphy" {
+                        let image_url = child_element.attr("src").unwrap().to_string();
+
+                        let identifier = image_url
+                            .replace("https://media4.giphy.com/media/", "")
+                            .replace("/giphy.gif", "")
+                            .split("/")
+                            .nth(1)
+                            .unwrap()
+                            .to_string();
+
+                        let mut image_width = 250.0;
+                        let mut image_height = 250.0;
+
+                        if let Some(width) = child_element.attr("width") {
+                            let width = width.parse().unwrap();
+                            image_width = width;
+                        }
+
+                        if let Some(height) = child_element.attr("height") {
+                            let height = height.parse().unwrap();
+                            image_height = height;
+                        }
+                        let team_picture = c_cached_gif(
+                            identifier.clone(),
+                            Message::DownloadImage(image_url, identifier),
+                            image_width,
+                            image_height,
+                        );
                         dynamic_container = dynamic_container.push(team_picture.into());
                     }
                 }

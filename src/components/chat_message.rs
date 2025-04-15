@@ -3,6 +3,7 @@ use crate::components::cached_image::c_cached_image;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
+use base64::display;
 use iced::widget::{column, container, mouse_area, row, stack, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
@@ -33,42 +34,45 @@ pub fn c_chat_message<'a>(
 
     if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" || message_type == "Text" {
-            // The message.im_display_name value is useless. Some messages don't have it and it can be set completely arbitrarily by the client. Instead, Teams matches the displayname from the user id.
             if let Some(user_id) = message.from {
-                let profile = users.get(&user_id.replace("8:orgid:", ""));
-                if let Some(profile) = profile {
-                    let display_name = profile.display_name.clone().unwrap();
+                let display_name =
+                    if let Some(profile) = users.get(&user_id.replace("8:orgid:", "")) {
+                        profile.display_name.clone().unwrap()
+                    } else {
+                        message.im_display_name.unwrap()
+                    };
 
-                    let identifier = user_id.clone().replace(":", "");
+                let identifier = user_id.clone().replace(":", "");
 
-                    let user_picture = c_cached_image(
-                        identifier.clone(),
-                        Message::FetchUserImage(identifier, user_id, display_name.clone()),
-                        31.0,
-                        31.0,
-                    );
+                let user_picture = c_cached_image(
+                    identifier.clone(),
+                    Message::FetchUserImage(identifier, user_id, display_name.clone()),
+                    31.0,
+                    31.0,
+                );
 
-                    message_row = message_row.push(container(user_picture).padding(Padding {
-                        top: 7.0,
-                        right: 11.0,
-                        bottom: 4.0,
-                        left: 8.0,
-                    }));
-                    message_info = message_info.push(text!("{}", display_name).font(Font {
-                        weight: font::Weight::Bold,
-                        ..Default::default()
-                    }));
+                message_row = message_row.push(container(user_picture).padding(Padding {
+                    top: 7.0,
+                    right: 11.0,
+                    bottom: 4.0,
+                    left: 8.0,
+                }));
+                message_info = message_info.push(text!("{}", display_name).font(Font {
+                    weight: font::Weight::Bold,
+                    ..Default::default()
+                }));
+            } else {
+                if let Some(display_name) = message.im_display_name {
+                    message_info = message_info.push(text(display_name));
                 } else {
                     message_info = message_info.push(text("Unknown User"));
                 }
-            } else {
-                message_info = message_info.push(text("Unknown User"));
             }
         } else if message_type == "RichText/Media_Card" {
             if let Some(display_name) = message.im_display_name {
-                message_info = message_info.push(text!("{}", display_name));
+                message_info = message_info.push(text(display_name));
             } else {
-                message_info = message_info.push(text("Unknown"));
+                message_info = message_info.push(text("Unknown User"));
             }
         }
     }

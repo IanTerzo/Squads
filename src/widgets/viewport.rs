@@ -1,6 +1,6 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::renderer;
-use iced::advanced::widget::{self, Widget};
+use iced::advanced::widget::{self, tree, Tree, Widget};
 use iced::{event, mouse, Element, Length, Rectangle, Size};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
@@ -46,15 +46,31 @@ impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer>
 where
     Renderer: renderer::Renderer,
 {
+    fn tag(&self) -> tree::Tag {
+        self.content.as_widget().tag()
+    }
+
+    fn state(&self) -> tree::State {
+        self.content.as_widget().state()
+    }
+
+    fn children(&self) -> Vec<Tree> {
+        self.content.as_widget().children()
+    }
+
+    fn diff(&self, tree: &mut Tree) {
+        self.content.as_widget().diff(tree);
+    }
+
     fn layout(
         &self,
-        tree: &mut widget::Tree,
+        tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
         let child = self.content.as_widget().layout(tree, renderer, limits);
 
-        layout::Node::with_children(child.size(), vec![child])
+        layout::Node::container(child, 0.into())
     }
 
     fn size(&self) -> Size<Length> {

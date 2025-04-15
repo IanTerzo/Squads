@@ -30,6 +30,7 @@ use pages::page_login::login;
 use pages::page_team::team;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -139,6 +140,7 @@ pub enum Message {
     FetchUserImage(String, String, String),
     FetchMergedProfilePicture(String, Vec<(String, String)>),
     AuthorizeImage(String, String),
+    DownloadImage(String, String),
     // Websockets
     GotWSMessage(WebsocketMessage),
 
@@ -314,6 +316,8 @@ impl Counter {
         let has_refresh_token = access_tokens.read().unwrap().get("refresh_token").is_some();
 
         let tenant = "organizations".to_string(); // Why does this work?
+
+        let nth = chats.get(0).map(|chat| chat.id.clone());
 
         let counter_self = Self {
             page: Page {
@@ -643,7 +647,8 @@ impl Counter {
                 self.history.push(page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
-                Task::none()
+
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
@@ -907,7 +912,7 @@ impl Counter {
                         .await
                         .unwrap();
 
-                        save_cached_image(identifier, bytes);
+                        save_cached_image(identifier, "jpeg", bytes);
                     },
                     Message::DoNothing,
                 )
@@ -931,7 +936,7 @@ impl Counter {
                                 .await
                                 .unwrap();
 
-                        save_cached_image(identifier, bytes);
+                        save_cached_image(identifier, "jpeg", bytes);
                     },
                     Message::DoNothing,
                 )
@@ -952,7 +957,7 @@ impl Counter {
                             .await
                             .unwrap();
 
-                        save_cached_image(identifier, bytes);
+                        save_cached_image(identifier, "jpeg", bytes);
                     },
                     Message::DoNothing,
                 )
@@ -975,11 +980,21 @@ impl Counter {
 
                         let bytes = authorize_image(&skype_token, url.clone()).await.unwrap();
 
-                        save_cached_image(identifier, bytes);
+                        save_cached_image(identifier, "jpeg", bytes);
                     },
                     Message::DoNothing,
                 )
             }
+            Message::DownloadImage(url, identifier) => Task::perform(
+                async move {
+                    let client = Client::new();
+                    let response = client.get(url).send().await.unwrap();
+                    let bytes = response.bytes().await.unwrap();
+
+                    save_cached_image(identifier, "gif", bytes);
+                },
+                Message::DoNothing,
+            ),
             // Websockets
             Message::GotWSMessage(message) => {
                 println!("Recieved {message:#?}");
