@@ -1,4 +1,3 @@
-use crate::widgets::gif::Frames;
 use crate::widgets::{gif::Gif, viewport::ViewportHandler};
 use crate::Message;
 use bytes::Bytes;

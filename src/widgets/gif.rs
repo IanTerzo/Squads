@@ -8,63 +8,17 @@ use iced::{
     event, window, ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector,
 };
 use image_rs::codecs::gif;
-use image_rs::{AnimationDecoder, ImageDecoder};
+use image_rs::{AnimationDecoder, Frame, Frames};
+use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use std::{fmt, fs};
 /// The frames of a decoded gif
-#[derive(Clone)]
-pub struct Frames {
-    first: Frame,
-    frames: Vec<Frame>,
-}
 
-impl fmt::Debug for Frames {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Frames").finish()
-    }
-}
-
-impl Frames {
-    /// Decode [`Frames`] from the supplied bytes
-    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, String> {
-        let decoder = gif::GifDecoder::new(io::Cursor::new(bytes)).unwrap();
-
-        let frames = decoder
-            .into_frames()
-            .into_iter()
-            .map(|result| result.map(Frame::from))
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
-
-        let first = frames.first().cloned().unwrap();
-
-        Ok(Frames { first, frames })
-    }
-}
-
-#[derive(Clone)]
-struct Frame {
-    delay: Duration,
-    handle: image::Handle,
-}
-
-impl From<image_rs::Frame> for Frame {
-    fn from(frame: image_rs::Frame) -> Self {
-        let (width, height) = frame.buffer().dimensions();
-
-        let delay = frame.delay().into();
-
-        let handle = image::Handle::from_rgba(width, height, frame.into_buffer().into_vec());
-
-        Self { delay, handle }
-    }
-}
-
-struct State {
+struct State<'a> {
     index: usize,
-    frames: Frames,
+    frames: Frames<'a>,
+    collecte_frames: Vec<Frame>,
     current: Current,
 }
 
@@ -72,16 +26,6 @@ struct Current {
     frame: Frame,
     started: Instant,
 }
-
-impl From<Frame> for Current {
-    fn from(frame: Frame) -> Self {
-        Self {
-            started: Instant::now(),
-            frame,
-        }
-    }
-}
-
 /// A frame that displays a GIF while keeping aspect ratio
 #[derive(Debug)]
 pub struct Gif {
@@ -163,13 +107,20 @@ where
     }
 
     fn state(&self) -> tree::State {
-        let file_bytes = fs::read(self.path.clone()).unwrap();
-        let frames = Frames::from_bytes(file_bytes).unwrap();
+        let bytes = fs::read(self.path.clone()).unwrap();
+        let decoder = gif::GifDecoder::new(io::Cursor::new(bytes)).unwrap();
+        let mut frames = decoder.into_frames();
+
+        let frame = frames.by_ref().nth(0).unwrap().unwrap();
 
         tree::State::new(State {
             index: 0,
-            frames: frames.clone(),
-            current: frames.first.into(),
+            frames,
+            collecte_frames: Vec::new(),
+            current: Current {
+                frame,
+                started: Instant::now(),
+            },
         })
     }
 
@@ -179,10 +130,16 @@ where
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
+        let state = tree.state.downcast_mut::<State>();
+
+        let current = state.current.frame.clone();
+        let (width, height) = current.buffer().dimensions();
+        let handle = image::Handle::from_rgba(width, height, current.into_buffer().into_vec());
+
         layout(
             renderer,
             limits,
-            &tree.state.downcast_mut::<State>().frames.first.handle,
+            &handle,
             self.width,
             self.height,
             self.content_fit,
@@ -205,16 +162,28 @@ where
 
         if let Event::Window(window::Event::RedrawRequested(now)) = event {
             let elapsed = now.duration_since(state.current.started);
+            let delay: Duration = state.current.frame.delay().into();
+            if elapsed > delay {
+                // Take all the frames during the first run
+                let next_frame = if let Some(frame_result) = state.frames.next() {
+                    let frame = frame_result.unwrap();
+                    state.collecte_frames.push(frame.clone());
+                    frame
+                } else {
+                    state.index = (state.index + 1) % state.collecte_frames.len();
+                    state.collecte_frames[state.index].clone()
+                };
 
-            if elapsed > state.current.frame.delay {
-                state.index = (state.index + 1) % state.frames.frames.len();
+                let delay: Duration = next_frame.delay().into();
 
-                state.current = state.frames.frames[state.index].clone().into();
+                state.current = Current {
+                    frame: next_frame,
+                    started: Instant::now(),
+                };
 
-                shell.request_redraw(window::RedrawRequest::At(now + state.current.frame.delay));
+                shell.request_redraw(window::RedrawRequest::At(now + delay));
             } else {
-                let remaining = state.current.frame.delay - elapsed;
-
+                let remaining = delay - elapsed;
                 shell.request_redraw(window::RedrawRequest::At(now + remaining));
             }
         }
@@ -238,7 +207,11 @@ where
         //
         // TODO: export iced_native::widget::image::draw as standalone function
         {
-            let Size { width, height } = renderer.measure_image(&state.current.frame.handle);
+            let frame = state.current.frame.clone();
+            let (width, height) = frame.buffer().dimensions();
+            let handle = image::Handle::from_rgba(width, height, frame.into_buffer().into_vec());
+
+            let Size { width, height } = renderer.measure_image(&handle); // Redundant ?
             let image_size = Size::new(width as f32, height as f32);
             let rotated_size = self.rotation.apply(image_size);
 
@@ -268,7 +241,7 @@ where
             let render = |renderer: &mut Renderer| {
                 renderer.draw_image(
                     image::Image {
-                        handle: state.current.frame.handle.clone(),
+                        handle,
                         filter_method: self.filter_method,
                         rotation: self.rotation.radians(),
                         opacity: self.opacity,

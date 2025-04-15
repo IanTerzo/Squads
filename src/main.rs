@@ -86,7 +86,6 @@ struct Counter {
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
     chat_message_options: HashMap<String, bool>, // String is the message id
-    users_typing: HashMap<String, Vec<String>>, // Where string is the chat id and Vec<String> is a string of user ids
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
@@ -345,7 +344,6 @@ impl Counter {
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
             chat_message_options: HashMap::new(),
-            users_typing: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
             history: vec![Page {
                 view: View::Homepage,
