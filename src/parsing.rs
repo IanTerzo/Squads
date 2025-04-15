@@ -4,6 +4,7 @@ use crate::style;
 use crate::Message;
 use base64::decode;
 use directories::ProjectDirs;
+use iced::widget::mouse_area;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
@@ -173,23 +174,22 @@ fn transform_html<'a>(
                             image_width = image_width * factor;
                         }
 
-                        let team_picture = c_cached_image(
+                        let team_picture = mouse_area(c_cached_image(
                             identifier.clone(),
-                            Message::AuthorizeImage(image_url, identifier),
+                            Message::AuthorizeImage(image_url, identifier.clone()),
                             image_width,
                             image_height,
-                        );
+                        ))
+                        .on_release(Message::ExpandImage(identifier));
 
                         dynamic_container = dynamic_container.push(team_picture.into());
                     } else if itemtype == "http://schema.skype.com/Giphy" {
                         let image_url = child_element.attr("src").unwrap().to_string();
 
                         let identifier = image_url
-                            .replace("https://media4.giphy.com/media/", "")
-                            .replace("https://media0.giphy.com/media/", "")
                             .replace("/giphy.gif", "")
                             .split("/")
-                            .nth(1)
+                            .nth(5)
                             .unwrap()
                             .to_string();
 

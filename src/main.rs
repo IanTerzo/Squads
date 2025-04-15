@@ -18,7 +18,7 @@ use api::{
     Team, TeamConversations,
 };
 use auth::{get_or_gen_skype_token, get_or_gen_token};
-use components::cached_image::save_cached_image;
+use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
 use iced::keyboard::key::Named;
 use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset};
@@ -94,6 +94,7 @@ struct Counter {
     team_message_area_height: f32,
     chat_message_area_content: Content,
     chat_message_area_height: f32,
+    expanded_image: Option<String>,
 
     // Teams requested data
     me: Profile,
@@ -113,6 +114,7 @@ pub enum Message {
     // App actions
     EventOccurred(Event),
     ToggleShift(bool),
+    KeyPressed(Key),
 
     // UI interactions
     MessageAreaEdit(text_editor::Action),
@@ -125,6 +127,8 @@ pub enum Message {
     StopShowChatMessageOptions(String),
     HistoryBack,
     HistoryForward,
+    ExpandImage(String),
+    StopExpandImage,
     ContentChanged(String),
 
     // Teams requests
@@ -351,6 +355,7 @@ impl Counter {
                 current_channel_id: None,
                 current_chat_id: None,
             }],
+            expanded_image: None,
             history_index: 0,
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
@@ -401,6 +406,7 @@ impl Counter {
                         self.window_width,
                         search_value,
                     ),
+                    self.expanded_image.clone().map(c_expanded_image),
                 )
             }
             View::Team => {
@@ -439,6 +445,7 @@ impl Counter {
                         &self.team_message_area_content,
                         &self.team_message_area_height,
                     ),
+                    self.expanded_image.clone().map(c_expanded_image),
                 )
             }
             View::Chat => {
@@ -472,6 +479,7 @@ impl Counter {
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
+                    self.expanded_image.clone().map(c_expanded_image),
                 )
             }
         }
@@ -568,6 +576,15 @@ impl Counter {
             }
             Message::ToggleShift(value) => {
                 self.shift_held_down = value;
+                Task::none()
+            }
+            Message::KeyPressed(key) => {
+                match key {
+                    Key::Named(Named::Escape) => {
+                        self.expanded_image = None;
+                    }
+                    _ => {}
+                }
                 Task::none()
             }
 
@@ -713,6 +730,14 @@ impl Counter {
                     self.history_index += 1;
                     self.page = self.history[self.history_index].clone();
                 }
+                Task::none()
+            }
+            Message::ExpandImage(identifier) => {
+                self.expanded_image = Some(identifier);
+                Task::none()
+            }
+            Message::StopExpandImage => {
+                self.expanded_image = None;
                 Task::none()
             }
             Message::ContentChanged(content) => {
@@ -1112,6 +1137,7 @@ impl Counter {
                 WebsocketResponse::Message(value) => Message::GotWSMessage(value),
                 WebsocketResponse::Other(value) => Message::DoNothing(()),
             }),
+            keyboard::on_key_press(|key, _modifiers| Some(Message::KeyPressed(key))),
             keyboard::on_key_press(|key, _modifiers| match key {
                 Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
                 _ => None,

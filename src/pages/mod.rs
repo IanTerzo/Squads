@@ -7,9 +7,23 @@ use crate::components::navbar::c_navbar;
 
 use crate::style;
 use crate::Message;
+use iced::overlay;
+use iced::widget::stack;
 use iced::widget::{column, container};
 use iced::Element;
 
-pub fn app<'a>(theme: &'a style::Theme, content: Element<'a, Message>) -> Element<'a, Message> {
-    column![c_navbar(theme), container(content).padding(20)].into()
+pub fn app<'a>(
+    theme: &'a style::Theme,
+    content: Element<'a, Message>,
+    overlay: Option<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    if let Some(overlay) = overlay {
+        stack![
+            column![c_navbar(theme), container(content).padding(20)],
+            overlay,
+        ]
+        .into()
+    } else {
+        stack![column![c_navbar(theme), container(content).padding(20)]].into()
+    }
 }

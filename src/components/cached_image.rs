@@ -48,11 +48,12 @@ pub fn c_cached_image<'a>(
     })
     .width(image_width)
     .height(image_height);
-    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
+    let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
     let mut image_path = project_dirs.unwrap().cache_dir().to_path_buf();
     image_path.push("image-cache");
     image_path.push(format!("{}.jpeg", identifier));
+
     if Path::new(&image_path).exists() {
         team_picture = container(
             ViewportHandler::new(
