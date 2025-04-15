@@ -102,6 +102,5 @@ pub fn c_message_area<'a>(
         ])
         .style(|_| theme.stylesheet.message_area_container),
     )
-    .padding(padding::top(10))
     .into()
 }

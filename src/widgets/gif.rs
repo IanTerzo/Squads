@@ -18,7 +18,6 @@ use std::{fmt, fs};
 pub struct Frames {
     first: Frame,
     frames: Vec<Frame>,
-    total_bytes: u64,
 }
 
 impl fmt::Debug for Frames {
@@ -32,8 +31,6 @@ impl Frames {
     pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, String> {
         let decoder = gif::GifDecoder::new(io::Cursor::new(bytes)).unwrap();
 
-        let total_bytes = decoder.total_bytes();
-
         let frames = decoder
             .into_frames()
             .into_iter()
@@ -43,11 +40,7 @@ impl Frames {
 
         let first = frames.first().cloned().unwrap();
 
-        Ok(Frames {
-            total_bytes,
-            first,
-            frames,
-        })
+        Ok(Frames { first, frames })
     }
 }
 

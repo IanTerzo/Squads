@@ -186,6 +186,7 @@ fn transform_html<'a>(
 
                         let identifier = image_url
                             .replace("https://media4.giphy.com/media/", "")
+                            .replace("https://media0.giphy.com/media/", "")
                             .replace("/giphy.gif", "")
                             .split("/")
                             .nth(1)

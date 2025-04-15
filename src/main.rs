@@ -2,6 +2,7 @@ mod api;
 mod api_types;
 mod components;
 mod parsing;
+use iced::task::Handle;
 use parsing::parse_message_markdown;
 mod auth;
 mod pages;
@@ -37,6 +38,7 @@ use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, fs};
 use style::global_theme;
+use tokio::time::sleep;
 use types::*;
 use utils::{get_cache, save_to_cache};
 use webbrowser;
@@ -79,10 +81,12 @@ struct Counter {
     window_width: f32,
     window_height: f32,
     shift_held_down: bool,
+    users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
 
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
     chat_message_options: HashMap<String, bool>, // String is the message id
+    users_typing: HashMap<String, Vec<String>>, // Where string is the chat id and Vec<String> is a string of user ids
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
@@ -143,6 +147,7 @@ pub enum Message {
     DownloadImage(String, String),
     // Websockets
     GotWSMessage(WebsocketMessage),
+    TypingTimeoutFinished(String, String),
 
     // Other
     DoNothing(()),
@@ -340,6 +345,8 @@ impl Counter {
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
             chat_message_options: HashMap::new(),
+            users_typing: HashMap::new(),
+            users_typing_timeouts: HashMap::new(),
             history: vec![Page {
                 view: View::Homepage,
                 current_team_id: None,
@@ -457,6 +464,7 @@ impl Counter {
                     chat(
                         &self.theme,
                         &current_chat,
+                        &self.users_typing_timeouts,
                         &self.chats,
                         &conversation,
                         &self.chat_message_options,
@@ -997,7 +1005,6 @@ impl Counter {
             ),
             // Websockets
             Message::GotWSMessage(message) => {
-                println!("Recieved {message:#?}");
                 let message = message.body.resource;
                 if let Some(message_type) = &message.message_type {
                     if message_type == "RichText/Html" {
@@ -1011,19 +1018,75 @@ impl Counter {
                                             .iter()
                                             .position(|item| item.id == message.id)
                                         {
-                                            conversation[pos] = message;
+                                            conversation[pos] = message.clone();
                                         } else {
-                                            conversation.insert(0, message);
+                                            conversation.insert(0, message.clone());
                                         }
                                     }
+                                }
+
+                                let chat_id = message.conversation_link.unwrap().replace(
+                                    "https://notifications.skype.net/v1/users/ME/conversations/",
+                                    "",
+                                );
+                                let user_id = message.from.unwrap();
+
+                                if let Some(timeoutes) =
+                                    self.users_typing_timeouts.get_mut(&chat_id)
+                                {
+                                    timeoutes.remove(&user_id);
                                 }
                             }
 
                             _ => {}
                         }
+                    } else if message_type == "Control/Typing" {
+                        let chat_id = message.conversation_link.unwrap().replace(
+                            "https://notifications.skype.net/v1/users/ME/conversations/",
+                            "",
+                        );
+                        let user_id = message.from.unwrap();
+
+                        let timeout_entry = self
+                            .users_typing_timeouts
+                            .entry(chat_id.clone())
+                            .or_insert_with(HashMap::new);
+
+                        if let Some(timeout) = timeout_entry.get(&user_id) {
+                            timeout.abort();
+                        } else {
+                            //let entry = self.users_typing.entry(chat_id).or_insert_with(Vec::new);
+                            //entry.push(user_id);
+                        }
+
+                        let user_id_clone = user_id.clone();
+
+                        let (task, handle) = Task::perform(
+                            async {
+                                sleep(Duration::from_secs(4)).await;
+                            },
+                            move |_| {
+                                Message::TypingTimeoutFinished(
+                                    chat_id.clone(),
+                                    user_id_clone.clone(),
+                                )
+                            },
+                        )
+                        .abortable();
+                        timeout_entry.insert(user_id, handle);
+                        return task;
+
+                        //handle.abort();
                     }
                 }
 
+                Task::none()
+            }
+            Message::TypingTimeoutFinished(chat_id, user_id) => {
+                self.users_typing_timeouts
+                    .get_mut(&chat_id)
+                    .unwrap()
+                    .remove(&user_id);
                 Task::none()
             }
 

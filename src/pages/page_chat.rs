@@ -8,6 +8,7 @@ use crate::style;
 use crate::utils::truncate_name;
 use crate::Message;
 
+use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, row, Space};
@@ -125,6 +126,7 @@ fn get_chat_picture<'a>(
 pub fn chat<'a>(
     theme: &'a style::Theme,
     current_chat: &'a Chat,
+    users_typing: &HashMap<String, HashMap<String, Handle>>,
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
@@ -216,7 +218,50 @@ pub fn chat<'a>(
         left: 14.0,
     });
 
-    let content_page = column![tile_row, conversation_scrollbar, message_area].spacing(7);
+    let mut content_page = column![
+        container(tile_row).padding(padding::bottom(14)),
+        conversation_scrollbar,
+    ];
+
+    if let Some(chat_typing) = users_typing.get(&current_chat.id) {
+        if !chat_typing.is_empty() {
+            let typers = chat_typing
+                .keys()
+                .cloned()
+                .map(|item| {
+                    format!(
+                        "{}",
+                        users
+                            .get(&item)
+                            .and_then(|profile| profile.display_name.clone())
+                            .unwrap_or_else(|| "Unknown User".to_string())
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+
+            content_page = content_page.push(
+                container(
+                    text!("{} is typing...", typers)
+                        .size(14)
+                        .color(theme.colors.demo_text),
+                )
+                .padding(Padding {
+                    top: 4.0,
+                    right: 10.0,
+                    bottom: 3.0,
+                    left: 10.0,
+                })
+                .height(25),
+            );
+        } else {
+            content_page = content_page.push(Space::new(0, 25))
+        }
+    } else {
+        content_page = content_page.push(Space::new(0, 25))
+    }
+
+    content_page = content_page.push(message_area);
 
     row![chats_scrollable, content_page].spacing(10).into()
 }
