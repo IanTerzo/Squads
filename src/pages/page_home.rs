@@ -26,7 +26,7 @@ pub fn home<'a>(
     window_width: f32,
     search_teams_input_value: String,
 ) -> Element<'a, Message> {
-    let mut teams_column: Column<Message> = column![].spacing(8.5);
+    let mut teams_column: Column<Message> = column![].spacing(theme.features.list_spacing);
 
     let mut teams_list_empty = true;
 
@@ -80,9 +80,9 @@ pub fn home<'a>(
         scrollable(teams_column)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(8)
-                    .spacing(10)
-                    .scroller_width(8),
+                    .width(theme.features.scrollbar_width)
+                    .spacing(theme.features.scrollable_spacing)
+                    .scroller_width(theme.features.scrollbar_width),
             ))
             .style(|_, _| theme.stylesheet.scrollable),
     );
@@ -152,14 +152,16 @@ pub fn home<'a>(
         scrollable(activities_colum)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(8)
-                    .spacing(10)
-                    .scroller_width(8),
+                    .width(theme.features.scrollbar_width)
+                    .spacing(theme.features.scrollable_spacing)
+                    .scroller_width(theme.features.scrollbar_width),
             ))
             .anchor_bottom()
             .style(|_, _| theme.stylesheet.scrollable),
     )
     .height(Length::Fill);
 
-    row![teams_column, activities_scrollbar].spacing(10).into()
+    row![teams_column, activities_scrollbar]
+        .spacing(theme.features.page_row_spacing)
+        .into()
 }

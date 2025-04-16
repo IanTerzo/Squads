@@ -136,7 +136,7 @@ pub fn chat<'a>(
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
-    let mut chats_column = column![].spacing(8.5);
+    let mut chats_column = column![].spacing(theme.features.list_spacing);
 
     for chat in chats {
         let mut chat_items = row![]
@@ -144,8 +144,10 @@ pub fn chat<'a>(
             .padding(padding::left(10))
             .align_y(Alignment::Center);
 
-        if !chat.is_read {
-            chat_items = chat_items.push(text("•").size(24)); // Permafix
+        if let Some(is_read) = chat.is_read {
+            if !is_read {
+                chat_items = chat_items.push(text("•").size(24)); // Permafix
+            }
         }
 
         let title = text(truncate_name(get_chat_title(&chat, &me.id, &users), 20));
@@ -174,9 +176,9 @@ pub fn chat<'a>(
     let chats_scrollable = scrollable(chats_column)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
-                .width(8)
-                .spacing(10)
-                .scroller_width(8),
+                .width(theme.features.scrollbar_width)
+                .spacing(theme.features.scrollable_spacing)
+                .scroller_width(theme.features.scrollbar_width),
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
@@ -198,9 +200,9 @@ pub fn chat<'a>(
         scrollable(message_column)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(8)
-                    .spacing(10)
-                    .scroller_width(8),
+                    .width(theme.features.scrollbar_width)
+                    .spacing(theme.features.scrollable_spacing)
+                    .scroller_width(theme.features.scrollbar_width),
             ))
             .style(|_, _| theme.stylesheet.chat_scrollable)
             .id(Id::new("conversation_column")),
@@ -263,5 +265,7 @@ pub fn chat<'a>(
 
     content_page = content_page.push(message_area);
 
-    row![chats_scrollable, content_page].spacing(10).into()
+    row![chats_scrollable, content_page]
+        .spacing(theme.features.page_row_spacing)
+        .into()
 }

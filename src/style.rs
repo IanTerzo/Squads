@@ -37,8 +37,17 @@ pub struct Colors {
 }
 
 #[derive(Debug)]
+pub struct Features {
+    pub scrollable_spacing: u16,
+    pub page_row_spacing: u16,
+    pub list_spacing: u16,
+    pub scrollbar_width: u16,
+}
+
+#[derive(Debug)]
 pub struct Theme {
     pub colors: Colors,
+    pub features: Features,
     pub stylesheet: Stylesheet,
 }
 
@@ -55,6 +64,13 @@ pub fn squads_dark() -> Theme {
         primary1_selected: Color::parse("#30393e").expect("Color is invalid."),
         primary2: Color::parse("#161b1d").expect("Color is invalid."),
         primary3: Color::parse("#2b3338").expect("Color is invalid."),
+    };
+
+    let features = Features {
+        scrollable_spacing: 13,
+        page_row_spacing: 13,
+        list_spacing: 10,
+        scrollbar_width: 8,
     };
 
     let stylesheet = Stylesheet {
@@ -121,12 +137,12 @@ pub fn squads_dark() -> Theme {
         },
         list_tab: container::Style {
             background: Some(colors.primary1.into()),
-            border: border::rounded(7),
+            border: border::rounded(6),
             ..Default::default()
         },
         list_tab_selected: container::Style {
             background: Some(colors.primary1_selected.into()),
-            border: border::rounded(7),
+            border: border::rounded(6),
             ..Default::default()
         },
         message_area_bar: container::Style {
@@ -168,7 +184,11 @@ pub fn squads_dark() -> Theme {
         },
     };
 
-    Theme { colors, stylesheet }
+    Theme {
+        colors,
+        features,
+        stylesheet,
+    }
 }
 
 pub fn global_theme() -> Theme {

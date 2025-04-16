@@ -549,6 +549,8 @@ pub async fn teams_me(token: &AccessToken) -> Result<UserDetails, Box<dyn std::e
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
         let result: Result<UserDetails, serde_json::Error> = serde_json::from_str(&pretty_json);
+        println!("Result content: {:#?}", result);
+        println!("Result is error: {}", result.is_err());
 
         match result {
             Ok(value) => Ok(value),

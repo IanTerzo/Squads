@@ -56,7 +56,7 @@ pub struct Channel {
 pub struct Team {
     pub id: String,
     pub channels: Vec<Channel>,
-    pub smtp_address: String,
+    pub smtp_address: Option<String>,
     pub team_site_information: TeamSiteInformation,
     pub display_name: String,
     #[serde(deserialize_with = "trim_quotes")]
@@ -149,7 +149,7 @@ pub struct MessageProperties {
     pub edittime: i64,
     pub subject: Option<String>,
     #[serde(default)]
-    pub files: String, // is string that should be parsed to vec of File
+    pub files: Option<String>, // is string that should be parsed to vec of File
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_cards")]
     pub cards: Option<Vec<Card>>,
@@ -241,11 +241,11 @@ pub struct TeamConversations {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMember {
-    pub is_muted: bool,
+    pub is_muted: Option<bool>,
     pub mri: String,
-    pub object_id: String,
-    pub role: String,
-    pub is_identity_masked: bool,
+    pub object_id: Option<String>,
+    pub role: Option<String>,
+    pub is_identity_masked: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -253,21 +253,21 @@ pub struct ChatMember {
 pub struct Chat {
     pub id: String,
     pub members: Vec<ChatMember>,
-    pub is_read: bool,
-    pub is_high_importance: bool,
-    pub is_one_on_one: bool,
-    pub is_conversation_deleted: bool,
-    pub is_external: bool,
-    pub is_messaging_disabled: bool,
-    pub is_disabled: bool,
+    pub is_read: Option<bool>,
+    pub is_high_importance: Option<bool>,
+    pub is_one_on_one: Option<bool>,
+    pub is_conversation_deleted: Option<bool>,
+    pub is_external: Option<bool>,
+    pub is_messaging_disabled: Option<bool>,
+    pub is_disabled: Option<bool>,
     pub title: Option<String>,
     pub last_message: Option<Message>,
     pub is_last_message_from_me: Option<bool>,
     pub chat_sub_type: Option<u64>,
     pub last_join_at: Option<String>,
     pub created_at: Option<String>,
-    pub creator: String,
-    pub hidden: bool,
+    pub creator: Option<String>,
+    pub hidden: Option<bool>,
     pub added_by: Option<String>,
     pub chat_type: Option<String>,
     pub picture: Option<String>,

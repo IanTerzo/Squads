@@ -54,9 +54,9 @@ pub fn team<'a>(
         scrollable(conversation_column)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(8)
-                    .spacing(10)
-                    .scroller_width(8),
+                    .width(theme.features.scrollbar_width)
+                    .spacing(theme.features.scrollable_spacing)
+                    .scroller_width(theme.features.scrollbar_width),
             ))
             .style(|_, _| theme.stylesheet.scrollable)
             .id(Id::new("conversation_column")),
@@ -97,7 +97,7 @@ pub fn team<'a>(
 
     let sidetabs = column![text!("Class Notebook"), text!("Assignments")].spacing(8);
 
-    let mut channels_coloumn: Column<Message> = column![];
+    let mut channels_coloumn: Column<Message> = column![].spacing(theme.features.list_spacing);
 
     let channel_count = team.channels.len();
 
@@ -122,18 +122,19 @@ pub fn team<'a>(
             .on_press(Message::OpenTeam(team.id.clone(), channel.id.clone()))
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id)),
         );
-        channels_coloumn = channels_coloumn.push(Space::new(10, 8.5));
     }
 
     let team_scrollbar = scrollable(channels_coloumn)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
-                .width(8)
-                .spacing(10)
-                .scroller_width(8),
+                .width(theme.features.scrollbar_width)
+                .spacing(theme.features.scrollable_spacing)
+                .scroller_width(theme.features.scrollbar_width),
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
     let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
-    row![team_info_column, content_page].spacing(10).into()
+    row![team_info_column, content_page]
+        .spacing(theme.features.page_row_spacing)
+        .into()
 }
