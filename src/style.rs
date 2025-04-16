@@ -67,10 +67,10 @@ pub fn squads_dark() -> Theme {
     };
 
     let features = Features {
-        scrollable_spacing: 13,
+        scrollable_spacing: 12,
         page_row_spacing: 13,
         list_spacing: 10,
-        scrollbar_width: 8,
+        scrollbar_width: 7,
     };
 
     let stylesheet = Stylesheet {

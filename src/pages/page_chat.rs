@@ -205,7 +205,8 @@ pub fn chat<'a>(
                     .scroller_width(theme.features.scrollbar_width),
             ))
             .style(|_, _| theme.stylesheet.chat_scrollable)
-            .id(Id::new("conversation_column")),
+            .id(Id::new("conversation_column"))
+            .on_scroll(Message::OnScroll),
     )
     .height(Length::Fill);
 

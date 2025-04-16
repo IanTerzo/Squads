@@ -21,7 +21,7 @@ pub fn team<'a>(
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
-    let mut conversation_column = column![].spacing(10);
+    let mut conversation_column = column![].spacing(12);
 
     if let Some(conversations) = conversations {
         let ordered_conversations: Vec<_> =
@@ -64,7 +64,7 @@ pub fn team<'a>(
     .height(Length::Fill);
 
     let message_area = c_message_area(theme, message_area_content, message_area_height);
-    let content_page = column![conversation_scrollbar, message_area].spacing(7);
+    let content_page = column![conversation_scrollbar, Space::new(0, 7), message_area].spacing(7);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -119,8 +119,8 @@ pub fn team<'a>(
                     .center_y(47)
                     .width(if channel_count <= 13 { 220 } else { 185 }),
             )
-            .on_press(Message::OpenTeam(team.id.clone(), channel.id.clone()))
-            .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id)),
+            .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
+            .on_release(Message::OpenTeam(team.id.clone(), channel.id)),
         );
     }
 

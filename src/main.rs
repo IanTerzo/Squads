@@ -21,7 +21,7 @@ use auth::{get_or_gen_skype_token, get_or_gen_token};
 use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
 use iced::keyboard::key::Named;
 use iced::keyboard::Key;
-use iced::widget::scrollable::{snap_to, Id, RelativeOffset};
+use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{event, keyboard, window, Color, Element, Event, Size, Subscription, Task, Theme};
 use pages::app;
@@ -82,6 +82,7 @@ struct Counter {
     window_width: f32,
     window_height: f32,
     shift_held_down: bool,
+    scrollbar_scroll: u64,
     should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
 
@@ -146,6 +147,7 @@ pub enum Message {
     GotChatConversations(String, Conversations), //callback
     PrefetchTeam(String, String),
     GotConversations(String, TeamConversations), //callback
+    OnScroll(Viewport),
     PostMessage,
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
@@ -350,6 +352,7 @@ impl Counter {
             chat_message_area_content: Content::new(),
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
+            scrollbar_scroll: 0,
             chat_message_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
             history: vec![Page {
@@ -967,6 +970,12 @@ impl Counter {
                     .insert(thread_id, conversations.messages);
                 Task::none()
             }
+            Message::OnScroll(viewport) => {
+                let max_scroll = viewport.content_bounds().height - viewport.bounds().height;
+                let scroll = max_scroll - viewport.absolute_offset().y;
+                self.scrollbar_scroll = scroll as u64;
+                Task::none()
+            }
             Message::PostMessage => {
                 let message_area_text = match self.page.view {
                     View::Team => self.team_message_area_content.text(),
@@ -1175,6 +1184,13 @@ impl Counter {
                                     self.users_typing_timeouts.get_mut(&chat_id)
                                 {
                                     timeoutes.remove(&user_id);
+                                }
+
+                                if self.scrollbar_scroll < 60 {
+                                    return snap_to(
+                                        Id::new("conversation_column"),
+                                        RelativeOffset::END,
+                                    );
                                 }
                             }
 

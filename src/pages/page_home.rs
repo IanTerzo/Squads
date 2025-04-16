@@ -103,7 +103,7 @@ pub fn home<'a>(
         teams_column = teams_column.padding(padding::right(18));
     }
 
-    let mut activities_colum = column![].spacing(8.5);
+    let mut activities_colum = column![].spacing(12);
     let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
 
     for message in activities_conversations {

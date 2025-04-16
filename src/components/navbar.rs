@@ -8,9 +8,9 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
     container(row![
         row![
             MouseArea::new(svg("images/chevron-left.svg").width(28).height(28))
-                .on_press(Message::HistoryBack),
+                .on_release(Message::HistoryBack),
             MouseArea::new(svg("images/chevron-right.svg").width(28).height(28))
-                .on_press(Message::HistoryForward),
+                .on_release(Message::HistoryForward),
         ],
         container(
             row![
