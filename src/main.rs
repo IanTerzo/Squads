@@ -124,6 +124,7 @@ pub enum Message {
     Jump(Page),
     OpenTeam(String, String),
     OpenChat(String),
+    OpenCurrentChat,
     ToggleReplyOptions(String),
     ShowChatMessageOptions(String),
     StopShowChatMessageOptions(String),
@@ -141,6 +142,7 @@ pub enum Message {
     ExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
     PrefetchChat(String),
+    PrefetchCurrentChat,
     GotChatConversations(String, Conversations), //callback
     PrefetchTeam(String, String),
     GotConversations(String, TeamConversations), //callback
@@ -325,7 +327,7 @@ impl Counter {
 
         let tenant = "organizations".to_string();
 
-        //let nth = chats.get(0).map(|chat| chat.id.clone());
+        let fist_chat = chats.get(0).map(|chat| chat.id.clone());
 
         let counter_self = Self {
             page: Page {
@@ -336,7 +338,7 @@ impl Counter {
                 },
                 current_team_id: None,
                 current_channel_id: None,
-                current_chat_id: None,
+                current_chat_id: fist_chat,
             },
             theme: global_theme(),
             device_user_code: None,
@@ -450,12 +452,7 @@ impl Counter {
                 )
             }
             View::Chat => {
-                // TODO: Handle if the user has no chats
-                let current_chat_id = self
-                    .page
-                    .current_chat_id
-                    .as_ref()
-                    .unwrap_or(&self.chats.get(0).unwrap().id);
+                let current_chat_id = self.page.current_chat_id.as_ref().unwrap();
 
                 let current_chat = self
                     .chats
@@ -741,6 +738,17 @@ impl Counter {
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
+            Message::OpenCurrentChat => {
+                self.page.view = View::Chat;
+                self.page.current_team_id = None;
+                self.page.current_channel_id = None;
+
+                self.history.push(self.page.clone());
+                self.history_index += 1;
+                self.history.truncate(self.history_index + 1);
+
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+            }
             Message::ToggleReplyOptions(conversation_id) => {
                 let reply_options = &mut self.reply_options;
                 let option = reply_options.entry(conversation_id).or_insert(false);
@@ -880,7 +888,7 @@ impl Counter {
                 Task::none()
             }
             Message::PrefetchChat(thread_id) => {
-                let channel_id_clone = thread_id.clone();
+                let thread_id_clone = thread_id.clone();
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
                 Task::perform(
@@ -894,8 +902,31 @@ impl Counter {
 
                         conversations(&access_token, thread_id, None).await.unwrap()
                     },
-                    move |result| Message::GotChatConversations(channel_id_clone.clone(), result), // This calls a message
+                    move |result| Message::GotChatConversations(thread_id_clone.clone(), result), // This calls a message
                 )
+            }
+            Message::PrefetchCurrentChat => {
+                if let Some(chat_id) = self.page.current_chat_id.clone() {
+                    let chat_id_clone = chat_id.clone();
+                    let access_tokens_arc = self.access_tokens.clone();
+                    let tenant = self.tenant.clone();
+                    return Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            conversations(&access_token, chat_id_clone, None)
+                                .await
+                                .unwrap()
+                        },
+                        move |result| Message::GotChatConversations(chat_id.clone(), result), // This calls a message
+                    );
+                }
+                Task::none()
             }
             Message::PrefetchTeam(team_id, channel_id) => {
                 let channel_id_clone = channel_id.clone();
@@ -1067,6 +1098,7 @@ impl Counter {
             // Websockets
             Message::GotWSMessage(message) => {
                 let message = message.body.resource;
+                println!("{message:#?}");
                 if let Some(message_type) = &message.message_type {
                     if message_type == "Control/Typing" {
                         let chat_id = message.conversation_link.unwrap().replace(

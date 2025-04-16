@@ -22,14 +22,9 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
                         current_chat_id: None
                     })
                 ),
-                MouseArea::new(svg("images/message-square.svg").width(25).height(25)).on_press(
-                    Message::Jump(Page {
-                        view: View::Chat,
-                        current_team_id: None,
-                        current_channel_id: None,
-                        current_chat_id: None
-                    })
-                )
+                MouseArea::new(svg("images/message-square.svg").width(25).height(25))
+                    .on_enter(Message::PrefetchCurrentChat)
+                    .on_release(Message::OpenCurrentChat)
             ]
             .spacing(10)
         )
