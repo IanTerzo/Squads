@@ -232,7 +232,7 @@ pub fn chat<'a>(
                     format!(
                         "{}",
                         users
-                            .get(&item)
+                            .get(&item.replace("8:orgid:", ""))
                             .and_then(|profile| profile.display_name.clone())
                             .unwrap_or_else(|| "Unknown User".to_string())
                     )

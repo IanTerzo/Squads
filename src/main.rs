@@ -47,7 +47,7 @@ use websockets::{connect, WebsocketMessage, WebsocketResponse};
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 enum View {
     Login,
     Homepage,
@@ -56,7 +56,7 @@ enum View {
 }
 
 // Any information needed to display the current page
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 struct Page {
     view: View,
     current_team_id: Option<String>,
@@ -82,6 +82,7 @@ struct Counter {
     window_width: f32,
     window_height: f32,
     shift_held_down: bool,
+    should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
 
     // UI state
@@ -131,7 +132,7 @@ pub enum Message {
     ExpandImage(String),
     StopExpandImage,
     ContentChanged(String),
-
+    AllowPostIsTyping(()),
     // Teams requests
     GotActivities(Vec<api::Message>),
     GotUsers(HashMap<String, Profile>, Profile),
@@ -299,8 +300,6 @@ fn post_message_task(
             send_message(&access_token, conversation_id, body)
                 .await
                 .unwrap();
-
-            println!("Posted!");
         },
         Message::DoNothing,
     )
@@ -358,6 +357,7 @@ impl Counter {
                 current_chat_id: None,
             }],
             expanded_image: None,
+            should_send_typing: true,
             history_index: 0,
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
@@ -655,6 +655,45 @@ impl Counter {
                     new_height
                 };
 
+                if self.page.view == View::Chat {
+                    if self.should_send_typing {
+                        self.should_send_typing = false;
+
+                        let acess_tokens_arc = self.access_tokens.clone();
+                        let tenant = self.tenant.clone();
+                        let conversation_id = self.page.current_chat_id.clone().unwrap();
+
+                        return Task::batch(vec![
+                            Task::perform(
+                                async move {
+                                    let access_token = get_or_gen_token(
+                                        acess_tokens_arc,
+                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        &tenant,
+                                    )
+                                    .await;
+
+                                    let body = "{\"content\":\"\",\"contenttype\":\"Application/Message\",\"messagetype\":\"Control/Typing\"}";
+
+                                    send_message(&access_token, conversation_id, body.to_string())
+                                        .await
+                                        .unwrap();
+                                },
+                                Message::DoNothing,
+                            ),
+                            Task::perform(
+                                async {
+                                    sleep(Duration::from_secs(4)).await;
+                                },
+                                Message::AllowPostIsTyping,
+                            ),
+                        ]);
+                    }
+                }
+                Task::none()
+            }
+            Message::AllowPostIsTyping(()) => {
+                self.should_send_typing = true;
                 Task::none()
             }
             Message::LinkClicked(url) => {
@@ -1029,40 +1068,7 @@ impl Counter {
             Message::GotWSMessage(message) => {
                 let message = message.body.resource;
                 if let Some(message_type) = &message.message_type {
-                    if message_type == "RichText/Html" {
-                        match self.page.view {
-                            View::Chat => {
-                                if let Some(current_chat_id) = &self.page.current_chat_id {
-                                    if let Some(conversation) =
-                                        self.chat_conversations.get_mut(current_chat_id)
-                                    {
-                                        if let Some(pos) = conversation
-                                            .iter()
-                                            .position(|item| item.id == message.id)
-                                        {
-                                            conversation[pos] = message.clone();
-                                        } else {
-                                            conversation.insert(0, message.clone());
-                                        }
-                                    }
-                                }
-
-                                let chat_id = message.conversation_link.unwrap().replace(
-                                    "https://notifications.skype.net/v1/users/ME/conversations/",
-                                    "",
-                                );
-                                let user_id = message.from.unwrap();
-
-                                if let Some(timeoutes) =
-                                    self.users_typing_timeouts.get_mut(&chat_id)
-                                {
-                                    timeoutes.remove(&user_id);
-                                }
-                            }
-
-                            _ => {}
-                        }
-                    } else if message_type == "Control/Typing" {
+                    if message_type == "Control/Typing" {
                         let chat_id = message.conversation_link.unwrap().replace(
                             "https://notifications.skype.net/v1/users/ME/conversations/",
                             "",
@@ -1099,6 +1105,39 @@ impl Counter {
                         return task;
 
                         //handle.abort();
+                    } else {
+                        match self.page.view {
+                            View::Chat => {
+                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                    if let Some(conversation) =
+                                        self.chat_conversations.get_mut(current_chat_id)
+                                    {
+                                        if let Some(pos) = conversation
+                                            .iter()
+                                            .position(|item| item.id == message.id)
+                                        {
+                                            conversation[pos] = message.clone();
+                                        } else {
+                                            conversation.insert(0, message.clone());
+                                        }
+                                    }
+                                }
+
+                                let chat_id = message.conversation_link.unwrap().replace(
+                                    "https://notifications.skype.net/v1/users/ME/conversations/",
+                                    "",
+                                );
+                                let user_id = message.from.unwrap();
+
+                                if let Some(timeoutes) =
+                                    self.users_typing_timeouts.get_mut(&chat_id)
+                                {
+                                    timeoutes.remove(&user_id);
+                                }
+                            }
+
+                            _ => {}
+                        }
                     }
                 }
 
