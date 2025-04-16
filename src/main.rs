@@ -121,7 +121,7 @@ pub enum Message {
     // UI interactions
     MessageAreaEdit(text_editor::Action),
     LinkClicked(String),
-    Jump(Page),
+    OpenHome,
     OpenTeam(String, String),
     OpenChat(String),
     OpenCurrentChat,
@@ -327,7 +327,7 @@ impl Counter {
 
         let tenant = "organizations".to_string();
 
-        let fist_chat = chats.get(0).map(|chat| chat.id.clone());
+        let first_chat = chats.get(0).map(|chat| chat.id.clone());
 
         let counter_self = Self {
             page: Page {
@@ -338,7 +338,7 @@ impl Counter {
                 },
                 current_team_id: None,
                 current_channel_id: None,
-                current_chat_id: fist_chat,
+                current_chat_id: first_chat.clone(),
             },
             theme: global_theme(),
             device_user_code: None,
@@ -356,7 +356,7 @@ impl Counter {
                 view: View::Homepage,
                 current_team_id: None,
                 current_channel_id: None,
-                current_chat_id: None,
+                current_chat_id: first_chat,
             }],
             expanded_image: None,
             should_send_typing: true,
@@ -700,7 +700,13 @@ impl Counter {
 
                 Task::none()
             }
-            Message::Jump(page) => {
+            Message::OpenHome => {
+                let page = Page {
+                    view: View::Homepage,
+                    current_team_id: None,
+                    current_channel_id: None,
+                    current_chat_id: self.page.current_chat_id.clone(),
+                };
                 self.page = page.clone();
                 self.history.push(page);
                 self.history_index += 1;
@@ -713,7 +719,7 @@ impl Counter {
                     view: View::Team,
                     current_team_id: Some(team_id),
                     current_channel_id: Some(channel_id),
-                    current_chat_id: None,
+                    current_chat_id: self.page.current_chat_id.clone(),
                 };
 
                 self.page = team_page.clone();
@@ -739,11 +745,15 @@ impl Counter {
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenCurrentChat => {
-                self.page.view = View::Chat;
-                self.page.current_team_id = None;
-                self.page.current_channel_id = None;
+                let chat_page = Page {
+                    view: View::Chat,
+                    current_team_id: None,
+                    current_channel_id: None,
+                    current_chat_id: self.page.current_chat_id.clone(),
+                };
 
-                self.history.push(self.page.clone());
+                self.page = chat_page.clone();
+                self.history.push(chat_page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
 
