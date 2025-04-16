@@ -32,8 +32,9 @@ where
     T: Serialize,
 {
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
-
     let mut cache_dir = project_dirs.unwrap().cache_dir().to_path_buf();
+    fs::create_dir_all(cache_dir.clone()).expect("Failed to create cache directory");
+
     cache_dir.push(filename);
 
     let json = serde_json::to_string_pretty(content).expect("Failed to serialize content");

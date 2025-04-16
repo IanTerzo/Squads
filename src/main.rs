@@ -379,7 +379,7 @@ impl Counter {
                 init_tasks(access_tokens, tenant)
             } else {
                 Task::perform(
-                    async move { api::gen_device_code(tenant).unwrap() },
+                    async move { api::gen_device_code(tenant).await.unwrap() },
                     Message::GotDeviceCodeInfo,
                 )
             },
@@ -500,12 +500,11 @@ impl Counter {
                         let result = gen_refresh_token_from_device_code(
                             device_code_info.device_code,
                             tenant,
-                        );
+                        )
+                        .await;
                         if let Ok(access_token) = result {
                             refresh_token = Some(access_token);
                             println!("Code polling succeeded.")
-                        } else {
-                            println!("Code polling failed: {:#?}", result.err())
                         }
 
                         refresh_token
@@ -527,12 +526,10 @@ impl Counter {
                         thread::sleep(Duration::new(1, 0));
 
                         let mut refresh_token: Option<AccessToken> = None;
-                        let result = gen_refresh_token_from_device_code(device_code, tenant);
+                        let result = gen_refresh_token_from_device_code(device_code, tenant).await;
                         if let Ok(access_token) = result {
                             refresh_token = Some(access_token);
                             println!("Code polling succeeded.")
-                        } else {
-                            println!("Code polling failed: {:#?}", result.err())
                         }
 
                         refresh_token

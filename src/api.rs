@@ -17,7 +17,9 @@ fn get_epoch_s() -> u64 {
         .as_secs()
 }
 
-pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
+pub async fn gen_device_code(
+    tenant_id: String,
+) -> Result<DeviceCodeInfo, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/devicecode",
         tenant_id
@@ -39,15 +41,14 @@ pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
         TEAMS_CLIENT_ID
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.post(url).headers(headers).body(body).send().unwrap();
+    let res = client.post(url).headers(headers).body(body).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -60,23 +61,23 @@ pub fn gen_device_code(tenant_id: String) -> Result<DeviceCodeInfo, String> {
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
-pub fn gen_refresh_token_from_device_code(
+pub async fn gen_refresh_token_from_device_code(
     device_code: String,
     tenant_id: String,
-) -> Result<AccessToken, String> {
+) -> Result<AccessToken, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/token",
         tenant_id
@@ -99,23 +100,22 @@ pub fn gen_refresh_token_from_device_code(
         TEAMS_CLIENT_ID, device_code
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.post(url).headers(headers).body(body).send().unwrap();
+    let res = client.post(url).headers(headers).body(body).send().await?;
 
     if !res.status().is_success() {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        return Err(error_message);
+        return Err(error_message.into());
     }
 
-    let token_data: HashMap<String, Value> = res.json().unwrap();
+    let token_data: HashMap<String, Value> = res.json().await?;
     if let (Some(value), Some(expires_in)) = (
         token_data.get("refresh_token"),
         token_data.get("expires_in"),
@@ -127,15 +127,15 @@ pub fn gen_refresh_token_from_device_code(
 
         Ok(refresh_token)
     } else {
-        Err("Response does not have a value or a refresh_token.".to_string())
+        Err("Response does not have a value or a refresh_token.".into())
     }
 }
 
-pub fn gen_refresh_token_from_code(
+pub async fn gen_refresh_token_from_code(
     code: String,
     code_verifier: String,
     tenant_id: String,
-) -> Result<AccessToken, String> {
+) -> Result<AccessToken, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
         tenant_id
@@ -161,23 +161,22 @@ pub fn gen_refresh_token_from_code(
         TEAMS_CLIENT_ID, code, code_verifier
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .unwrap();
+        .build()?;
 
-    let res = client.post(url).headers(headers).body(body).send().unwrap();
+    let res = client.post(url).headers(headers).body(body).send().await?;
 
     if !res.status().is_success() {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        return Err(error_message);
+        return Err(error_message.into());
     }
 
-    let token_data: HashMap<String, Value> = res.json().unwrap();
+    let token_data: HashMap<String, Value> = res.json().await?;
     if let (Some(value), Some(expires_in)) = (
         token_data.get("refresh_token"),
         token_data.get("expires_in"),
@@ -189,7 +188,7 @@ pub fn gen_refresh_token_from_code(
 
         Ok(refresh_token)
     } else {
-        Err("Response does not have a value or a refresh_token.".to_string())
+        Err("Response does not have a value or a refresh_token.".into())
     }
 }
 
@@ -573,7 +572,7 @@ pub async fn teams_me(token: &AccessToken) -> Result<UserDetails, Box<dyn std::e
 
 // Api: Emea v1
 // Scope: TODO
-pub fn properties(token: &AccessToken) -> Result<UserProperties, String> {
+pub async fn properties(token: &AccessToken) -> Result<UserProperties, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/properties";
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -587,15 +586,15 @@ pub fn properties(token: &AccessToken) -> Result<UserProperties, String> {
         HeaderValue::from_str(&access_token).unwrap(),
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
 
-    let res = client.get(url).headers(headers).send().unwrap();
+    let res = client.get(url).headers(headers).send().await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -608,16 +607,16 @@ pub fn properties(token: &AccessToken) -> Result<UserProperties, String> {
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 
@@ -683,10 +682,10 @@ pub async fn conversations(
 
 // Api: Emea v2
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
-pub fn fetch_short_profile(
+pub async fn fetch_short_profile(
     token: &AccessToken,
     user_ids: Vec<String>,
-) -> Result<FetchShortProfile, String> {
+) -> Result<FetchShortProfile, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/fetchShortProfile";
     if LOG_REQUESTS {
         println!("Log: POST {}", url);
@@ -705,7 +704,7 @@ pub fn fetch_short_profile(
         HeaderValue::from_str("application/json;charset=UTF-8").unwrap(),
     );
 
-    let client = reqwest::blocking::Client::builder()
+    let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .unwrap();
@@ -728,10 +727,10 @@ pub fn fetch_short_profile(
         .query(&params)
         .body(body)
         .send()
-        .unwrap();
+        .await?;
 
     if res.status().is_success() {
-        let body = res.text().unwrap();
+        let body = res.text().await?;
         let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
         let pretty_json =
             serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
@@ -745,16 +744,16 @@ pub fn fetch_short_profile(
                 let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
                 eprintln!("Line: {}", line_content);
 
-                Err(err.to_string())
+                Err(err.into())
             }
         }
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",
             res.status(),
-            res.text().unwrap()
+            res.text().await?
         );
-        Err(error_message)
+        Err(error_message.into())
     }
 }
 // Api: Graph
