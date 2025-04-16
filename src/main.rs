@@ -68,6 +68,7 @@ struct Page {
 struct Counter {
     // Authorization info
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
+    is_authorized: bool,
     device_code: String, // Only used when signing in for the first time
     device_user_code: Option<String>, // Only used when signing in for the first time
     tenant: String,
@@ -323,9 +324,9 @@ impl Counter {
         // If the user doesn't have a refresh token, prompt them to the login page.
         let has_refresh_token = access_tokens.read().unwrap().get("refresh_token").is_some();
 
-        let tenant = "organizations".to_string(); // Why does this work?
+        let tenant = "organizations".to_string();
 
-        let nth = chats.get(0).map(|chat| chat.id.clone());
+        //let nth = chats.get(0).map(|chat| chat.id.clone());
 
         let counter_self = Self {
             page: Page {
@@ -342,6 +343,7 @@ impl Counter {
             device_user_code: None,
             device_code: "".to_string(),
             tenant: tenant.clone(),
+            is_authorized: has_refresh_token,
             team_message_area_content: Content::new(),
             team_message_area_height: 54.0,
             chat_message_area_content: Content::new(),
@@ -372,7 +374,6 @@ impl Counter {
             activities: Vec::new(),
             shift_held_down: false,
         };
-
         (
             counter_self,
             if has_refresh_token {
@@ -550,6 +551,7 @@ impl Counter {
                     .write()
                     .unwrap()
                     .insert("refresh_token".to_string(), refresh_token);
+                self.is_authorized = true;
                 init_tasks(self.access_tokens.clone(), self.tenant.clone())
             }
 
@@ -1124,16 +1126,8 @@ impl Counter {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        Subscription::batch(vec![
+        let mut subscriptions = vec![
             event::listen().map(Message::EventOccurred),
-            Subscription::run_with_id(
-                "websockets",
-                connect(self.access_tokens.clone(), self.tenant.clone()),
-            )
-            .map(|response_type| match response_type {
-                WebsocketResponse::Message(value) => Message::GotWSMessage(value),
-                WebsocketResponse::Other(value) => Message::DoNothing(()),
-            }),
             keyboard::on_key_press(|key, _modifiers| Some(Message::KeyPressed(key))),
             keyboard::on_key_press(|key, _modifiers| match key {
                 Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
@@ -1143,7 +1137,22 @@ impl Counter {
                 Key::Named(Named::Shift) => Some(Message::ToggleShift(false)),
                 _ => None,
             }),
-        ])
+        ];
+
+        if self.is_authorized {
+            subscriptions.push(
+                Subscription::run_with_id(
+                    "websockets",
+                    connect(self.access_tokens.clone(), self.tenant.clone()),
+                )
+                .map(|response_type| match response_type {
+                    WebsocketResponse::Message(value) => Message::GotWSMessage(value),
+                    WebsocketResponse::Other(value) => Message::DoNothing(()),
+                }),
+            )
+        }
+
+        Subscription::batch(subscriptions)
     }
 
     // The default theming system is not used, except for the background

@@ -148,7 +148,7 @@ pub fn chat<'a>(
             chat_items = chat_items.push(text("•").size(24)); // Permafix
         }
 
-        let title = text(get_chat_title(&chat, &me.id, &users));
+        let title = text(truncate_name(get_chat_title(&chat, &me.id, &users), 20));
         let picture = get_chat_picture(&chat, &me.id, &users);
 
         chat_items = chat_items.push(picture);
