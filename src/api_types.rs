@@ -63,22 +63,31 @@ pub struct Team {
     pub picture_e_tag: Option<String>, // In some small cases this is not set
 }
 
-pub struct FileInfo {
-    item_id: Option<String>,
-    file_url: String,
-    site_url: String,
-    server_relative_url: String,
-    share_url: Option<String>,
-    share_id: Option<String>,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct File {
+    pub version: Option<i64>,
+    pub id: Option<String>,
+    pub base_url: Option<String>,
+    #[serde(rename = "type")]
+    pub title: Option<String>,
+    pub object_url: Option<String>,
+    #[serde(rename = "itemid")]
+    pub item_id: Option<String>,
+    pub file_name: Option<String>,
+    pub file_type: Option<String>,
+    pub file_info: FileInfo,
 }
 
-pub struct File {
-    pub id: String,
-    pub itemid: String,
-    pub file_name: String,
-    pub file_type: String,
-    pub file_info: FileInfo,
-    pub state: String,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FileInfo {
+    pub item_id: Option<String>,
+    pub file_url: Option<String>,
+    pub site_url: Option<String>,
+    pub server_relative_url: Option<String>,
+    pub share_url: Option<String>,
+    pub share_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -149,7 +158,8 @@ pub struct MessageProperties {
     pub edittime: i64,
     pub subject: Option<String>,
     #[serde(default)]
-    pub files: Option<String>, // is string that should be parsed to vec of File
+    #[serde(deserialize_with = "deserialize_files")]
+    pub files: Option<Vec<File>>, // is string that should be parsed to vec of File
     #[serde(default)]
     #[serde(deserialize_with = "deserialize_cards")]
     pub cards: Option<Vec<Card>>,
@@ -161,8 +171,8 @@ pub struct MessageProperties {
     pub systemdelete: bool,
     pub title: Option<String>,
     pub emotions: Option<Vec<Emotion>>,
-    #[serde(rename = "isread")]
     #[serde(default)]
+    #[serde(rename = "isread")]
     #[serde(deserialize_with = "string_to_option_bool")]
     pub is_read: Option<bool>,
     pub activity: Option<Activity>,
@@ -356,6 +366,25 @@ pub struct UserProperties {
     pub skype_name: Option<String>,
 }
 
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SharepointSiteInfo {
+    pub created_date_time: String,
+    pub description: String,
+    pub display_name: String,
+    pub id: String,
+    pub last_modified_date_time: String,
+    pub name: String,
+    pub site_collection: SiteCollection,
+    pub web_url: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SiteCollection {
+    pub hostname: String,
+}
+
 pub fn strip_url<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: Deserializer<'de>,
@@ -436,15 +465,40 @@ where
     }
 }
 
+fn deserialize_files<'de, D>(deserializer: D) -> Result<Option<Vec<File>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        Some(json_str) => {
+            if json_str == "[]" {
+                Ok(None)
+            } else {
+                serde_json::from_str(&json_str)
+                    .map(Some)
+                    .map_err(serde::de::Error::custom)
+            }
+        }
+        None => Ok(None),
+    }
+}
+
 fn deserialize_cards<'de, D>(deserializer: D) -> Result<Option<Vec<Card>>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let s: Option<String> = Option::deserialize(deserializer)?;
     match s {
-        Some(json_str) => serde_json::from_str(&json_str)
-            .map(Some)
-            .map_err(serde::de::Error::custom),
+        Some(json_str) => {
+            if json_str == "[]" {
+                Ok(None)
+            } else {
+                serde_json::from_str(&json_str)
+                    .map(Some)
+                    .map_err(serde::de::Error::custom)
+            }
+        }
         None => Ok(None),
     }
 }

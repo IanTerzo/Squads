@@ -4,7 +4,7 @@ use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
 use base64::display;
-use iced::widget::{column, container, mouse_area, row, stack, text};
+use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
@@ -91,7 +91,7 @@ pub fn c_chat_message<'a>(
 
     // Message content
 
-    let deleted = if let Some(properties) = message.properties.clone() {
+    let deleted = if let Some(properties) = &message.properties {
         properties.deletetime != 0 || properties.systemdelete
     } else {
         false
@@ -146,8 +146,6 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    message_row = message_row.push(container(contents_column).width(Length::Fill));
-
     // Message reactions
 
     let mut reactions_row = row![]
@@ -159,8 +157,8 @@ pub fn c_chat_message<'a>(
     let mut are_reactions = false;
 
     if !deleted {
-        if let Some(properties) = message.properties {
-            if let Some(reactions) = properties.emotions {
+        if let Some(properties) = &message.properties {
+            if let Some(reactions) = &properties.emotions {
                 for reaction in reactions {
                     let reacters = reaction.users.len();
                     if reacters == 0 {
@@ -192,6 +190,42 @@ pub fn c_chat_message<'a>(
         }
     }
 
+    // Files
+
+    if !deleted {
+        if let Some(properties) = &message.properties {
+            if let Some(files) = &properties.files {
+                let mut files_row = row![].spacing(10);
+
+                for file in files {
+                    let file_container = mouse_area(
+                        container(
+                            row![
+                                svg("images/paperclip.svg").width(16).height(16),
+                                text(file.file_name.clone().unwrap_or("File".to_string()))
+                                    .color(theme.colors.text_link)
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(8),
+                        )
+                        .style(|_| container::Style {
+                            background: Some(theme.colors.primary2.into()),
+                            border: border::rounded(6),
+                            ..Default::default()
+                        })
+                        .padding(12),
+                    )
+                    .on_release(Message::DownloadFile(file.clone()));
+                    files_row = files_row.push(file_container);
+                }
+
+                contents_column = contents_column.push(files_row);
+            }
+        }
+    }
+
+    message_row = message_row.push(container(contents_column).width(Length::Fill));
+
     if are_reactions {
         reactions_row = reactions_row.push(
             container(text("+"))
@@ -204,7 +238,8 @@ pub fn c_chat_message<'a>(
                 }),
         );
     }
-    // Actions contaienr
+    // Actions container
+
     let mut action_container = container(row![]);
 
     // Fill the container if the message is being hovered.

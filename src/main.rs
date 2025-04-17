@@ -2,7 +2,8 @@ mod api;
 mod api_types;
 mod components;
 mod parsing;
-use components::expanded_image;
+use base64::prelude::BASE64_URL_SAFE;
+use base64::Engine;
 use iced::task::Handle;
 use parsing::parse_message_markdown;
 mod auth;
@@ -15,8 +16,8 @@ mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
     authorize_team_picture, conversations, gen_refresh_token_from_device_code, me, send_message,
-    team_conversations, teams_me, users, AccessToken, Chat, Conversations, DeviceCodeInfo, Profile,
-    Team, TeamConversations,
+    sharepoint_download_file, site_info, team_conversations, teams_me, users, AccessToken, Chat,
+    Conversations, DeviceCodeInfo, File, Profile, Team, TeamConversations,
 };
 use auth::{get_or_gen_skype_token, get_or_gen_token};
 use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
@@ -155,6 +156,9 @@ pub enum Message {
     FetchMergedProfilePicture(String, Vec<(String, String)>),
     AuthorizeImage(String, String),
     DownloadImage(String, String),
+    DownloadFile(File),
+    DownloadedFile(String),
+
     // Websockets
     GotWSMessage(WebsocketMessage),
     TypingTimeoutFinished(String, String),
@@ -413,11 +417,9 @@ impl Counter {
                         self.window_width,
                         search_value,
                     ),
-                    if let Some(expanded_image) = self.expanded_image.clone()
-                    {
+                    if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else 
-                    {
+                    } else {
                         None
                     },
                 )
@@ -458,11 +460,9 @@ impl Counter {
                         &self.team_message_area_content,
                         &self.team_message_area_height,
                     ),
-                    if let Some(expanded_image) = self.expanded_image.clone()
-                    {
+                    if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else 
-                    {
+                    } else {
                         None
                     },
                 )
@@ -500,11 +500,9 @@ impl Counter {
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
-                    if let Some(expanded_image) = self.expanded_image.clone()
-                    {
+                    if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else 
-                    {
+                    } else {
                         None
                     },
                 )
@@ -1122,7 +1120,6 @@ impl Counter {
 
                         let skype_token =
                             get_or_gen_skype_token(acess_tokens_arc, access_token).await;
-                        let url = url;
 
                         let bytes = authorize_image(&skype_token, url.clone()).await.unwrap();
 
@@ -1141,6 +1138,69 @@ impl Counter {
                 },
                 Message::DoNothing,
             ),
+            Message::DownloadFile(file) => {
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
+                if let Some(share_url) = file.file_info.share_url {
+                    let share_id = BASE64_URL_SAFE.encode(share_url);
+
+                    return Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                acess_tokens_arc.clone(),
+                                "https://graph.microsoft.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            let url = format!(
+                                "https://graph.microsoft.com/v1.0/shares/u!{}/driveItem/content",
+                                share_id
+                            );
+
+                            sharepoint_download_file(&access_token, url).await.unwrap()
+                        },
+                        Message::DownloadedFile,
+                    );
+                } else if let Some(site_url) = file.file_info.site_url {
+                    let web_url = site_url.split("/").nth(2).unwrap().to_string();
+                    let site_path =
+                        site_url.replace(format!("https://{}/sites/", web_url).as_str(), "");
+                    let item_id = file.item_id.unwrap().to_string();
+
+                    return Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                acess_tokens_arc.clone(),
+                                "https://graph.microsoft.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            let site_id = site_info(&access_token, web_url, site_path)
+                                .await
+                                .unwrap()
+                                .id;
+
+                            let url = format!(
+                                "https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/content",
+                                site_id, item_id
+                            );
+
+                            sharepoint_download_file(&access_token, url).await.unwrap()
+                        },
+                        Message::DownloadedFile,
+                    );
+                }
+                Task::none()
+            }
+            Message::DownloadedFile(url) => {
+                if !webbrowser::open(url.as_str()).is_ok() {
+                    eprintln!("Failed to open link : {}", url);
+                }
+                Task::none()
+            }
             // Websockets
             Message::GotWSMessage(message) => {
                 let message = message.body.resource;

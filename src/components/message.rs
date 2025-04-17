@@ -3,8 +3,9 @@ use crate::components::cached_image::c_cached_image;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::Message;
-use iced::widget::{column, container, row, text};
-use iced::{font, Alignment, Element, Font, Padding};
+use iced::overlay::menu::{Menu, State};
+use iced::widget::{column, container, mouse_area, row, svg, text};
+use iced::{border, font, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
@@ -76,8 +77,8 @@ pub fn c_message<'a>(
 
     // Message subject
 
-    if let Some(properties) = message.properties.clone() {
-        if let Some(subject) = properties.subject {
+    if let Some(properties) = &message.properties {
+        if let Some(subject) = &properties.subject {
             let trimmed_subject = subject.trim_start();
             // Edgecase
             if trimmed_subject != "" {
@@ -100,15 +101,15 @@ pub fn c_message<'a>(
 
     // Cards
 
-    if let Some(properties) = message.properties.clone() {
-        if let Some(cards) = properties.cards {
+    if let Some(properties) = &message.properties {
+        if let Some(cards) = &properties.cards {
             for card in cards {}
         }
     }
 
     // Message content
 
-    let deleted = if let Some(properties) = message.properties.clone() {
+    let deleted = if let Some(properties) = &message.properties {
         properties.deletetime != 0 || properties.systemdelete
     } else {
         false
@@ -168,8 +169,8 @@ pub fn c_message<'a>(
     if !deleted {
         let mut reactions_row = row![].spacing(10);
 
-        if let Some(properties) = message.properties {
-            if let Some(reactions) = properties.emotions {
+        if let Some(properties) = &message.properties {
+            if let Some(reactions) = &properties.emotions {
                 for reaction in reactions {
                     let reacters = reaction.users.len();
                     if reacters == 0 {
@@ -207,6 +208,40 @@ pub fn c_message<'a>(
         reactions_row = reactions_row.push(add_reaction_container);
 
         message_column = message_column.push(reactions_row);
+    }
+
+    // Files
+
+    if !deleted {
+        if let Some(properties) = message.properties {
+            if let Some(files) = properties.files {
+                let mut files_row = row![].spacing(10);
+
+                for file in files {
+                    let file_container = mouse_area(
+                        container(
+                            row![
+                                svg("images/paperclip.svg").width(16).height(16),
+                                text(file.file_name.clone().unwrap_or("File".to_string()))
+                                    .color(theme.colors.text_link)
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(8),
+                        )
+                        .style(|_| container::Style {
+                            background: Some(theme.colors.primary2.into()),
+                            border: border::rounded(6),
+                            ..Default::default()
+                        })
+                        .padding(12),
+                    )
+                    .on_release(Message::DownloadFile(file));
+                    files_row = files_row.push(file_container);
+                }
+
+                message_column = message_column.push(files_row);
+            }
+        }
     }
 
     return Some(message_column.into());

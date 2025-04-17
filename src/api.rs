@@ -1,8 +1,8 @@
 pub use crate::api_types::*; // expose the type
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
-use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
-use reqwest::Client;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
+use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -853,6 +853,110 @@ pub async fn users(token: &AccessToken) -> Result<Users, Box<dyn std::error::Err
 
                 Err(err.into())
             }
+        }
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
+}
+
+// Api: Graph
+// Scope: https://graph.microsoft.com/.default
+pub async fn site_info(
+    token: &AccessToken,
+    web_url: String,
+    site_name: String,
+) -> Result<SharepointSiteInfo, Box<dyn std::error::Error>> {
+    let url = format!(
+        "https://graph.microsoft.com/v1.0/sites/{}:/sites/{}",
+        web_url, site_name
+    );
+
+    if LOG_REQUESTS {
+        println!("Log: GET {}", url);
+    }
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token)?,
+    );
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        HeaderValue::from_str("application/json;charset=UTF-8")?,
+    );
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.get(url).headers(headers).send().await?;
+
+    if res.status().is_success() {
+        let body = res.text().await?;
+        let parsed_body: Value = serde_json::from_str(&body).expect("Invalid JSON");
+        let pretty_json =
+            serde_json::to_string_pretty(&parsed_body).expect("Failed to format JSON");
+        let result: Result<SharepointSiteInfo, serde_json::Error> =
+            serde_json::from_str(&pretty_json);
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                eprintln!("Error occurred while serializing: {}", err);
+                let line_content = pretty_json.lines().nth(err.line() - 1).unwrap();
+                eprintln!("Line: {}", line_content);
+
+                Err(err.into())
+            }
+        }
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
+}
+
+// Api: Graph
+// Scope: https://graph.microsoft.com/.default
+pub async fn sharepoint_download_file(
+    token: &AccessToken,
+    url: String,
+) -> Result<String, Box<dyn std::error::Error>> {
+    if LOG_REQUESTS {
+        println!("Log: GET {}", url);
+    }
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = reqwest::header::HeaderMap::new();
+
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token)?,
+    );
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.get(url).headers(headers).send().await?;
+
+    if res.status() == StatusCode::FOUND {
+        if let Some(location) = res.headers().get(LOCATION) {
+            Ok(location.to_str().unwrap().to_string())
+        } else {
+            Err("Couldn't get location header".into())
         }
     } else {
         let error_message = format!(
