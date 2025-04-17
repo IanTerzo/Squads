@@ -3,6 +3,7 @@ use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
 use base64::decode;
+use xxhash_rust::xxh3::xxh3_64;
 use directories::ProjectDirs;
 use iced::widget::mouse_area;
 use iced::widget::{
@@ -180,17 +181,13 @@ fn transform_html<'a>(
                             image_width,
                             image_height,
                         ))
-                        .on_release(Message::ExpandImage(identifier));
+                        .on_release(Message::ExpandImage(identifier, "jpeg".to_string()));
 
                         dynamic_container = dynamic_container.push(team_picture.into());
                     } else if itemtype == "http://schema.skype.com/Giphy" {
                         let image_url = child_element.attr("src").unwrap().to_string();
 
-                        let identifier = image_url
-                            .replace("/giphy.gif", "")
-                            .split("/")
-                            .nth(5)
-                            .unwrap()
+                        let identifier = xxh3_64(image_url.to_string().as_bytes())
                             .to_string();
 
                         let mut image_width = 250.0;
@@ -205,12 +202,13 @@ fn transform_html<'a>(
                             let height = height.parse().unwrap();
                             image_height = height;
                         }
-                        let team_picture = c_cached_gif(
+                        let team_picture = mouse_area(c_cached_gif(
                             identifier.clone(),
-                            Message::DownloadImage(image_url, identifier),
+                            Message::DownloadImage(image_url, identifier.clone()),
                             image_width,
                             image_height,
-                        );
+                        ))
+                        .on_release(Message::ExpandImage(identifier, "gif".to_string()));
                         dynamic_container = dynamic_container.push(team_picture.into());
                     }
                 }
