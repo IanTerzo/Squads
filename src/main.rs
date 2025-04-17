@@ -345,7 +345,7 @@ impl Counter {
                 },
                 current_team_id: None,
                 current_channel_id: None,
-                current_chat_id: None,
+                current_chat_id: first_chat.clone(),
             },
             theme: global_theme(),
             device_user_code: None,
@@ -1246,25 +1246,23 @@ impl Counter {
                     } else {
                         match self.page.view {
                             View::Chat => {
-                                if let Some(current_chat_id) = &self.page.current_chat_id {
-                                    if let Some(conversation) =
-                                        self.chat_conversations.get_mut(current_chat_id)
-                                    {
-                                        if let Some(pos) = conversation
-                                            .iter()
-                                            .position(|item| item.id == message.id)
-                                        {
-                                            conversation[pos] = message.clone();
-                                        } else {
-                                            conversation.insert(0, message.clone());
-                                        }
-                                    }
-                                }
-
-                                let chat_id = message.conversation_link.unwrap().replace(
+                                let chat_id = message.conversation_link.clone().unwrap().replace(
                                     "https://notifications.skype.net/v1/users/ME/conversations/",
                                     "",
                                 );
+
+                                if let Some(conversation) =
+                                    self.chat_conversations.get_mut(&chat_id)
+                                {
+                                    if let Some(pos) =
+                                        conversation.iter().position(|item| item.id == message.id)
+                                    {
+                                        conversation[pos] = message.clone();
+                                    } else {
+                                        conversation.insert(0, message.clone());
+                                    }
+                                }
+
                                 let user_id = message.from.unwrap();
 
                                 if let Some(timeoutes) =
