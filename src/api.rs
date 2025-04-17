@@ -1219,8 +1219,9 @@ pub async fn authorize_image(
 pub async fn authorize_merged_profile_picture(
     token: &AccessToken,
     users: Vec<(String, String)>,
+    user_id: String,
 ) -> Result<Bytes, Box<dyn std::error::Error>> {
-    let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/mergedProfilePicturev2";
+    let url = format!("https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{user_id}/mergedProfilePicturev2");
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }

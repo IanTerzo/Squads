@@ -1070,6 +1070,7 @@ impl Counter {
             Message::FetchMergedProfilePicture(identifier, users) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
+                let user_id = self.me.id.clone();
                 Task::perform(
                     async move {
                         let access_token = get_or_gen_token(
@@ -1079,7 +1080,7 @@ impl Counter {
                         )
                         .await;
 
-                        let bytes = authorize_merged_profile_picture(&access_token, users)
+                        let bytes = authorize_merged_profile_picture(&access_token, users, user_id)
                             .await
                             .unwrap();
 
