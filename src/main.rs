@@ -2,6 +2,7 @@ mod api;
 mod api_types;
 mod components;
 mod parsing;
+use components::expanded_image;
 use iced::task::Handle;
 use parsing::parse_message_markdown;
 mod auth;
@@ -97,7 +98,7 @@ struct Counter {
     team_message_area_height: f32,
     chat_message_area_content: Content,
     chat_message_area_height: f32,
-    expanded_image: Option<String>,
+    expanded_image: Option<(String, String)>,
 
     // Teams requested data
     me: Profile,
@@ -131,7 +132,7 @@ pub enum Message {
     StopShowChatMessageOptions(String),
     HistoryBack,
     HistoryForward,
-    ExpandImage(String),
+    ExpandImage(String, String),
     StopExpandImage,
     ContentChanged(String),
     AllowPostIsTyping(()),
@@ -412,7 +413,13 @@ impl Counter {
                         self.window_width,
                         search_value,
                     ),
-                    self.expanded_image.clone().map(c_expanded_image),
+                    if let Some(expanded_image) = self.expanded_image.clone()
+                    {
+                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                    } else 
+                    {
+                        None
+                    },
                 )
             }
             View::Team => {
@@ -451,7 +458,13 @@ impl Counter {
                         &self.team_message_area_content,
                         &self.team_message_area_height,
                     ),
-                    self.expanded_image.clone().map(c_expanded_image),
+                    if let Some(expanded_image) = self.expanded_image.clone()
+                    {
+                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                    } else 
+                    {
+                        None
+                    },
                 )
             }
             View::Chat => {
@@ -487,7 +500,13 @@ impl Counter {
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
-                    self.expanded_image.clone().map(c_expanded_image),
+                    if let Some(expanded_image) = self.expanded_image.clone()
+                    {
+                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                    } else 
+                    {
+                        None
+                    },
                 )
             }
         }
@@ -798,8 +817,8 @@ impl Counter {
                 }
                 Task::none()
             }
-            Message::ExpandImage(identifier) => {
-                self.expanded_image = Some(identifier);
+            Message::ExpandImage(identifier, image_type) => {
+                self.expanded_image = Some((identifier, image_type));
                 Task::none()
             }
             Message::StopExpandImage => {
