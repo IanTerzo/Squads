@@ -340,7 +340,7 @@ impl Counter {
                 },
                 current_team_id: None,
                 current_channel_id: None,
-                current_chat_id: first_chat.clone(),
+                current_chat_id: None,
             },
             theme: global_theme(),
             device_user_code: None,
@@ -455,21 +455,28 @@ impl Counter {
                 )
             }
             View::Chat => {
-                let current_chat_id = self.page.current_chat_id.as_ref().unwrap();
+                let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id {
+                    Some(
+                        self.chats
+                            .iter()
+                            .find(|chat| &chat.id == current_chat_id)
+                            .unwrap(),
+                    )
+                } else {
+                    None
+                };
 
-                let current_chat = self
-                    .chats
-                    .iter()
-                    .find(|chat| &chat.id == current_chat_id)
-                    .unwrap();
-
-                let conversation = self.chat_conversations.get(current_chat_id);
+                let conversation = if let Some(current_chat_id) = &self.page.current_chat_id {
+                    self.chat_conversations.get(current_chat_id)
+                } else {
+                    None
+                };
 
                 app(
                     &self.theme,
                     chat(
                         &self.theme,
-                        &current_chat,
+                        current_chat,
                         &self.users_typing_timeouts,
                         &self.chats,
                         &conversation,

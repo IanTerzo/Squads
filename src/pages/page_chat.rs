@@ -125,7 +125,7 @@ fn get_chat_picture<'a>(
 
 pub fn chat<'a>(
     theme: &'a style::Theme,
-    current_chat: &'a Chat,
+    current_chat: Option<&'a Chat>,
     users_typing: &HashMap<String, HashMap<String, Handle>>,
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
@@ -159,8 +159,12 @@ pub fn chat<'a>(
         let chat_item = mouse_area(
             container(chat_items)
                 .style(move |_| {
-                    if chat.id == current_chat.id {
-                        theme.stylesheet.list_tab_selected
+                    if let Some(current_chat) = current_chat {
+                        if chat.id == current_chat.id {
+                            theme.stylesheet.list_tab_selected
+                        } else {
+                            theme.stylesheet.list_tab
+                        }
                     } else {
                         theme.stylesheet.list_tab
                     }
@@ -173,6 +177,7 @@ pub fn chat<'a>(
 
         chats_column = chats_column.push(chat_item);
     }
+
     let chats_scrollable = scrollable(chats_column)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
@@ -182,91 +187,95 @@ pub fn chat<'a>(
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
-    let mut message_column = column![].spacing(8);
+    let mut page = row![chats_scrollable].spacing(theme.features.page_row_spacing);
 
-    if let Some(conversation) = conversation {
-        let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
+    if let Some(current_chat) = current_chat {
+        let mut message_column = column![].spacing(8);
 
-        for message in ordered_conversation {
-            if let Some(message_element) =
-                c_chat_message(theme, message, chat_message_options, emoji_map, users)
-            {
-                message_column = message_column.push(message_element);
+        if let Some(conversation) = conversation {
+            let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
+
+            for message in ordered_conversation {
+                if let Some(message_element) =
+                    c_chat_message(theme, message, chat_message_options, emoji_map, users)
+                {
+                    message_column = message_column.push(message_element);
+                }
             }
-        }
-    };
+        };
 
-    let conversation_scrollbar = container(
-        scrollable(message_column)
-            .direction(scrollable::Direction::Vertical(
-                scrollable::Scrollbar::new()
-                    .width(theme.features.scrollbar_width)
-                    .spacing(theme.features.scrollable_spacing)
-                    .scroller_width(theme.features.scrollbar_width),
-            ))
-            .style(|_, _| theme.stylesheet.chat_scrollable)
-            .id(Id::new("conversation_column"))
-            .on_scroll(Message::OnScroll),
-    )
-    .height(Length::Fill);
+        let conversation_scrollbar = container(
+            scrollable(message_column)
+                .direction(scrollable::Direction::Vertical(
+                    scrollable::Scrollbar::new()
+                        .width(theme.features.scrollbar_width)
+                        .spacing(theme.features.scrollable_spacing)
+                        .scroller_width(theme.features.scrollbar_width),
+                ))
+                .style(|_, _| theme.stylesheet.chat_scrollable)
+                .id(Id::new("conversation_column"))
+                .on_scroll(Message::OnScroll),
+        )
+        .height(Length::Fill);
 
-    let message_area = c_message_area(theme, message_area_content, message_area_height);
+        let title = get_chat_title(&current_chat, &me.id, &users);
+        let picture = get_chat_picture(&current_chat, &me.id, &users);
+        let tile_row = row![picture, text(title)].spacing(15).padding(Padding {
+            top: 0.0,
+            right: 14.0,
+            bottom: 6.0,
+            left: 14.0,
+        });
 
-    let title = get_chat_title(&current_chat, &me.id, &users);
-    let picture = get_chat_picture(&current_chat, &me.id, &users);
-    let tile_row = row![picture, text(title)].spacing(15).padding(Padding {
-        top: 0.0,
-        right: 14.0,
-        bottom: 6.0,
-        left: 14.0,
-    });
+        let mut content_page = column![
+            container(tile_row).padding(padding::bottom(14)),
+            conversation_scrollbar,
+        ];
 
-    let mut content_page = column![
-        container(tile_row).padding(padding::bottom(14)),
-        conversation_scrollbar,
-    ];
+        if let Some(chat_typing) = users_typing.get(&current_chat.id) {
+            if !chat_typing.is_empty() {
+                let typers = chat_typing
+                    .keys()
+                    .cloned()
+                    .map(|item| {
+                        format!(
+                            "{}",
+                            users
+                                .get(&item.replace("8:orgid:", ""))
+                                .and_then(|profile| profile.display_name.clone())
+                                .unwrap_or_else(|| "Unknown User".to_string())
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
 
-    if let Some(chat_typing) = users_typing.get(&current_chat.id) {
-        if !chat_typing.is_empty() {
-            let typers = chat_typing
-                .keys()
-                .cloned()
-                .map(|item| {
-                    format!(
-                        "{}",
-                        users
-                            .get(&item.replace("8:orgid:", ""))
-                            .and_then(|profile| profile.display_name.clone())
-                            .unwrap_or_else(|| "Unknown User".to_string())
+                content_page = content_page.push(
+                    container(
+                        text!("{} is typing...", typers)
+                            .size(14)
+                            .color(theme.colors.demo_text),
                     )
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-
-            content_page = content_page.push(
-                container(
-                    text!("{} is typing...", typers)
-                        .size(14)
-                        .color(theme.colors.demo_text),
-                )
-                .padding(Padding {
-                    top: 4.0,
-                    right: 10.0,
-                    bottom: 3.0,
-                    left: 10.0,
-                })
-                .height(25),
-            );
+                    .padding(Padding {
+                        top: 4.0,
+                        right: 10.0,
+                        bottom: 3.0,
+                        left: 10.0,
+                    })
+                    .height(25),
+                );
+            } else {
+                content_page = content_page.push(Space::new(0, 25))
+            }
         } else {
             content_page = content_page.push(Space::new(0, 25))
         }
-    } else {
-        content_page = content_page.push(Space::new(0, 25))
+
+        let message_area = c_message_area(theme, message_area_content, message_area_height);
+
+        content_page = content_page.push(message_area);
+
+        page = page.push(content_page);
     }
 
-    content_page = content_page.push(message_area);
-
-    row![chats_scrollable, content_page]
-        .spacing(theme.features.page_row_spacing)
-        .into()
+    page.into()
 }

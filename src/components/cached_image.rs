@@ -2,9 +2,8 @@ use crate::widgets::{gif::Gif, viewport::ViewportHandler};
 use crate::Message;
 use bytes::Bytes;
 use directories::ProjectDirs;
-use iced::widget::{container, image, Space};
-use iced::{Color, ContentFit, Element};
-use std::fs;
+use iced::widget::{container, image, stack, text, Space};
+use iced::{Border, Color, ContentFit, Element};
 use std::{
     fs::{create_dir_all, File},
     io::Write,
