@@ -1336,17 +1336,21 @@ impl Counter {
                                     }
                                 }
 
-                                // Add notification
-
                                 if let Some(current_chat_id) = &self.page.current_chat_id {
-                                    if &chat_id != current_chat_id {
-                                        if let Some(chat) =
-                                            self.chats.iter_mut().find(|chat| chat.id == chat_id)
-                                        {
-                                            println!("herex3");
+                                    if let Some(pos) =
+                                        self.chats.iter_mut().position(|chat| chat.id == chat_id)
+                                    {
+                                        let mut chat = self.chats.remove(pos);
 
+                                        // Add notification
+
+                                        if &chat_id != current_chat_id {
                                             chat.is_read = Some(false);
                                         }
+
+                                        // Move the chat to the top
+
+                                        self.chats.insert(0, chat);
                                     }
                                 }
 
@@ -1364,15 +1368,14 @@ impl Counter {
 
                                 let mut tasks = vec![];
 
-                                if self.scrollbar_scroll < 60 {
-                                    tasks.push(snap_to(
-                                        Id::new("conversation_column"),
-                                        RelativeOffset::END,
-                                    ))
-                                }
-
                                 if let Some(current_chat_id) = &self.page.current_chat_id {
                                     if &chat_id == current_chat_id {
+                                        if self.scrollbar_scroll < 60 {
+                                            tasks.push(snap_to(
+                                                Id::new("conversation_column"),
+                                                RelativeOffset::END,
+                                            ))
+                                        }
                                         tasks.push(Task::perform(
                                             async move {
                                                 let time = get_epoch_ms();
