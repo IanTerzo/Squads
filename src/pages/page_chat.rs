@@ -150,11 +150,20 @@ pub fn chat<'a>(
             }
         }
 
-        let title = text(truncate_name(get_chat_title(&chat, &me.id, &users), 20));
         let picture = get_chat_picture(&chat, &me.id, &users);
+        let mut chat_info_column = column![text(truncate_name(
+            get_chat_title(&chat, &me.id, &users),
+            20
+        ))];
 
+        if let Some(users_typing) = users_typing.get(&chat.id) {
+            if users_typing.into_iter().len() > 0 {
+                chat_info_column = chat_info_column
+                    .push(text("is typing...").size(14).color(theme.colors.demo_text));
+            }
+        }
         chat_items = chat_items.push(picture);
-        chat_items = chat_items.push(title);
+        chat_items = chat_items.push(chat_info_column);
 
         let chat_item = mouse_area(
             container(chat_items)
