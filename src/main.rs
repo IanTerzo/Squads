@@ -15,9 +15,9 @@ mod websockets;
 mod widgets;
 use api::{
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
-    authorize_team_picture, conversations, gen_refresh_token_from_device_code, me, send_message,
-    sharepoint_download_file, site_info, team_conversations, teams_me, users, AccessToken, Chat,
-    Conversations, DeviceCodeInfo, File, Profile, Team, TeamConversations,
+    authorize_team_picture, consumption_horizon, conversations, gen_refresh_token_from_device_code,
+    me, send_message, sharepoint_download_file, site_info, team_conversations, teams_me, users,
+    AccessToken, Chat, Conversations, DeviceCodeInfo, File, Profile, Team, TeamConversations,
 };
 use auth::{get_or_gen_skype_token, get_or_gen_token};
 use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
@@ -42,7 +42,7 @@ use std::{collections::HashMap, fs};
 use style::global_theme;
 use tokio::time::sleep;
 use types::*;
-use utils::{get_cache, save_to_cache};
+use utils::{get_cache, get_epoch_ms, save_to_cache};
 use webbrowser;
 use websockets::{connect, WebsocketMessage, WebsocketResponse};
 
@@ -127,6 +127,7 @@ pub enum Message {
     OpenHome,
     OpenTeam(String, String),
     OpenChat(String),
+    ReadChat(String),
     OpenCurrentChat,
     ToggleReplyOptions(String),
     ShowChatMessageOptions(String),
@@ -757,11 +758,14 @@ impl Counter {
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenChat(thread_id) => {
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
                 let chat_page = Page {
                     view: View::Chat,
                     current_team_id: None,
                     current_channel_id: None,
-                    current_chat_id: Some(thread_id),
+                    current_chat_id: Some(thread_id.clone()),
                 };
 
                 self.page = chat_page.clone();
@@ -769,14 +773,44 @@ impl Counter {
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
 
-                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+                Task::batch(vec![
+                    snap_to(Id::new("conversation_column"), RelativeOffset::END),
+                    Task::perform(
+                        async move {
+                            let time = get_epoch_ms();
+
+                            let body = format!(
+                                "{{\"consumptionhorizon\":\"{};{};{}\"}}",
+                                time, time, time
+                            );
+
+                            let access_token = get_or_gen_token(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            consumption_horizon(&access_token, thread_id.clone(), body)
+                                .await
+                                .unwrap();
+
+                            thread_id
+                        },
+                        Message::ReadChat,
+                    ),
+                ])
             }
             Message::OpenCurrentChat => {
+                let chat_id = self.page.current_chat_id.clone();
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
                 let chat_page = Page {
                     view: View::Chat,
                     current_team_id: None,
                     current_channel_id: None,
-                    current_chat_id: self.page.current_chat_id.clone(),
+                    current_chat_id: chat_id.clone(),
                 };
 
                 self.page = chat_page.clone();
@@ -784,7 +818,42 @@ impl Counter {
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
 
-                snap_to(Id::new("conversation_column"), RelativeOffset::END)
+                if let Some(chat_id) = chat_id {
+                    return Task::batch(vec![
+                        snap_to(Id::new("conversation_column"), RelativeOffset::END),
+                        Task::perform(
+                            async move {
+                                let time = get_epoch_ms();
+
+                                let body = format!(
+                                    "{{\"consumptionhorizon\":\"{};{};{}\"}}",
+                                    time, time, time
+                                );
+
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
+
+                                consumption_horizon(&access_token, chat_id.clone(), body)
+                                    .await
+                                    .unwrap();
+
+                                chat_id
+                            },
+                            Message::ReadChat,
+                        ),
+                    ]);
+                }
+                Task::none()
+            }
+            Message::ReadChat(thread_id) => {
+                if let Some(chat) = self.chats.iter_mut().find(|chat| chat.id == thread_id) {
+                    chat.is_read = Some(true);
+                }
+                Task::none()
             }
             Message::ToggleReplyOptions(conversation_id) => {
                 let reply_options = &mut self.reply_options;
@@ -824,7 +893,6 @@ impl Counter {
                 Task::none()
             }
             Message::ContentChanged(content) => {
-                println!("{}", content);
                 self.search_teams_input_value = content;
                 Task::none()
             }
@@ -1203,8 +1271,11 @@ impl Counter {
             }
             // Websockets
             Message::GotWSMessage(message) => {
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
                 let message = message.body.resource;
-                println!("{message:#?}");
+                //println!("{message:#?}");
                 if let Some(message_type) = &message.message_type {
                     if message_type == "Control/Typing" {
                         let chat_id = message.conversation_link.unwrap().replace(
@@ -1251,6 +1322,8 @@ impl Counter {
                                     "",
                                 );
 
+                                // Update conversations
+
                                 if let Some(conversation) =
                                     self.chat_conversations.get_mut(&chat_id)
                                 {
@@ -1263,6 +1336,22 @@ impl Counter {
                                     }
                                 }
 
+                                // Add notification
+
+                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                    if &chat_id != current_chat_id {
+                                        if let Some(chat) =
+                                            self.chats.iter_mut().find(|chat| chat.id == chat_id)
+                                        {
+                                            println!("herex3");
+
+                                            chat.is_read = Some(false);
+                                        }
+                                    }
+                                }
+
+                                // Clear  is typing timeouts
+
                                 let user_id = message.from.unwrap();
 
                                 if let Some(timeoutes) =
@@ -1271,12 +1360,46 @@ impl Counter {
                                     timeoutes.remove(&user_id);
                                 }
 
+                                // Tasks
+
+                                let mut tasks = vec![];
+
                                 if self.scrollbar_scroll < 60 {
-                                    return snap_to(
+                                    tasks.push(snap_to(
                                         Id::new("conversation_column"),
                                         RelativeOffset::END,
-                                    );
+                                    ))
                                 }
+
+                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                    if &chat_id == current_chat_id {
+                                        tasks.push(Task::perform(
+                                            async move {
+                                                let time = get_epoch_ms();
+
+                                                let body = format!(
+                                                    "{{\"consumptionhorizon\":\"{};{};{}\"}}",
+                                                    time, time, time
+                                                );
+
+                                                let access_token = get_or_gen_token(
+                                                    access_tokens_arc,
+                                                    "https://ic3.teams.office.com/.default"
+                                                        .to_string(),
+                                                    &tenant,
+                                                )
+                                                .await;
+
+                                                consumption_horizon(&access_token, chat_id, body)
+                                                    .await
+                                                    .unwrap();
+                                            },
+                                            Message::DoNothing,
+                                        ))
+                                    }
+                                }
+
+                                return Task::batch(tasks);
                             }
 
                             _ => {}

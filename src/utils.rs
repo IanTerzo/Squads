@@ -62,3 +62,10 @@ pub fn get_epoch_s() -> u64 {
         .unwrap()
         .as_secs()
 }
+
+pub fn get_epoch_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+}
