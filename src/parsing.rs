@@ -7,6 +7,7 @@ use directories::ProjectDirs;
 use iced::border;
 use iced::padding;
 use iced::widget::mouse_area;
+use iced::widget::text_editor;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
@@ -15,6 +16,7 @@ use image::image_dimensions;
 use markdown_it::{plugins, MarkdownIt};
 use scraper::{Html, Selector};
 use serde::Deserialize;
+use serde_json::Value;
 use std::collections::HashMap;
 use xxhash_rust::xxh3::xxh3_64;
 
@@ -104,16 +106,17 @@ fn transform_html<'a>(
 
     for child in element.children() {
         if let Some(child_element) = scraper::ElementRef::wrap(child) {
-            if child.has_children() && child_element.value().name() != "blockquote" {
+            let element_name = child_element.value().name();
+            if child.has_children() && element_name != "blockquote" && element_name != "code" {
                 dynamic_container = dynamic_container.push(
                     transform_html(theme, child_element, cascading_properties.clone())
                         .into_element(),
                 );
             }
             // Special cases
-            else if child_element.value().name() == "br" {
+            else if element_name == "br" {
                 dynamic_container = dynamic_container.push(Space::new(10000, 0).into());
-            } else if child_element.value().name() == "img" {
+            } else if element_name == "img" {
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Emoji" {
                         if let Some(alt) = child_element.attr("alt") {
@@ -213,7 +216,9 @@ fn transform_html<'a>(
                         dynamic_container = dynamic_container.push(team_picture.into());
                     }
                 }
-            } else if child_element.value().name() == "blockquote" {
+            } else if element_name == "blockquote" {
+                let color = theme.colors.primary3;
+
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Reply" {
                         let mut name = "Unknown User".to_string();
@@ -229,7 +234,6 @@ fn transform_html<'a>(
                             child_element.select(&Selector::parse("p").unwrap()).next()
                         {
                             let text = element.text().collect::<String>();
-                            let color = theme.colors.primary3;
 
                             dynamic_container = dynamic_container.push(
                                 container(
@@ -253,13 +257,48 @@ fn transform_html<'a>(
                     }
                 } else {
                     dynamic_container = dynamic_container.push(
-                        transform_html(theme, child_element, cascading_properties.clone())
-                            .into_element(),
+                        container(
+                            transform_html(theme, child_element, cascading_properties.clone())
+                                .into_element(),
+                        )
+                        .padding(5)
+                        .style(move |_| container::Style {
+                            background: Some(color.into()),
+                            border: border::rounded(5),
+                            ..Default::default()
+                        })
+                        .into(),
+                    );
+                }
+            } else if element_name == "code" {
+                if let Some(code_element) = element.select(&Selector::parse("code").unwrap()).next()
+                {
+                    let color = theme.colors.primary3;
+                    let mut raw_code = code_element.inner_html();
+
+                    raw_code = raw_code.replace("<br>", "\n");
+
+                    let lines: Vec<Element<Message>> = raw_code
+                        .lines()
+                        .map(|line| text!("{}", line.to_string()).into())
+                        .collect();
+
+                    dynamic_container = dynamic_container.push(
+                        container(column(lines))
+                            .padding(5)
+                            .style(move |_| container::Style {
+                                background: Some(color.into()),
+                                border: border::rounded(8),
+                                ..Default::default()
+                            })
+                            .into(),
                     );
                 }
             }
         } else if child.value().is_text() {
             let text_content = child.value().as_text().unwrap().text.to_string();
+            // Remove things like newlines since it is handled separately
+            let text_content = text_content.replace("\n", "").replace("\r", "");
 
             let words = text_content.split_inclusive(" ");
 
@@ -332,8 +371,6 @@ pub fn parse_message_html<'a>(
     theme: &style::Theme,
     content: String,
 ) -> Result<Element<'a, Message>, String> {
-    // Remove things like newlines to avoid them being treated as text during the parsing
-    let content = content.replace("\n", "").replace("\r", "");
     let document = Html::parse_document(content.as_str());
 
     let selector = Selector::parse("body").unwrap();
@@ -343,9 +380,6 @@ pub fn parse_message_html<'a>(
         Err("Couldn't get body from message html".to_string())
     }
 }
-
-use serde::Serialize;
-use serde_json::Value;
 
 #[derive(Default, Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
