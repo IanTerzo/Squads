@@ -252,15 +252,22 @@ pub fn c_chat_message<'a>(
     if is_hovered {
         action_container = container(
             container(
-                row![container(text("+"))
-                    .style(|_| theme.stylesheet.primary_button)
-                    .padding(Padding {
-                        top: 2.0,
-                        right: 6.0,
-                        bottom: 2.0,
-                        left: 6.0
-                    })]
-                .spacing(4),
+                container(
+                    row![
+                        svg("images/pencil.svg").width(17).height(17),
+                        svg("images/reply.svg").width(21).height(21),
+                        container(text("+").size(20))
+                    ]
+                    .align_y(Alignment::Center)
+                    .spacing(8),
+                )
+                .padding(Padding {
+                    top: 3.0,
+                    right: 6.0,
+                    bottom: 3.0,
+                    left: 6.0,
+                })
+                .style(|_| theme.stylesheet.primary_button),
             )
             .padding(padding::right(10))
             .align_y(Alignment::Center),

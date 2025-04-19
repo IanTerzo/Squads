@@ -3,8 +3,9 @@ use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
 use base64::decode;
-use xxhash_rust::xxh3::xxh3_64;
 use directories::ProjectDirs;
+use iced::border;
+use iced::padding;
 use iced::widget::mouse_area;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
@@ -15,6 +16,7 @@ use markdown_it::{plugins, MarkdownIt};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use std::collections::HashMap;
+use xxhash_rust::xxh3::xxh3_64;
 
 pub fn parse_message_markdown(text: String) -> String {
     let mut md = MarkdownIt::new();
@@ -70,7 +72,7 @@ impl DynamicContainer {
 }
 
 fn transform_html<'a>(
-    theme: &style::Theme,
+    theme: &'a style::Theme,
     element: scraper::ElementRef<'a>,
     mut cascading_properties: HashMap<&'a str, String>,
 ) -> DynamicContainer {
@@ -102,7 +104,7 @@ fn transform_html<'a>(
 
     for child in element.children() {
         if let Some(child_element) = scraper::ElementRef::wrap(child) {
-            if child.has_children() {
+            if child.has_children() && child_element.value().name() != "blockquote" {
                 dynamic_container = dynamic_container.push(
                     transform_html(theme, child_element, cascading_properties.clone())
                         .into_element(),
@@ -187,8 +189,7 @@ fn transform_html<'a>(
                     } else if itemtype == "http://schema.skype.com/Giphy" {
                         let image_url = child_element.attr("src").unwrap().to_string();
 
-                        let identifier = xxh3_64(image_url.to_string().as_bytes())
-                            .to_string();
+                        let identifier = xxh3_64(image_url.to_string().as_bytes()).to_string();
 
                         let mut image_width = 250.0;
                         let mut image_height = 250.0;
@@ -211,6 +212,50 @@ fn transform_html<'a>(
                         .on_release(Message::ExpandImage(identifier, "gif".to_string()));
                         dynamic_container = dynamic_container.push(team_picture.into());
                     }
+                }
+            } else if child_element.value().name() == "blockquote" {
+                if let Some(itemtype) = child_element.attr("itemtype") {
+                    if itemtype == "http://schema.skype.com/Reply" {
+                        let mut name = "Unknown User".to_string();
+
+                        if let Some(element) = child_element
+                            .select(&Selector::parse("strong").unwrap())
+                            .next()
+                        {
+                            name = element.text().collect::<String>();
+                        }
+
+                        if let Some(element) =
+                            child_element.select(&Selector::parse("p").unwrap()).next()
+                        {
+                            let text = element.text().collect::<String>();
+                            let color = theme.colors.primary3;
+
+                            dynamic_container = dynamic_container.push(
+                                container(
+                                    container(column![
+                                        text!("{}", name).color(theme.colors.demo_text).size(14),
+                                        text!("{}", text)
+                                    ])
+                                    .padding(5)
+                                    .style(move |_| {
+                                        container::Style {
+                                            background: Some(color.into()),
+                                            border: border::rounded(5),
+                                            ..Default::default()
+                                        }
+                                    }),
+                                )
+                                .padding(padding::bottom(5))
+                                .into(),
+                            );
+                        }
+                    }
+                } else {
+                    dynamic_container = dynamic_container.push(
+                        transform_html(theme, child_element, cascading_properties.clone())
+                            .into_element(),
+                    );
                 }
             }
         } else if child.value().is_text() {
