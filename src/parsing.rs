@@ -257,10 +257,11 @@ fn transform_html<'a>(
                     }
                 } else {
                     dynamic_container = dynamic_container.push(
-                        container(
+                        container(row![
+                            text("| ").color(theme.colors.demo_text),
                             transform_html(theme, child_element, cascading_properties.clone())
-                                .into_element(),
-                        )
+                                .into_element()
+                        ])
                         .padding(5)
                         .style(move |_| container::Style {
                             background: Some(color.into()),
@@ -271,29 +272,28 @@ fn transform_html<'a>(
                     );
                 }
             } else if element_name == "code" {
-                if let Some(code_element) = element.select(&Selector::parse("code").unwrap()).next()
-                {
-                    let color = theme.colors.primary3;
-                    let mut raw_code = code_element.inner_html();
+                let color = theme.colors.primary3;
+                let mut raw_code = child_element.inner_html();
 
-                    raw_code = raw_code.replace("<br>", "\n");
+                println!("{}", child_element.html());
 
-                    let lines: Vec<Element<Message>> = raw_code
-                        .lines()
-                        .map(|line| text!("{}", line.to_string()).into())
-                        .collect();
+                raw_code = raw_code.replace("<br>", "\n");
 
-                    dynamic_container = dynamic_container.push(
-                        container(column(lines))
-                            .padding(5)
-                            .style(move |_| container::Style {
-                                background: Some(color.into()),
-                                border: border::rounded(8),
-                                ..Default::default()
-                            })
-                            .into(),
-                    );
-                }
+                let lines: Vec<Element<Message>> = raw_code
+                    .lines()
+                    .map(|line| text!("{}", line.to_string()).into())
+                    .collect();
+
+                dynamic_container = dynamic_container.push(
+                    container(column(lines))
+                        .padding(5)
+                        .style(move |_| container::Style {
+                            background: Some(color.into()),
+                            border: border::rounded(5),
+                            ..Default::default()
+                        })
+                        .into(),
+                );
             }
         } else if child.value().is_text() {
             let text_content = child.value().as_text().unwrap().text.to_string();
