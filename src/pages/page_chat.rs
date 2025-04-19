@@ -12,7 +12,7 @@ use crate::Message;
 use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, row, text_input, Space};
+use iced::widget::{column, container, mouse_area, row, stack, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::{padding, Alignment, Color, Element, Length, Padding};
 
@@ -157,13 +157,14 @@ pub fn chat<'a>(
 
         if let Some(is_read) = chat.is_read {
             if !is_read {
-                chat_items =
-                    chat_items.push(container(circle(2.5, theme.colors.text)).padding(Padding {
+                chat_items = chat_items.push(
+                    container(circle(2.5, theme.colors.notification)).padding(Padding {
                         top: 0.0,
                         right: 4.0,
                         bottom: 0.0,
                         left: 4.0,
-                    }))
+                    }),
+                )
             }
         }
 
@@ -192,6 +193,33 @@ pub fn chat<'a>(
             })
         };
 
+        if chat.members.len() == 2 {
+            chat_items = chat_items.push(stack![
+                container(picture).padding(Padding {
+                    top: 5.0,
+                    bottom: 5.0,
+                    right: 0.0,
+                    left: 0.0
+                }),
+                container(circle(5.5, theme.colors.status_available)).padding(Padding {
+                    top: 24.0,
+                    right: 0.0,
+                    bottom: 0.0,
+                    left: if let Some(is_read) = chat.is_read {
+                        if !is_read {
+                            19.0
+                        } else {
+                            32.0
+                        }
+                    } else {
+                        32.0
+                    }
+                })
+            ]);
+        } else {
+            chat_items = chat_items.push(picture);
+        }
+
         let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
         if let Some(users_typing) = users_typing.get(&chat.id) {
             if users_typing.into_iter().len() > 0 {
@@ -199,7 +227,6 @@ pub fn chat<'a>(
                     .push(text("is typing...").size(14).color(theme.colors.demo_text));
             }
         }
-        chat_items = chat_items.push(picture);
         chat_items = chat_items.push(chat_info_column);
 
         let chat_item = mouse_area(
