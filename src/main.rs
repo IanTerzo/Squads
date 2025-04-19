@@ -95,6 +95,7 @@ struct Counter {
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     search_teams_input_value: String,
+    search_chats_input_value: String,
     team_message_area_content: Content,
     team_message_area_height: f32,
     chat_message_area_content: Content,
@@ -136,7 +137,8 @@ pub enum Message {
     HistoryForward,
     ExpandImage(String, String),
     StopExpandImage,
-    ContentChanged(String),
+    SearchTeamsContentChanged(String),
+    SearchChatsContentChanged(String),
     AllowPostIsTyping(()),
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -372,6 +374,7 @@ impl Counter {
             history_index: 0,
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
+            search_chats_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
@@ -403,28 +406,24 @@ impl Counter {
 
         match self.page.view {
             View::Login => login(&self.theme, &self.device_user_code),
-            View::Homepage => {
-                let search_value = self.search_teams_input_value.clone();
-
-                app(
+            View::Homepage => app(
+                &self.theme,
+                home(
                     &self.theme,
-                    home(
-                        &self.theme,
-                        &self.teams,
-                        &self.activities,
-                        self.activity_expanded_conversations.clone(),
-                        &self.emoji_map,
-                        &self.users,
-                        self.window_width,
-                        search_value,
-                    ),
-                    if let Some(expanded_image) = self.expanded_image.clone() {
-                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else {
-                        None
-                    },
-                )
-            }
+                    &self.teams,
+                    &self.activities,
+                    self.activity_expanded_conversations.clone(),
+                    &self.emoji_map,
+                    &self.users,
+                    self.window_width,
+                    self.search_teams_input_value.clone(),
+                ),
+                if let Some(expanded_image) = self.expanded_image.clone() {
+                    Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                } else {
+                    None
+                },
+            ),
             View::Team => {
                 let current_team_id = self.page.current_team_id.as_ref().unwrap();
 
@@ -498,6 +497,7 @@ impl Counter {
                         &self.emoji_map,
                         &self.users,
                         &self.me,
+                        self.search_chats_input_value.clone(),
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                     ),
@@ -892,8 +892,12 @@ impl Counter {
                 self.expanded_image = None;
                 Task::none()
             }
-            Message::ContentChanged(content) => {
+            Message::SearchTeamsContentChanged(content) => {
                 self.search_teams_input_value = content;
+                Task::none()
+            }
+            Message::SearchChatsContentChanged(content) => {
+                self.search_chats_input_value = content;
                 Task::none()
             }
 

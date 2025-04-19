@@ -89,18 +89,18 @@ pub fn home<'a>(
 
     let search_teams = container(
         text_input("Search teams...", &search_teams_input_value)
-            .on_input(Message::ContentChanged)
+            .on_input(Message::SearchTeamsContentChanged)
             .padding(8)
             .style(|_, _| theme.stylesheet.input),
     )
     .width(220)
     .padding(padding::bottom(18));
 
-    let mut teams_column = column![search_teams, team_scrollbar];
+    let mut side_panel = column![search_teams, team_scrollbar];
 
     // Mantain the same padding as the scrollbar
     if teams_list_empty {
-        teams_column = teams_column.padding(padding::right(18));
+        side_panel = side_panel.padding(padding::right(19));
     }
 
     let mut activities_colum = column![].spacing(12);
@@ -161,7 +161,7 @@ pub fn home<'a>(
     )
     .height(Length::Fill);
 
-    row![teams_column, activities_scrollbar]
+    row![side_panel, activities_scrollbar]
         .spacing(theme.features.page_row_spacing)
         .into()
 }

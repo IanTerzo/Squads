@@ -6,12 +6,13 @@ use crate::components::{
 };
 use crate::style;
 use crate::utils::truncate_name;
+use crate::widgets::circle::circle;
 use crate::Message;
 
 use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, row, Space};
+use iced::widget::{column, container, mouse_area, row, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::{padding, Alignment, Color, Element, Length, Padding};
 
@@ -102,8 +103,8 @@ fn get_chat_picture<'a>(
             c_cached_image(
                 identifier.clone(),
                 Message::FetchMergedProfilePicture(identifier, member_profiles),
-                31.0,
-                31.0,
+                28.0,
+                28.0,
             )
         } else {
             container(container(Space::new(0, 0)))
@@ -116,8 +117,8 @@ fn get_chat_picture<'a>(
 
                     ..Default::default()
                 })
-                .width(31.0)
-                .height(31.0)
+                .width(28.0)
+                .height(28.0)
                 .into()
         }
     }
@@ -133,29 +134,65 @@ pub fn chat<'a>(
     emoji_map: &'a HashMap<String, String>,
     users: &'a HashMap<String, Profile>,
     me: &'a Profile,
+    search_chats_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(theme.features.list_spacing);
 
+    let mut chat_list_empty = true;
+
     for chat in chats {
-        let mut chat_items = row![]
-            .spacing(10)
-            .padding(padding::left(10))
-            .align_y(Alignment::Center);
+        let chat_title = get_chat_title(&chat, &me.id, &users);
+        if !chat_title
+            .to_lowercase()
+            .starts_with(&search_chats_input_value.to_lowercase())
+        {
+            continue;
+        }
+
+        chat_list_empty = false;
+
+        let mut chat_items = row![].align_y(Alignment::Center);
 
         if let Some(is_read) = chat.is_read {
             if !is_read {
-                chat_items = chat_items.push(text("•").size(24)); // Permafix
+                chat_items =
+                    chat_items.push(container(circle(2.5, theme.colors.text)).padding(Padding {
+                        top: 0.0,
+                        right: 4.0,
+                        bottom: 0.0,
+                        left: 4.0,
+                    }))
             }
         }
 
-        let picture = get_chat_picture(&chat, &me.id, &users);
-        let mut chat_info_column = column![text(truncate_name(
-            get_chat_title(&chat, &me.id, &users),
-            20
-        ))];
+        let picture = if let Some(is_read) = chat.is_read {
+            if !is_read {
+                container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
+                    top: 0.0,
+                    right: 9.0,
+                    bottom: 0.0,
+                    left: 0.0,
+                })
+            } else {
+                container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
+                    top: 0.0,
+                    right: 9.0,
+                    bottom: 0.0,
+                    left: 13.0,
+                })
+            }
+        } else {
+            container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
+                top: 0.0,
+                right: 9.0,
+                bottom: 0.0,
+                left: 13.0,
+            })
+        };
 
+        let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
         if let Some(users_typing) = users_typing.get(&chat.id) {
             if users_typing.into_iter().len() > 0 {
                 chat_info_column = chat_info_column
@@ -196,7 +233,18 @@ pub fn chat<'a>(
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
-    let mut page = row![chats_scrollable].spacing(theme.features.page_row_spacing);
+    let search_chats = container(
+        text_input("Search chats...", &search_chats_input_value)
+            .on_input(Message::SearchChatsContentChanged)
+            .padding(8)
+            .style(|_, _| theme.stylesheet.input),
+    )
+    .width(220)
+    .padding(padding::bottom(18));
+
+    let side_panel = column![search_chats, chats_scrollable];
+
+    let mut page = row![side_panel].spacing(theme.features.page_row_spacing);
 
     if let Some(current_chat) = current_chat {
         let mut message_column = column![].spacing(8);
