@@ -275,8 +275,6 @@ fn transform_html<'a>(
                 let color = theme.colors.primary3;
                 let mut raw_code = child_element.inner_html();
 
-                println!("{}", child_element.html());
-
                 raw_code = raw_code.replace("<br>", "\n");
 
                 let lines: Vec<Element<Message>> = raw_code

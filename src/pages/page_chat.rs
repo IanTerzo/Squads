@@ -6,6 +6,7 @@ use crate::components::{
 };
 use crate::style;
 use crate::utils::truncate_name;
+use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
 
@@ -133,6 +134,7 @@ pub fn chat<'a>(
     chat_message_options: &'a HashMap<String, bool>,
     emoji_map: &'a HashMap<String, String>,
     users: &'a HashMap<String, Profile>,
+    user_presences: &'a HashMap<String, Presence>,
     me: &'a Profile,
     search_chats_input_value: String,
     message_area_content: &'a Content,
@@ -194,6 +196,15 @@ pub fn chat<'a>(
         };
 
         if chat.members.len() == 2 {
+            let presence = user_presences.get(
+                &chat
+                    .members
+                    .iter()
+                    .find(|member| member.mri != format!("8:orgid:{}", me.id))
+                    .unwrap()
+                    .mri,
+            );
+
             chat_items = chat_items.push(stack![
                 container(picture).padding(Padding {
                     top: 5.0,
@@ -201,7 +212,26 @@ pub fn chat<'a>(
                     right: 0.0,
                     left: 0.0
                 }),
-                container(circle(5.5, theme.colors.status_available)).padding(Padding {
+                container(circle(
+                    5.5,
+                    if let Some(presence) = presence {
+                        if let Some(activity) = &presence.presence.activity {
+                            match activity.as_str() {
+                                "Available" => theme.colors.status_available,
+                                "Busy" => theme.colors.status_busy,
+                                "DoNotDisturb" => theme.colors.status_busy,
+                                "Away" => theme.colors.status_away,
+                                "BeRightBack" => theme.colors.status_away,
+                                _ => theme.colors.status_offline,
+                            }
+                        } else {
+                            theme.colors.status_offline
+                        }
+                    } else {
+                        theme.colors.status_offline
+                    }
+                ))
+                .padding(Padding {
                     top: 24.0,
                     right: 0.0,
                     bottom: 0.0,

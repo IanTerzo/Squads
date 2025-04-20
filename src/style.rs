@@ -36,6 +36,9 @@ pub struct Colors {
     pub primary1_selected: Color,
     pub notification: Color,
     pub status_available: Color,
+    pub status_offline: Color,
+    pub status_busy: Color,
+    pub status_away: Color,
 }
 
 #[derive(Debug)]
@@ -68,6 +71,9 @@ pub fn squads_dark() -> Theme {
         primary3: Color::parse("#2b3338").expect("Color is invalid."),
         notification: Color::WHITE,
         status_available: Color::parse("#4db255").expect("Color is invalid."),
+        status_offline: Color::parse("#696c65").expect("Color is invalid."),
+        status_busy: Color::parse("#a92622").expect("Color is invalid."),
+        status_away: Color::parse("#ed9612").expect("Color is invalid."),
     };
 
     let features = Features {

@@ -35,6 +35,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -44,7 +45,10 @@ use tokio::time::sleep;
 use types::*;
 use utils::{get_cache, get_epoch_ms, save_to_cache};
 use webbrowser;
-use websockets::{connect, WebsocketMessage, WebsocketResponse};
+use websockets::{
+    connect, websockets_subscription, ConnectionInfo, Presence, Presences, WebsocketMessage,
+    WebsocketResponse,
+};
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -105,9 +109,11 @@ struct Counter {
     // Teams requested data
     me: Profile,
     users: HashMap<String, Profile>,
+    user_presences: HashMap<String, Presence>, // Where string is the user id
     teams: Vec<Team>,
     chats: Vec<Chat>,
     activities: Vec<api::Message>,
+    websockets_connection_info: Option<ConnectionInfo>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,7 +169,9 @@ pub enum Message {
     DownloadedFile(String),
 
     // Websockets
+    WSConnected(ConnectionInfo),
     GotWSMessage(WebsocketMessage),
+    GotWSPresences(Presences),
     TypingTimeoutFinished(String, String),
 
     // Other
@@ -369,6 +377,8 @@ impl Counter {
                 current_channel_id: None,
                 current_chat_id: first_chat,
             }],
+            websockets_connection_info: None,
+            user_presences: HashMap::new(),
             expanded_image: None,
             should_send_typing: true,
             history_index: 0,
@@ -496,6 +506,7 @@ impl Counter {
                         &self.chat_message_options,
                         &self.emoji_map,
                         &self.users,
+                        &self.user_presences,
                         &self.me,
                         self.search_chats_input_value.clone(),
                         &self.chat_message_area_content,
@@ -1274,11 +1285,63 @@ impl Counter {
                 Task::none()
             }
             // Websockets
+            Message::WSConnected(info) => {
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
+                // This will be more useful in the future...
+                self.websockets_connection_info = Some(info.clone());
+
+                let surl = info.surl.clone();
+                let endpoint = info.endpoint.clone();
+
+                let mut chat_users = HashSet::new();
+
+                for chat in &self.chats {
+                    for member in &chat.members {
+                        chat_users.insert(member.mri.clone());
+                    }
+                }
+
+                let subscriptions = chat_users
+                    .iter()
+                    .map(|mri| format!(r#"{{"mri":"{}","source":"ups"}}"#, mri))
+                    .collect::<Vec<_>>()
+                    .join(",");
+
+                let body = format!(
+                    r#"{{
+                           "trouterUri":"{}/unifiedPresenceService",
+                           "shouldPurgePreviousSubscriptions":false,
+                           "subscriptionsToAdd":[{}],
+                           "subscriptionsToRemove":[]
+                       }}"#,
+                    surl, subscriptions
+                );
+
+                Task::perform(
+                    async move {
+                        let time = get_epoch_ms();
+
+                        let access_token = get_or_gen_token(
+                            access_tokens_arc,
+                            "https://presence.teams.microsoft.com/.default".to_string(),
+                            &tenant,
+                        )
+                        .await;
+
+                        websockets_subscription(&access_token, &endpoint, &surl, body)
+                            .await
+                            .unwrap();
+                    },
+                    Message::DoNothing,
+                )
+            }
             Message::GotWSMessage(message) => {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                let message = message.body.resource;
+                let message = message.resource;
                 //println!("{message:#?}");
                 if let Some(message_type) = &message.message_type {
                     if message_type == "Control/Typing" {
@@ -1416,6 +1479,12 @@ impl Counter {
 
                 Task::none()
             }
+            Message::GotWSPresences(presences) => {
+                for presence in presences.presence {
+                    self.user_presences.insert(presence.mri.clone(), presence);
+                }
+                Task::none()
+            }
             Message::TypingTimeoutFinished(chat_id, user_id) => {
                 self.users_typing_timeouts
                     .get_mut(&chat_id)
@@ -1458,7 +1527,9 @@ impl Counter {
                     connect(self.access_tokens.clone(), self.tenant.clone()),
                 )
                 .map(|response_type| match response_type {
+                    WebsocketResponse::Connected(info) => Message::WSConnected(info),
                     WebsocketResponse::Message(value) => Message::GotWSMessage(value),
+                    WebsocketResponse::Presences(value) => Message::GotWSPresences(value),
                     WebsocketResponse::Other(value) => Message::DoNothing(()),
                 }),
             )

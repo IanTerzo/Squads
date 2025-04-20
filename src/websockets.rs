@@ -7,7 +7,6 @@ use futures::stream::{Stream, StreamExt};
 use iced::futures;
 use iced::stream;
 use reqwest::{header::HeaderMap, Client};
-use serde::Deserializer;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use urlencoding::encode;
@@ -22,24 +21,71 @@ enum State {
     Connected(async_tungstenite::WebSocketStream<async_tungstenite::tokio::ConnectStream>),
 }
 
+// Can be expanded in case headers are needed
+#[derive(Debug, Deserialize)]
+struct WebsocketResponseWrapper {
+    body: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WebsocketResponse {
+    Connected(ConnectionInfo),
     Message(WebsocketMessage),
+    Presences(Presences),
     Other(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionInfo {
+    pub endpoint: String,
+    pub surl: String,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Presences {
+    pub presence: Vec<Presence>,
+    pub is_snapshot: Option<bool>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Presence {
+    pub mri: String,
+    pub etag: String,
+    pub source: Option<String>,
+    pub presence: PresenceInfo,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PresenceInfo {
+    pub source_network: Option<String>,
+    pub calendar_data: Option<CalendarData>,
+    pub availability: Option<String>,
+    pub activity: Option<String>,
+    pub device_type: Option<String>,
+    pub last_active_time: Option<String>,
+    pub note: Option<Note>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarData {
+    pub is_out_of_office: bool,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Note {
+    pub message: String,
+    pub publish_time: String,
+    pub expiry: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebsocketMessage {
-    pub id: i64,
-    pub url: String,
-    #[serde(deserialize_with = "into_websocket_message_body")]
-    pub body: WebsocketMessageBody,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WebsocketMessageBody {
     pub time: String,
     #[serde(rename = "type")]
     pub type_field: String,
@@ -56,14 +102,45 @@ struct TrouterConnectionInfo {
     connectparams: Value,
 }
 
-fn into_websocket_message_body<'de, D>(deserializer: D) -> Result<WebsocketMessageBody, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let deserialized = String::deserialize(deserializer)?;
-    let res: WebsocketMessageBody =
-        serde_json::from_str(&deserialized).map_err(serde::de::Error::custom)?;
-    Ok(res)
+pub async fn websockets_subscription(
+    token: &AccessToken,
+    endpoint: &str,
+    surl: &str,
+    body: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let url = format!(
+        "https://teams.microsoft.com/ups/emea/v1/pubsub/subscriptions/{}",
+        endpoint
+    );
+
+    let mut headers = HeaderMap::new();
+
+    let access_token = format!("Bearer {}", token.value);
+
+    headers.insert("authorization", access_token.parse().unwrap());
+
+    headers.insert("content-type", "application/json".parse().unwrap());
+    headers.insert("x-ms-client-user-agent", "Teams-V2-Web".parse().unwrap());
+    headers.insert("x-ms-client-version", "1415/25040319109".parse().unwrap());
+    headers.insert("x-ms-correlation-id", "1".parse().unwrap());
+    headers.insert("x-ms-endpoint-id", endpoint.parse().unwrap());
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.post(url).headers(headers).body(body).send().await?;
+
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
 }
 
 async fn teams_trouter_start(
@@ -189,7 +266,7 @@ async fn teams_trouter_register_one(
     Ok(())
 }
 
-async fn begin_websockets(skype_token: &str, endpoint: &str) -> String {
+async fn begin_websockets(skype_token: &str, endpoint: &str) -> (String, String) {
     let connection_info = teams_trouter_start(endpoint, skype_token).await.unwrap();
 
     let mut url = format!("{}socket.io/1/?v=v4&", connection_info.socketio);
@@ -277,7 +354,10 @@ async fn begin_websockets(skype_token: &str, endpoint: &str) -> String {
     .await
     .unwrap();
 
-    websocket_url.replace("https://", "wss://")
+    (
+        websocket_url.replace("https://", "wss://"),
+        connection_info.surl,
+    )
 }
 
 pub fn connect(
@@ -298,11 +378,17 @@ pub fn connect(
                     let skype_token =
                         get_or_gen_skype_token(access_tokens.clone(), access_token).await;
 
-                    let endpoint = "94e0c9c2-8408-4d38-995b-1cf5f4e14fds";
+                    let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29";
 
-                    let url = begin_websockets(&skype_token.value, endpoint).await;
+                    let (url, surl) = begin_websockets(&skype_token.value, endpoint).await;
                     match async_tungstenite::tokio::connect_async(url).await {
                         Ok((websocket, _)) => {
+                            let _ = output
+                                .send(WebsocketResponse::Connected(ConnectionInfo {
+                                    endpoint: endpoint.to_string(),
+                                    surl,
+                                }))
+                                .await;
                             state = State::Connected(websocket);
                         }
                         Err(e) => {
@@ -319,13 +405,20 @@ pub fn connect(
                             match received {
                                 Ok(tungstenite::Message::Text(message)) => {
                                     if let Some(json_content) = message.as_str().find('{').map(|i| &message[i..]) {
-                                        if let Ok(message_t) = serde_json::from_str(json_content) {
-                                            let _ = output.send(WebsocketResponse::Message(message_t)).await;
+                                        if let Ok(wrapper) = serde_json::from_str::<WebsocketResponseWrapper>(json_content) {
+                                            let json_body = wrapper.body;
+
+                                            if let Ok(message_t) = serde_json::from_str(&json_body) {
+                                                let _ = output.send(WebsocketResponse::Message(message_t)).await;
+                                            }
+                                            else if let Ok(presences) = serde_json::from_str(&json_body) {
+                                                let _ = output.send(WebsocketResponse::Presences(presences)).await;
+                                            }
+                                            else {
+                                                let _ = output.send(WebsocketResponse::Other(message.to_string())).await;
+                                            }
                                         }
-                                        else {
-                                            let _ = output.send(WebsocketResponse::Other(message.to_string())).await;
-                                        }
-                                   }
+                                    }
                                 }
                                 Err(_) => {
                                     eprintln!("Websocket connection failed.");
