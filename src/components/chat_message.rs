@@ -2,6 +2,8 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
+use crate::websockets::Presence;
+use crate::widgets::circle::circle;
 use crate::Message;
 use base64::display;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
@@ -17,6 +19,7 @@ pub fn c_chat_message<'a>(
     chat_message_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    user_presences: &'a HashMap<String, Presence>,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -42,6 +45,8 @@ pub fn c_chat_message<'a>(
                         message.im_display_name.unwrap()
                     };
 
+                let presence = user_presences.get(&user_id);
+
                 let identifier = user_id.clone().replace(":", "");
 
                 let user_picture = c_cached_image(
@@ -51,12 +56,42 @@ pub fn c_chat_message<'a>(
                     31.0,
                 );
 
-                message_row = message_row.push(container(user_picture).padding(Padding {
-                    top: 7.0,
-                    right: 11.0,
-                    bottom: 4.0,
-                    left: 8.0,
-                }));
+                message_row = message_row.push(container(stack![
+                    container(user_picture).padding(Padding {
+                        top: 7.0,
+                        right: 11.0,
+                        bottom: 4.0,
+                        left: 8.0,
+                    }),
+                    container(circle(
+                        5.5,
+                        if let Some(presence) = presence {
+                            if let Some(activity) = &presence.presence.activity {
+                                println!("{}", activity);
+                                match activity.as_str() {
+                                    "Available" => theme.colors.status_available,
+                                    "Busy" => theme.colors.status_busy,
+                                    "DoNotDisturb" => theme.colors.status_busy,
+                                    "InACall" => theme.colors.status_busy,
+                                    "Presenting" => theme.colors.status_busy,
+                                    "Away" => theme.colors.status_away,
+                                    "BeRightBack" => theme.colors.status_away,
+                                    _ => theme.colors.status_offline,
+                                }
+                            } else {
+                                theme.colors.status_offline
+                            }
+                        } else {
+                            theme.colors.status_offline
+                        }
+                    ))
+                    .padding(Padding {
+                        top: 30.0,
+                        right: 0.0,
+                        bottom: 0.0,
+                        left: 32.0
+                    })
+                ]));
                 message_info = message_info.push(text!("{}", display_name).font(Font {
                     weight: font::Weight::Bold,
                     ..Default::default()

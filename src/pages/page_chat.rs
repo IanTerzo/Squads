@@ -216,10 +216,13 @@ pub fn chat<'a>(
                     5.5,
                     if let Some(presence) = presence {
                         if let Some(activity) = &presence.presence.activity {
+                            println!("{}", activity);
                             match activity.as_str() {
                                 "Available" => theme.colors.status_available,
                                 "Busy" => theme.colors.status_busy,
                                 "DoNotDisturb" => theme.colors.status_busy,
+                                "InACall" => theme.colors.status_busy,
+                                "Presenting" => theme.colors.status_busy,
                                 "Away" => theme.colors.status_away,
                                 "BeRightBack" => theme.colors.status_away,
                                 _ => theme.colors.status_offline,
@@ -310,9 +313,14 @@ pub fn chat<'a>(
             let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
 
             for message in ordered_conversation {
-                if let Some(message_element) =
-                    c_chat_message(theme, message, chat_message_options, emoji_map, users)
-                {
+                if let Some(message_element) = c_chat_message(
+                    theme,
+                    message,
+                    chat_message_options,
+                    emoji_map,
+                    users,
+                    user_presences,
+                ) {
                     message_column = message_column.push(message_element);
                 }
             }
