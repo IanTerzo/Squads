@@ -216,7 +216,6 @@ pub fn chat<'a>(
                     5.5,
                     if let Some(presence) = presence {
                         if let Some(activity) = &presence.presence.activity {
-                            println!("{}", activity);
                             match activity.as_str() {
                                 "Available" => theme.colors.status_available,
                                 "Busy" => theme.colors.status_busy,
@@ -302,7 +301,12 @@ pub fn chat<'a>(
     .width(220)
     .padding(padding::bottom(18));
 
-    let side_panel = column![search_chats, chats_scrollable];
+    let mut side_panel = column![search_chats, chats_scrollable];
+
+    // Mantain the same padding as the scrollbar
+    if chat_list_empty {
+        side_panel = side_panel.padding(padding::right(19));
+    }
 
     let mut page = row![side_panel].spacing(theme.features.page_row_spacing);
 

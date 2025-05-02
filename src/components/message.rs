@@ -78,7 +78,43 @@ pub fn c_message<'a>(
     // Message subject
 
     if let Some(properties) = &message.properties {
-        if let Some(subject) = &properties.subject {
+        if let Some(title) = &properties.title {
+            let trimmed_title = title.trim_start();
+            let mut text_row = row![];
+            if trimmed_title != "" {
+                for c in trimmed_title.chars() {
+                    if c.is_emoji_char() && !c.is_digit(10) {
+                        text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
+                    } else {
+                        text_row = text_row.push(text(c).size(18).font(font::Font {
+                            weight: font::Weight::Bold,
+                            ..Default::default()
+                        }));
+                    }
+                }
+                if let Some(subject) = &properties.subject {
+                    let trimmed_subject = subject.trim_start();
+                    if trimmed_subject != "" {
+                        text_row = text_row.push(text(" - ").size(18).font(font::Font {
+                            weight: font::Weight::Bold,
+                            ..Default::default()
+                        }));
+                        for c in trimmed_subject.chars() {
+                            if c.is_emoji_char() && !c.is_digit(10) {
+                                text_row = text_row
+                                    .push(text(c).font(Font::with_name("Twemoji")).size(18));
+                            } else {
+                                text_row = text_row.push(text(c).size(18).font(font::Font {
+                                    weight: font::Weight::Bold,
+                                    ..Default::default()
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
+            message_column = message_column.push(text_row);
+        } else if let Some(subject) = &properties.subject {
             let trimmed_subject = subject.trim_start();
             // Edgecase
             if trimmed_subject != "" {
@@ -239,7 +275,7 @@ pub fn c_message<'a>(
                     files_row = files_row.push(file_container);
                 }
 
-                message_column = message_column.push(files_row);
+                message_column = message_column.push(files_row.wrap());
             }
         }
     }

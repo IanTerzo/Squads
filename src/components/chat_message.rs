@@ -67,7 +67,6 @@ pub fn c_chat_message<'a>(
                         5.5,
                         if let Some(presence) = presence {
                             if let Some(activity) = &presence.presence.activity {
-                                println!("{}", activity);
                                 match activity.as_str() {
                                     "Available" => theme.colors.status_available,
                                     "Busy" => theme.colors.status_busy,
@@ -254,7 +253,7 @@ pub fn c_chat_message<'a>(
                     files_row = files_row.push(file_container);
                 }
 
-                contents_column = contents_column.push(files_row);
+                contents_column = contents_column.push(files_row.wrap());
             }
         }
     }

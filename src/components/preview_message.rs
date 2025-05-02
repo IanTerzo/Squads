@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::widget::{column, container, row, text};
-use iced::{Alignment, Element, Font};
+use iced::{border, Alignment, Element, Font};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
@@ -57,7 +57,7 @@ pub fn c_preview_message<'a>(
 
     // TODO truncate everything
     if activity.activity_type == "mention" {
-        let max_len = (window_width * 0.09) as usize;
+        let max_len = (window_width * 0.1) as usize;
         let mut lines = activity.message_preview.split("\n");
         let mut first_line = lines.nth(0).unwrap().to_string();
 
@@ -72,19 +72,33 @@ pub fn c_preview_message<'a>(
 
         message_column = message_column.push(text(first_line).color(theme.colors.demo_text));
     } else if activity.activity_type == "reactionInChat" {
-        // message.preview // tuo messagwe
-        // message.activity_subtype // emoji id
+        let max_len = (window_width * 0.1) as usize;
 
         let mut reaction_unicode = "(?)";
         if let Some(reaction_value) = emoji_map.get(&activity.activity_subtype.unwrap()) {
             reaction_unicode = reaction_value;
         }
 
-        message_column = message_column.push(column![
-            text!("> {}", activity.message_preview).color(theme.colors.demo_text),
-            text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
-            // show thread and mesage preview
-        ]);
+        message_column = message_column.push(
+            column![
+                container(row![
+                    text("| ").color(theme.colors.demo_text),
+                    text(truncate_name(
+                        activity.message_preview.replace("\n", ""),
+                        max_len
+                    ))
+                ])
+                .padding(5)
+                .style(move |_| container::Style {
+                    background: Some(theme.colors.primary3.into()),
+                    border: border::rounded(4),
+                    ..Default::default()
+                }),
+                text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
+                // show thread and mesage preview
+            ]
+            .spacing(8),
+        );
     } else if activity.activity_type == "msGraph" {
         // TODO: check subtype
         message_column = message_column

@@ -250,7 +250,7 @@ fn transform_html<'a>(
                                         }
                                     }),
                                 )
-                                .padding(padding::bottom(5))
+                                .padding(padding::bottom(8))
                                 .into(),
                             );
                         }
@@ -265,7 +265,7 @@ fn transform_html<'a>(
                         .padding(5)
                         .style(move |_| container::Style {
                             background: Some(color.into()),
-                            border: border::rounded(5),
+                            border: border::rounded(4),
                             ..Default::default()
                         })
                         .into(),
@@ -369,7 +369,8 @@ pub fn parse_message_html<'a>(
     theme: &style::Theme,
     content: String,
 ) -> Result<Element<'a, Message>, String> {
-    let document = Html::parse_document(content.as_str());
+    let content = content.trim_end().trim_end_matches("<p>&nbsp;</p>"); //Remove tailing space
+    let document = Html::parse_document(content);
 
     let selector = Selector::parse("body").unwrap();
     if let Some(root_element) = document.select(&selector).next() {

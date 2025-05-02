@@ -117,11 +117,11 @@ pub fn home<'a>(
 
         let message_activity_id = message.id.unwrap().to_string();
 
-        if let Some(value) = expanded_conversations.get(&message_activity_id) {
-            if value.len() > 0 {
+        if let Some(conversation) = expanded_conversations.get(&message_activity_id) {
+            if conversation.len() > 0 {
                 let message = c_conversation(
                     theme,
-                    value.to_owned(),
+                    conversation.iter().rev().cloned().collect(), // Can be optimized
                     message_activity_id.clone(),
                     false,
                     emoji_map,
