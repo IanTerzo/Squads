@@ -190,30 +190,33 @@ fn transform_html<'a>(
 
                         dynamic_container = dynamic_container.push(team_picture.into());
                     } else if itemtype == "http://schema.skype.com/Giphy" {
-                        let image_url = child_element.attr("src").unwrap().to_string();
+                        if let Some(image_url) = child_element.attr("src") {
+                            let identifier = xxh3_64(image_url.to_string().as_bytes()).to_string();
 
-                        let identifier = xxh3_64(image_url.to_string().as_bytes()).to_string();
+                            let mut image_width = 250.0;
+                            let mut image_height = 250.0;
 
-                        let mut image_width = 250.0;
-                        let mut image_height = 250.0;
+                            if let Some(width) = child_element.attr("width") {
+                                let width = width.parse().unwrap();
+                                image_width = width;
+                            }
 
-                        if let Some(width) = child_element.attr("width") {
-                            let width = width.parse().unwrap();
-                            image_width = width;
+                            if let Some(height) = child_element.attr("height") {
+                                let height = height.parse().unwrap();
+                                image_height = height;
+                            }
+                            let team_picture = mouse_area(c_cached_gif(
+                                identifier.clone(),
+                                Message::DownloadImage(image_url.to_string(), identifier.clone()),
+                                image_width,
+                                image_height,
+                            ))
+                            .on_release(Message::ExpandImage(identifier, "gif".to_string()));
+                            dynamic_container = dynamic_container.push(team_picture.into());
+                        } else {
+                            dynamic_container =
+                                dynamic_container.push(text!("Failed to load gif").into());
                         }
-
-                        if let Some(height) = child_element.attr("height") {
-                            let height = height.parse().unwrap();
-                            image_height = height;
-                        }
-                        let team_picture = mouse_area(c_cached_gif(
-                            identifier.clone(),
-                            Message::DownloadImage(image_url, identifier.clone()),
-                            image_width,
-                            image_height,
-                        ))
-                        .on_release(Message::ExpandImage(identifier, "gif".to_string()));
-                        dynamic_container = dynamic_container.push(team_picture.into());
                     }
                 }
             } else if element_name == "blockquote" {
