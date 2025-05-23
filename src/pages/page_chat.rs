@@ -13,7 +13,7 @@ use crate::Message;
 use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, row, stack, text_input, Space};
+use iced::widget::{column, container, mouse_area, row, stack, svg, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::{padding, Alignment, Color, Element, Length, Padding};
 
@@ -344,14 +344,40 @@ pub fn chat<'a>(
         )
         .height(Length::Fill);
 
-        let title = get_chat_title(&current_chat, &me.id, &users);
+        let title = truncate_name(get_chat_title(&current_chat, &me.id, &users), 52);
         let picture = get_chat_picture(&current_chat, &me.id, &users);
-        let tile_row = row![picture, text(title)].spacing(15).padding(Padding {
-            top: 0.0,
-            right: 14.0,
+        let tile_row = row![
+            picture,
+            Space::with_width(15),
+            text(title),
+            if let Some(is_one_on_one) = current_chat.is_one_on_one {
+                if !is_one_on_one {
+                    row![
+                        Space::with_width(8),
+                        svg("images/pencil.svg").width(17).height(17),
+                    ]
+                } else {
+                    row![]
+                }
+            } else {
+                row![]
+            },
+            container(
+                row![
+                    svg("images/users-round.svg").width(19).height(19),
+                    svg("images/user-round-plus.svg").width(19).height(19)
+                ]
+                .spacing(14)
+            )
+            .align_right(Length::Fill)
+        ]
+        .padding(Padding {
+            top: 6.0,
+            right: 24.0,
             bottom: 6.0,
             left: 14.0,
-        });
+        })
+        .align_y(Alignment::Center);
 
         let mut content_page = column![
             container(tile_row).padding(padding::bottom(14)),
