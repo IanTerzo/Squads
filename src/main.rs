@@ -25,7 +25,9 @@ use iced::keyboard::key::Named;
 use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
-use iced::{event, keyboard, window, Color, Element, Event, Size, Subscription, Task, Theme};
+use iced::{
+    event, keyboard, window, Color, Element, Event, Point, Size, Subscription, Task, Theme,
+};
 use pages::app;
 use pages::page_chat::chat;
 use pages::page_home::home;
@@ -130,6 +132,7 @@ pub enum Message {
 
     // UI interactions
     MessageAreaEdit(text_editor::Action),
+    MessageAreaAction(MessageAreaAction),
     LinkClicked(String),
     OpenHome,
     OpenTeam(String, String),
@@ -323,6 +326,12 @@ fn post_message_task(
         },
         Message::DoNothing,
     )
+}
+
+fn content_send(content: &mut Content, message: &str) {
+    for char in message.chars() {
+        content.perform(Action::Edit(Edit::Insert(char)));
+    }
 }
 
 impl Counter {
@@ -603,6 +612,29 @@ impl Counter {
                         if self.team_message_area_height > max_area_height {
                             self.team_message_area_height = max_area_height;
                         }
+
+                        let (message_area_content, message_area_height) = match self.page.view {
+                            View::Team => (
+                                &mut self.team_message_area_content,
+                                &mut self.team_message_area_height,
+                            ),
+                            View::Chat => (
+                                &mut self.chat_message_area_content,
+                                &mut self.chat_message_area_height,
+                            ),
+                            _ => return Task::none(), // Should never happen
+                        };
+
+                        // Handle sizing
+
+                        let line_count = message_area_content.line_count();
+                        let new_height = 33.0 + line_count as f32 * 21.0;
+
+                        *message_area_height = if new_height > max_area_height {
+                            max_area_height
+                        } else {
+                            new_height
+                        };
                     }
                     _ => {}
                 }
@@ -726,6 +758,120 @@ impl Counter {
                         ]);
                     }
                 }
+                Task::none()
+            }
+            Message::MessageAreaAction(action) => {
+                let (content, message_area_height) = match self.page.view {
+                    View::Team => (
+                        &mut self.team_message_area_content,
+                        &mut self.team_message_area_height,
+                    ),
+                    View::Chat => (
+                        &mut self.chat_message_area_content,
+                        &mut self.chat_message_area_height,
+                    ),
+                    _ => return Task::none(), // Should never happen
+                };
+
+                let selection = content.selection();
+
+                match action {
+                    MessageAreaAction::Bold => {
+                        content_send(content, "**");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+
+                        content_send(content, "**");
+                    }
+                    MessageAreaAction::Italic => {
+                        content_send(content, "*");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+
+                        content_send(content, "*");
+                    }
+                    MessageAreaAction::Underline => {
+                        content_send(content, "<u>");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+
+                        content_send(content, "</u>");
+                    }
+                    MessageAreaAction::Striketrough => {
+                        content_send(content, "~~");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+
+                        content_send(content, "~~");
+                    }
+                    MessageAreaAction::Blockquote => {
+                        if content.text() != "\n" {
+                            content_send(content, "\n\n");
+                        }
+
+                        content_send(content, "> ");
+                    }
+                    MessageAreaAction::Link => {
+                        content_send(content, "[");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+                        content_send(content, "](url)");
+                    }
+                    MessageAreaAction::Image => {
+                        content_send(content, "![");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+                        content_send(content, "](url)");
+                    }
+                    MessageAreaAction::Code => {
+                        content_send(content, "`");
+
+                        if let Some(selection) = selection {
+                            for char in selection.chars() {
+                                content.perform(Action::Edit(Edit::Insert(char)));
+                            }
+                        }
+                        content_send(content, "`");
+                    }
+                }
+
+                // Handle sizing
+
+                let max_area_height = 0.5 * self.window_height;
+
+                let line_count = content.line_count();
+                let new_height = 33.0 + line_count as f32 * 21.0;
+
+                *message_area_height = if new_height > max_area_height {
+                    max_area_height
+                } else {
+                    new_height
+                };
+
                 Task::none()
             }
             Message::AllowPostIsTyping(()) => {
@@ -1084,17 +1230,27 @@ impl Counter {
                 Task::none()
             }
             Message::PostMessage => {
-                let message_area_text = match self.page.view {
-                    View::Team => self.team_message_area_content.text(),
-                    View::Chat => self.chat_message_area_content.text(),
-                    _ => "".to_string(),
+                let (message_area_content, message_area_height) = match self.page.view {
+                    View::Team => (
+                        &mut self.team_message_area_content,
+                        &mut self.team_message_area_height,
+                    ),
+                    View::Chat => (
+                        &mut self.chat_message_area_content,
+                        &mut self.chat_message_area_height,
+                    ),
+                    _ => return Task::none(), // Should never happen
                 };
+
+                let message_area_text = message_area_content.text();
 
                 match self.page.view {
                     View::Team => self.team_message_area_content = Content::new(),
                     View::Chat => self.chat_message_area_content = Content::new(),
                     _ => {}
                 }
+
+                *message_area_height = 54.0;
 
                 let conversation_id = match self.page.view {
                     View::Team => self.page.current_channel_id.clone().unwrap(),

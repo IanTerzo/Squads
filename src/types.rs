@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone)]
+pub enum MessageAreaAction {
+    Bold,
+    Italic,
+    Underline,
+    Striketrough,
+    Code,
+    Blockquote,
+    Link,
+    Image,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamsMessage<'a> {

@@ -3,6 +3,7 @@ use iced::widget::{column, container, mouse_area, rich_text, row, span, svg, tex
 use iced::{font, padding, Alignment, Element, Font, Length, Padding};
 
 use crate::style;
+use crate::types::MessageAreaAction;
 use crate::Message;
 
 pub fn c_message_area<'a>(
@@ -28,18 +29,30 @@ pub fn c_message_area<'a>(
                     container(
                         row![
                             row![
-                                rich_text![span("B").font(Font {
-                                    weight: font::Weight::Bold,
-                                    ..Default::default()
-                                })]
-                                .size(20),
-                                rich_text![span("I").font(Font {
-                                    style: font::Style::Italic,
-                                    ..Default::default()
-                                })]
-                                .size(20),
-                                rich_text![span("U").underline(true)].size(20),
-                                rich_text![span("S").strikethrough(true)].size(20)
+                                mouse_area(
+                                    rich_text![span("B").font(Font {
+                                        weight: font::Weight::Bold,
+                                        ..Default::default()
+                                    })]
+                                    .size(20)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Bold)),
+                                mouse_area(
+                                    rich_text![span("I").font(Font {
+                                        style: font::Style::Italic,
+                                        ..Default::default()
+                                    })]
+                                    .size(20)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Italic)),
+                                mouse_area(rich_text![span("U").underline(true)].size(20))
+                                    .on_release(Message::MessageAreaAction(
+                                        MessageAreaAction::Underline
+                                    )),
+                                mouse_area(rich_text![span("S").strikethrough(true)].size(20))
+                                    .on_release(Message::MessageAreaAction(
+                                        MessageAreaAction::Striketrough
+                                    )),
                             ]
                             .spacing(8),
                             row![
@@ -49,10 +62,20 @@ pub fn c_message_area<'a>(
                             .padding(padding::top(3))
                             .spacing(8),
                             row![
-                                svg("images/code.svg").width(23).height(23),
-                                svg("images/text-quote.svg").width(23).height(23),
-                                svg("images/link.svg").width(19).height(19),
-                                svg("images/image.svg").width(19).height(19),
+                                mouse_area(svg("images/code.svg").width(23).height(23)).on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::Code)
+                                ),
+                                mouse_area(svg("images/text-quote.svg").width(23).height(23))
+                                    .on_release(Message::MessageAreaAction(
+                                        MessageAreaAction::Blockquote
+                                    )),
+                                mouse_area(svg("images/link.svg").width(19).height(19)).on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::Link)
+                                ),
+                                mouse_area(svg("images/image.svg").width(19).height(19))
+                                    .on_release(Message::MessageAreaAction(
+                                        MessageAreaAction::Image
+                                    )),
                                 svg("images/at-sign.svg").width(19).height(19)
                             ]
                             .padding(padding::top(3))

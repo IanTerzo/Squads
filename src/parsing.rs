@@ -7,7 +7,6 @@ use directories::ProjectDirs;
 use iced::border;
 use iced::padding;
 use iced::widget::mouse_area;
-use iced::widget::text_editor;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
@@ -21,9 +20,21 @@ use std::collections::HashMap;
 use xxhash_rust::xxh3::xxh3_64;
 
 pub fn parse_message_markdown(text: String) -> String {
+    println!("text: {}", text);
+    // handle newlines
+
+    let mut preparsed: String = "".to_string();
+
+    for line in text.lines() {
+        preparsed += "fds";
+    }
+
     let mut md = MarkdownIt::new();
     plugins::cmark::add(&mut md);
     let html = md.parse(text.as_str()).render();
+
+    println!("html: {}", html);
+
     html
 }
 
@@ -359,7 +370,7 @@ fn transform_html<'a>(
                 }
 
                 // Wrap in rich_text and push to container
-                let text = rich_text![text_span];
+                let text = rich_text![text_span.clone()];
                 dynamic_container = dynamic_container.push(text.into());
             }
         }
