@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
+use crate::components::message;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
@@ -15,7 +16,7 @@ use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text_input, Space};
 use iced::widget::{scrollable, text};
-use iced::{padding, Alignment, Color, Element, Length, Padding};
+use iced::{border, padding, Alignment, Color, Element, Length, Padding};
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
     if let Some(chat_title) = &chat.title {
@@ -139,6 +140,7 @@ pub fn chat<'a>(
     search_chats_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
+    show_members: &bool,
 ) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(theme.features.list_spacing);
 
@@ -330,20 +332,6 @@ pub fn chat<'a>(
             }
         };
 
-        let conversation_scrollbar = container(
-            scrollable(message_column)
-                .direction(scrollable::Direction::Vertical(
-                    scrollable::Scrollbar::new()
-                        .width(theme.features.scrollbar_width)
-                        .spacing(theme.features.scrollable_spacing)
-                        .scroller_width(theme.features.scrollbar_width),
-                ))
-                .style(|_, _| theme.stylesheet.chat_scrollable)
-                .id(Id::new("conversation_column"))
-                .on_scroll(Message::OnScroll),
-        )
-        .height(Length::Fill);
-
         let title = truncate_name(get_chat_title(&current_chat, &me.id, &users), 52);
         let picture = get_chat_picture(&current_chat, &me.id, &users);
         let tile_row = row![
@@ -364,7 +352,8 @@ pub fn chat<'a>(
             },
             container(
                 row![
-                    svg("images/users-round.svg").width(19).height(19),
+                    mouse_area(svg("images/users-round.svg").width(19).height(19))
+                        .on_release(Message::ToggleShowChatMembers),
                     svg("images/user-round-plus.svg").width(19).height(19)
                 ]
                 .spacing(14)
@@ -379,10 +368,123 @@ pub fn chat<'a>(
         })
         .align_y(Alignment::Center);
 
-        let mut content_page = column![
-            container(tile_row).padding(padding::bottom(14)),
-            conversation_scrollbar,
-        ];
+        let mut members_column = column![].spacing(10);
+
+        for member in &current_chat.members {
+            let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
+
+            let identifier = member_id.replace(":", "");
+
+            let user = users.get(member_id);
+
+            let mut message_row = row![].width(Length::Fill).align_y(Alignment::Center);
+
+            let display_name = if let Some(user) = user {
+                user.display_name
+                    .clone()
+                    .unwrap_or("Unknown User".to_string())
+            } else {
+                "Unknown User".to_string()
+            };
+
+            // The Teams api *might still work when the username is wrong
+            let user_picture = c_cached_image(
+                identifier.clone(),
+                Message::FetchUserImage(
+                    identifier,
+                    member_id.to_string(),
+                    display_name.to_string(),
+                ),
+                31.0,
+                31.0,
+            );
+
+            let presence = user_presences.get(&member.mri);
+
+            message_row = message_row.push(container(stack![
+                container(user_picture).padding(Padding {
+                    top: 7.0,
+                    right: 11.0,
+                    bottom: 4.0,
+                    left: 8.0,
+                }),
+                container(circle(
+                    5.5,
+                    if let Some(presence) = presence {
+                        if let Some(activity) = &presence.presence.activity {
+                            match activity.as_str() {
+                                "Available" => theme.colors.status_available,
+                                "Busy" => theme.colors.status_busy,
+                                "DoNotDisturb" => theme.colors.status_busy,
+                                "InACall" => theme.colors.status_busy,
+                                "Presenting" => theme.colors.status_busy,
+                                "Away" => theme.colors.status_away,
+                                "BeRightBack" => theme.colors.status_away,
+                                _ => theme.colors.status_offline,
+                            }
+                        } else {
+                            theme.colors.status_offline
+                        }
+                    } else {
+                        theme.colors.status_offline
+                    }
+                ))
+                .padding(Padding {
+                    top: 30.0,
+                    right: 0.0,
+                    bottom: 0.0,
+                    left: 32.0
+                })
+            ]));
+
+            message_row = message_row.push(text(display_name));
+
+            members_column = members_column.push(
+                container(message_row)
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.primary1.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
+                    .padding(Padding {
+                        top: 6.0,
+                        right: 3.0,
+                        bottom: 6.0,
+                        left: 3.0,
+                    }),
+            );
+        }
+
+        let body = if !*show_members {
+            container(
+                scrollable(message_column)
+                    .direction(scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::new()
+                            .width(theme.features.scrollbar_width)
+                            .spacing(theme.features.scrollable_spacing)
+                            .scroller_width(theme.features.scrollbar_width),
+                    ))
+                    .style(|_, _| theme.stylesheet.chat_scrollable)
+                    .id(Id::new("conversation_column"))
+                    .on_scroll(Message::OnScroll),
+            )
+            .height(Length::Fill)
+        } else {
+            container(
+                scrollable(members_column)
+                    .direction(scrollable::Direction::Vertical(
+                        scrollable::Scrollbar::new()
+                            .width(theme.features.scrollbar_width)
+                            .spacing(theme.features.scrollable_spacing)
+                            .scroller_width(theme.features.scrollbar_width),
+                    ))
+                    .style(|_, _| theme.stylesheet.chat_scrollable)
+                    .id(Id::new("members_column")),
+            )
+            .height(Length::Fill)
+        };
+
+        let mut content_page = column![container(tile_row).padding(padding::bottom(14)), body,];
 
         if let Some(chat_typing) = users_typing.get(&current_chat.id) {
             if !chat_typing.is_empty() {

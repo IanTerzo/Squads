@@ -91,6 +91,7 @@ struct Counter {
     window_height: f32,
     shift_held_down: bool,
     scrollbar_scroll: u64,
+    scrollbar_percentage_scroll: f32,
     should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
 
@@ -107,6 +108,7 @@ struct Counter {
     chat_message_area_content: Content,
     chat_message_area_height: f32,
     expanded_image: Option<(String, String)>,
+    show_members: bool,
 
     // Teams requested data
     me: Profile,
@@ -170,6 +172,7 @@ pub enum Message {
     DownloadImage(String, String),
     DownloadFile(File),
     DownloadedFile(String),
+    ToggleShowChatMembers,
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -378,8 +381,10 @@ impl Counter {
             chat_message_area_height: 54.0,
             reply_options: HashMap::new(),
             scrollbar_scroll: 0,
+            scrollbar_percentage_scroll: 1.0,
             chat_message_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
+            show_members: false,
             history: vec![Page {
                 view: View::Homepage,
                 current_team_id: None,
@@ -520,6 +525,7 @@ impl Counter {
                         self.search_chats_input_value.clone(),
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
+                        &self.show_members,
                     ),
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
@@ -896,6 +902,7 @@ impl Counter {
                 self.history.push(page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
+                self.show_members = false;
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
@@ -929,6 +936,7 @@ impl Counter {
                 self.history.push(chat_page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
+                self.show_members = false;
 
                 Task::batch(vec![
                     snap_to(Id::new("conversation_column"), RelativeOffset::END),
@@ -1226,6 +1234,8 @@ impl Counter {
             Message::OnScroll(viewport) => {
                 let max_scroll = viewport.content_bounds().height - viewport.bounds().height;
                 let scroll = max_scroll - viewport.absolute_offset().y;
+                let percentage_scroll = 1.0 - (scroll / max_scroll);
+                self.scrollbar_percentage_scroll = percentage_scroll;
                 self.scrollbar_scroll = scroll as u64;
                 Task::none()
             }
@@ -1439,6 +1449,20 @@ impl Counter {
                     eprintln!("Failed to open link : {}", url);
                 }
                 Task::none()
+            }
+            Message::ToggleShowChatMembers => {
+                self.show_members = !self.show_members;
+                if self.show_members {
+                    snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
+                } else {
+                    snap_to(
+                        Id::new("conversation_column"),
+                        RelativeOffset {
+                            x: 0.0,
+                            y: self.scrollbar_percentage_scroll,
+                        },
+                    )
+                }
             }
             // Websockets
             Message::WSConnected(info) => {
