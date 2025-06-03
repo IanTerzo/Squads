@@ -294,16 +294,21 @@ pub fn chat<'a>(
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
-    let search_chats = container(
-        text_input("Search chats...", &search_chats_input_value)
-            .on_input(Message::SearchChatsContentChanged)
-            .padding(8)
-            .style(|_, _| theme.stylesheet.input),
-    )
-    .width(220)
-    .padding(padding::bottom(18));
+    let chat_options_row = row![
+        container(
+            text_input("Search chats...", &search_chats_input_value)
+                .on_input(Message::SearchChatsContentChanged)
+                .padding(8)
+                .style(|_, _| theme.stylesheet.input),
+        )
+        .width(188),
+        svg("images/square-pen.svg").width(22).height(22)
+    ]
+    .spacing(10)
+    .padding(padding::bottom(18))
+    .align_y(Alignment::Center);
 
-    let mut side_panel = column![search_chats, chats_scrollable];
+    let mut side_panel = column![chat_options_row, chats_scrollable];
 
     // Mantain the same padding as the scrollbar
     if chat_list_empty {

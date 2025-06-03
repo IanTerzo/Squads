@@ -679,13 +679,12 @@ impl Counter {
                 };
 
                 let message_area_text = message_area_content.text();
-
                 match action {
                     Action::Edit(Edit::Enter) => {
                         if self.shift_held_down {
                             message_area_content.perform(action);
-                        } else {
-                            // Post a message instead
+                        } else if message_area_content.text() != "\n".to_string() {
+                            // Post a message instead if the content is not empty
 
                             match self.page.view {
                                 View::Team => self.team_message_area_content = Content::new(),

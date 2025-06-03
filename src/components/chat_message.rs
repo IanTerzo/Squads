@@ -5,7 +5,6 @@ use crate::style;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
-use base64::display;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
@@ -163,11 +162,11 @@ pub fn c_chat_message<'a>(
             if let Some(content) = message.content {
                 let mut text_row = row![];
 
-                for c in content.chars() {
-                    if c.is_emoji_char() {
-                        text_row = text_row.push(text(c).font(Font::with_name("Twemoji")));
+                for char in content.chars() {
+                    if char.is_emoji_char() && !char.is_digit(10) {
+                        text_row = text_row.push(text(char).font(Font::with_name("Twemoji")));
                     } else {
-                        text_row = text_row.push(text(c));
+                        text_row = text_row.push(text(char));
                     }
                 }
 

@@ -13,6 +13,7 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+ahash = "0.8.12"
 anyhow = "1.0.96"
 async-tungstenite = { version = "0.29.1", features = ["tokio-runtime", "tokio-rustls-webpki-roots"] }
 base64 = "0.22.1"

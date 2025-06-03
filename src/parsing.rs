@@ -2,9 +2,11 @@ use crate::components::cached_image::c_cached_gif;
 use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::Message;
+use ahash::AHasher;
 use base64::decode;
 use directories::ProjectDirs;
 use iced::border;
+use iced::mouse;
 use iced::padding;
 use iced::widget::mouse_area;
 use iced::widget::{
@@ -17,23 +19,15 @@ use scraper::{Html, Selector};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
+use unicode_properties::UnicodeEmoji;
 use xxhash_rust::xxh3::xxh3_64;
 
 pub fn parse_message_markdown(text: String) -> String {
-    println!("text: {}", text);
-    // handle newlines
-
-    let mut preparsed: String = "".to_string();
-
-    for line in text.lines() {
-        preparsed += "fds";
-    }
+    // TODO: handle newlines
 
     let mut md = MarkdownIt::new();
     plugins::cmark::add(&mut md);
     let html = md.parse(text.as_str()).render();
-
-    println!("html: {}", html);
 
     html
 }
@@ -197,7 +191,8 @@ fn transform_html<'a>(
                             image_width,
                             image_height,
                         ))
-                        .on_release(Message::ExpandImage(identifier, "jpeg".to_string()));
+                        .on_release(Message::ExpandImage(identifier, "jpeg".to_string()))
+                        .interaction(mouse::Interaction::Pointer);
 
                         dynamic_container = dynamic_container.push(team_picture.into());
                     } else if itemtype == "http://schema.skype.com/Giphy" {
@@ -222,7 +217,8 @@ fn transform_html<'a>(
                                 image_width,
                                 image_height,
                             ))
-                            .on_release(Message::ExpandImage(identifier, "gif".to_string()));
+                            .on_release(Message::ExpandImage(identifier, "gif".to_string()))
+                            .interaction(mouse::Interaction::Pointer);
                             dynamic_container = dynamic_container.push(team_picture.into());
                         } else {
                             dynamic_container =
@@ -308,13 +304,18 @@ fn transform_html<'a>(
                 );
             }
         } else if child.value().is_text() {
+            // ID might be useful for hover logic
+            //let mut state = AHasher::default();
+            //let id = child.id().hash(&mut state);
+            //println!("{:#?}", state.finish());
             let text_content = child.value().as_text().unwrap().text.to_string();
             // Remove things like newlines since it is handled separately
             let text_content = text_content.replace("\n", "").replace("\r", "");
 
             let words = text_content.split_inclusive(" ");
 
-            let mut font = Font::default();
+            let mut font_text = Font::default();
+            let mut font_emojis = Font::with_name("Twemoji");
             let mut color = theme.colors.text;
             let mut underline = false;
             let mut strikethrough = false;
@@ -323,7 +324,8 @@ fn transform_html<'a>(
             if let Some(property) = cascading_properties.get("strong") {
                 // check for consistency
                 if property == "strong" {
-                    font.weight = font::Weight::Bold;
+                    font_text.weight = font::Weight::Bold;
+                    font_emojis.weight = font::Weight::Bold;
                 }
             }
             if let Some(property) = cascading_properties.get("u") {
@@ -338,12 +340,14 @@ fn transform_html<'a>(
             }
             if let Some(property) = cascading_properties.get("i") {
                 if property == "i" {
-                    font.style = font::Style::Italic;
+                    font_text.style = font::Style::Italic;
+                    font_emojis.style = font::Style::Italic;
                 }
             }
             if let Some(property) = cascading_properties.get("em") {
                 if property == "em" {
-                    font.style = font::Style::Italic;
+                    font_text.style = font::Style::Italic;
+                    font_emojis.style = font::Style::Italic;
                 }
             }
             if let Some(value) = cascading_properties.get("a") {
@@ -357,21 +361,45 @@ fn transform_html<'a>(
             }
 
             // Turn every word into its own rich text (not ideal but necessary to mantain correct wrapping)
-            for word in words {
-                let mut text_span = Span::new(word.to_string());
-                text_span = text_span
-                    .font(font)
-                    .color(color)
-                    .underline(underline)
-                    .strikethrough(strikethrough);
 
-                if let Some(ref link) = link_href {
-                    text_span = text_span.link(Message::LinkClicked(link.clone()));
+            for word in words {
+                let mut spans = vec![];
+
+                // Use a different font for emojis
+                for char in word.chars() {
+                    if char.is_emoji_char() && !char.is_digit(10) {
+                        let mut text_span = Span::new(char.to_string());
+                        text_span = text_span
+                            .font(font_emojis)
+                            .color(color)
+                            .underline(underline)
+                            .strikethrough(strikethrough);
+
+                        spans.push(text_span);
+                    } else {
+                        let mut text_span = Span::new(char.to_string());
+                        text_span = text_span
+                            .font(font_text)
+                            .color(color)
+                            .underline(underline)
+                            .strikethrough(strikethrough);
+
+                        spans.push(text_span);
+                    }
                 }
 
-                // Wrap in rich_text and push to container
-                let text = rich_text![text_span.clone()];
-                dynamic_container = dynamic_container.push(text.into());
+                // TODO: show an underline when hovering a link
+
+                if let Some(ref link) = link_href {
+                    dynamic_container = dynamic_container.push(
+                        mouse_area(rich_text(spans))
+                            .on_release(Message::LinkClicked(link.clone()))
+                            .interaction(mouse::Interaction::Pointer)
+                            .into(),
+                    );
+                } else {
+                    dynamic_container = dynamic_container.push(rich_text(spans).into());
+                };
             }
         }
     }
