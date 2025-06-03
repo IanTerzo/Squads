@@ -134,6 +134,7 @@ pub struct Activity {
     pub activity_type: String,
     pub activity_subtype: Option<String>,
     pub activity_timestamp: String,
+    #[serde(deserialize_with = "u64_or_float_to_u64")]
     pub activity_id: u64,
     pub source_message_id: u64,
     pub source_reply_chain_id: Option<u64>,
@@ -147,7 +148,7 @@ pub struct Activity {
     pub source_thread_roster_non_bot_member_count: Option<u64>,
     #[serde(deserialize_with = "string_to_bool")]
     pub source_thread_is_private_channel: bool,
-    pub activityContext: ActivityContext,
+    pub activity_context: ActivityContext,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
@@ -420,6 +421,21 @@ where
             .as_i64()
             .ok_or_else(|| serde::de::Error::custom("Number is not a valid i64")),
         _ => Err(serde::de::Error::custom("Unexpected type")),
+    }
+}
+
+/// sometimes we get the number in scientific notation, for those we need to parse it as f64 first
+fn u64_or_float_to_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value.as_u64() {
+        Some(u) => Ok(u),
+        None => match value.as_f64() {
+            Some(n) => Ok(n as u64),
+            None => Err(serde::de::Error::custom("Number is not a valid u64")),
+        }
     }
 }
 

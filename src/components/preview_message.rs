@@ -22,7 +22,7 @@ pub fn c_preview_message<'a>(
         let mut user_id = activity.source_user_id; // This is wrong for
 
         if activity.activity_type == "msGraph" {
-            if let Some(attributed_to_actor_id) = activity.activityContext.attributed_to_actor_id {
+            if let Some(attributed_to_actor_id) = activity.activity_context.attributed_to_actor_id {
                 user_id = attributed_to_actor_id;
             }
         }

@@ -1084,40 +1084,40 @@ impl Counter {
 
                     let message_activity_id = activity_message.id.clone().unwrap().to_string();
 
-                    let activity = activity_message
+                    if let Some(activity) = activity_message
                         .properties
                         .clone()
                         .unwrap()
                         .activity
-                        .unwrap();
-
-                    let access_tokens_arc = self.access_tokens.clone();
-                    let tenant = self.tenant.clone();
-                    tasks.push(Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                access_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
-                                &tenant,
-                            )
-                            .await;
-
-                            let conversation = conversations(
-                                &access_token,
-                                activity.source_thread_id.clone(),
-                                Some(
-                                    activity
-                                        .source_reply_chain_id
-                                        .unwrap_or(activity.source_message_id),
-                                ),
-                            )
-                            .await
-                            .unwrap();
-
-                            (message_activity_id, conversation.messages)
-                        },
-                        |result| Message::GotExpandedActivity(result.0, result.1),
-                    ));
+                    {
+                        let access_tokens_arc = self.access_tokens.clone();
+                        let tenant = self.tenant.clone();
+                        tasks.push(Task::perform(
+                            async move {
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
+    
+                                let conversation = conversations(
+                                    &access_token,
+                                    activity.source_thread_id.clone(),
+                                    Some(
+                                        activity
+                                            .source_reply_chain_id
+                                            .unwrap_or(activity.source_message_id),
+                                    ),
+                                )
+                                .await
+                                .unwrap();
+    
+                                (message_activity_id, conversation.messages)
+                            },
+                            |result| Message::GotExpandedActivity(result.0, result.1),
+                        ));
+                    }
                 }
 
                 self.activities = activities;
