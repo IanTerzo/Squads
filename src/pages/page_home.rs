@@ -107,44 +107,45 @@ pub fn home<'a>(
     let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
 
     for message in activities_conversations {
-        let activity = message.properties.clone().unwrap().activity.unwrap();
-
-        let thread_id = activity.source_thread_id.clone();
-
-        let message_id = activity
-            .source_reply_chain_id
-            .unwrap_or(activity.source_message_id);
-
-        let message_activity_id = message.id.unwrap().to_string();
-
-        if let Some(conversation) = expanded_conversations.get(&message_activity_id) {
-            if conversation.len() > 0 {
-                let message = c_conversation(
-                    theme,
-                    conversation.iter().rev().cloned().collect(), // Can be optimized
-                    message_activity_id.clone(),
-                    false,
-                    emoji_map,
-                    users,
-                );
-                if let Some(message) = message {
-                    activities_colum = activities_colum.push(mouse_area(message).on_release(
-                        Message::ExpandActivity(thread_id, message_id, message_activity_id),
-                    ));
+        if let Some(activity) = message.properties.clone().unwrap().activity
+        {
+            let thread_id = activity.source_thread_id.clone();
+    
+            let message_id = activity
+                .source_reply_chain_id
+                .unwrap_or(activity.source_message_id);
+    
+            let message_activity_id = message.id.unwrap().to_string();
+    
+            if let Some(conversation) = expanded_conversations.get(&message_activity_id) {
+                if conversation.len() > 0 {
+                    let message = c_conversation(
+                        theme,
+                        conversation.iter().rev().cloned().collect(), // Can be optimized
+                        message_activity_id.clone(),
+                        false,
+                        emoji_map,
+                        users,
+                    );
+                    if let Some(message) = message {
+                        activities_colum = activities_colum.push(mouse_area(message).on_release(
+                            Message::ExpandActivity(thread_id, message_id, message_activity_id),
+                        ));
+                    }
+                } else {
+                    activities_colum = activities_colum.push(
+                        mouse_area(text("Failed to load conversation.")).on_release(
+                            Message::ExpandActivity(thread_id, message_id, message_activity_id),
+                        ),
+                    );
                 }
             } else {
                 activities_colum = activities_colum.push(
-                    mouse_area(text("Failed to load conversation.")).on_release(
+                    mouse_area(c_preview_message(theme, activity, window_width, emoji_map)).on_release(
                         Message::ExpandActivity(thread_id, message_id, message_activity_id),
                     ),
                 );
             }
-        } else {
-            activities_colum = activities_colum.push(
-                mouse_area(c_preview_message(theme, activity, window_width, emoji_map)).on_release(
-                    Message::ExpandActivity(thread_id, message_id, message_activity_id),
-                ),
-            );
         }
     }
 
