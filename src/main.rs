@@ -579,6 +579,7 @@ impl Counter {
 
                         let mut refresh_token: Option<AccessToken> = None;
                         let result = gen_refresh_token_from_device_code(device_code, tenant).await;
+                        // TODO: log non re-poll errors
                         if let Ok(access_token) = result {
                             refresh_token = Some(access_token);
                             println!("Code polling succeeded.")
@@ -1083,12 +1084,7 @@ impl Counter {
 
                     let message_activity_id = activity_message.id.clone().unwrap().to_string();
 
-                    if let Some(activity) = activity_message
-                        .properties
-                        .clone()
-                        .unwrap()
-                        .activity
-                    {
+                    if let Some(activity) = activity_message.properties.clone().unwrap().activity {
                         let access_tokens_arc = self.access_tokens.clone();
                         let tenant = self.tenant.clone();
                         tasks.push(Task::perform(
@@ -1099,7 +1095,7 @@ impl Counter {
                                     &tenant,
                                 )
                                 .await;
-    
+
                                 let conversation = conversations(
                                     &access_token,
                                     activity.source_thread_id.clone(),
@@ -1111,7 +1107,7 @@ impl Counter {
                                 )
                                 .await
                                 .unwrap();
-    
+
                                 (message_activity_id, conversation.messages)
                             },
                             |result| Message::GotExpandedActivity(result.0, result.1),

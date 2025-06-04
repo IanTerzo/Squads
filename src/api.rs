@@ -30,6 +30,24 @@ pub async fn gen_device_code(
 
     let mut headers = HeaderMap::new();
 
+    // Including these headers fixed an error where i couldn't log in. Some of the headers might be useless or redundant, but i am keeping them just to make sure
+
+    headers.insert(
+        "User-Agent",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+            .parse()
+            .unwrap(),
+    );
+    headers.insert("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8".parse().unwrap());
+    headers.insert("Accept-Language", "en-US,en;q=0.5".parse().unwrap());
+    headers.insert("Connection", "keep-alive".parse().unwrap());
+    headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
+    headers.insert("Sec-Fetch-Dest", "document".parse().unwrap());
+    headers.insert("Sec-Fetch-Mode", "navigate".parse().unwrap());
+    headers.insert("Sec-Fetch-Site", "none".parse().unwrap());
+    headers.insert("Sec-Fetch-User", "?1".parse().unwrap());
+    headers.insert("Priority", "u=0, i".parse().unwrap());
+
     headers.insert(
         HeaderName::from_static("content-type"),
         HeaderValue::from_static("application/x-www-form-urlencoded"),
@@ -92,6 +110,21 @@ pub async fn gen_refresh_token_from_device_code(
         HeaderName::from_static("origin"),
         HeaderValue::from_static("https://teams.microsoft.com"),
     );
+    headers.insert(
+        "User-Agent",
+        "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0"
+            .parse()
+            .unwrap(),
+    );
+    headers.insert("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8".parse().unwrap());
+    headers.insert("Accept-Language", "en-US,en;q=0.5".parse().unwrap());
+    headers.insert("Connection", "keep-alive".parse().unwrap());
+    headers.insert("Upgrade-Insecure-Requests", "1".parse().unwrap());
+    headers.insert("Sec-Fetch-Dest", "document".parse().unwrap());
+    headers.insert("Sec-Fetch-Mode", "navigate".parse().unwrap());
+    headers.insert("Sec-Fetch-Site", "none".parse().unwrap());
+    headers.insert("Sec-Fetch-User", "?1".parse().unwrap());
+    headers.insert("Priority", "u=0, i".parse().unwrap());
 
     let body = format!(
         "client_id={}&\
