@@ -22,3 +22,7 @@ Feature or improvement ideas are very welcome, feel free to share them in the di
 The official client for comparison...
 
 ![squads](https://github.com/IanTerzo/Squads/blob/master/images/teams_preview2.png?raw=true)
+
+## Attribution
+
+Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
