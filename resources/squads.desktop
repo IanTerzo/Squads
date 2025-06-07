@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Squads
+Comment=Alternative Teams client
+Exec=Squads
+Icon=squads
+Terminal=false
+Categories=Network;InstantMessaging;Office;
+StartupWMClass=Squads
+MimeType=x-scheme-handler/msteams;
+Keywords=teams;microsoft;chat;messaging;communication;
