@@ -38,6 +38,7 @@ use rand::{Rng, SeedableRng};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::hash::Hash;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -56,6 +57,14 @@ const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
+pub enum ChatBody {
+    Messages,
+    Members,
+    Add,
+    Start,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 enum View {
     Login,
     Homepage,
@@ -67,6 +76,7 @@ enum View {
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 struct Page {
     view: View,
+    chat_body: ChatBody,
     current_team_id: Option<String>,
     current_channel_id: Option<String>,
     current_chat_id: Option<String>,
@@ -103,12 +113,13 @@ struct Counter {
     activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     search_teams_input_value: String,
     search_chats_input_value: String,
+    search_users_input_value: String,
     team_message_area_content: Content,
     team_message_area_height: f32,
     chat_message_area_content: Content,
     chat_message_area_height: f32,
     expanded_image: Option<(String, String)>,
-    show_members: bool,
+    add_users_checked: HashMap<String, bool>, // Where string is the user id
 
     // Teams requested data
     me: Profile,
@@ -150,6 +161,7 @@ pub enum Message {
     StopExpandImage,
     SearchTeamsContentChanged(String),
     SearchChatsContentChanged(String),
+    SearchUsersContentChanged(String),
     AllowPostIsTyping(()),
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -173,6 +185,8 @@ pub enum Message {
     DownloadFile(File),
     DownloadedFile(String),
     ToggleShowChatMembers,
+    ToggleShowChatAdd,
+    ToggleUserCheckbox(bool, String),
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -366,6 +380,7 @@ impl Counter {
                 } else {
                     View::Login
                 },
+                chat_body: ChatBody::Messages,
                 current_team_id: None,
                 current_channel_id: None,
                 current_chat_id: first_chat.clone(),
@@ -384,21 +399,23 @@ impl Counter {
             scrollbar_percentage_scroll: 1.0,
             chat_message_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
-            show_members: false,
             history: vec![Page {
                 view: View::Homepage,
+                chat_body: ChatBody::Messages,
                 current_team_id: None,
                 current_channel_id: None,
                 current_chat_id: first_chat,
             }],
             websockets_connection_info: None,
             user_presences: HashMap::new(),
+            add_users_checked: HashMap::new(),
             expanded_image: None,
             should_send_typing: true,
             history_index: 0,
             emoji_map: emojies,
             search_teams_input_value: "".to_string(),
             search_chats_input_value: "".to_string(),
+            search_users_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
@@ -515,6 +532,7 @@ impl Counter {
                         &self.theme,
                         current_chat,
                         &self.users_typing_timeouts,
+                        &self.add_users_checked,
                         &self.chats,
                         &conversation,
                         &self.chat_message_options,
@@ -523,9 +541,10 @@ impl Counter {
                         &self.user_presences,
                         &self.me,
                         self.search_chats_input_value.clone(),
+                        self.search_users_input_value.clone(),
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
-                        &self.show_members,
+                        &self.page.chat_body,
                     ),
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
@@ -894,6 +913,7 @@ impl Counter {
             Message::OpenHome => {
                 let page = Page {
                     view: View::Homepage,
+                    chat_body: ChatBody::Messages,
                     current_team_id: None,
                     current_channel_id: None,
                     current_chat_id: self.page.current_chat_id.clone(),
@@ -902,13 +922,13 @@ impl Counter {
                 self.history.push(page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
-                self.show_members = false;
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {
                     view: View::Team,
+                    chat_body: self.page.chat_body.clone(),
                     current_team_id: Some(team_id),
                     current_channel_id: Some(channel_id),
                     current_chat_id: self.page.current_chat_id.clone(),
@@ -927,6 +947,7 @@ impl Counter {
 
                 let chat_page = Page {
                     view: View::Chat,
+                    chat_body: ChatBody::Messages,
                     current_team_id: None,
                     current_channel_id: None,
                     current_chat_id: Some(thread_id.clone()),
@@ -936,7 +957,8 @@ impl Counter {
                 self.history.push(chat_page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
-                self.show_members = false;
+
+                self.add_users_checked.clear();
 
                 Task::batch(vec![
                     snap_to(Id::new("conversation_column"), RelativeOffset::END),
@@ -973,6 +995,7 @@ impl Counter {
 
                 let chat_page = Page {
                     view: View::Chat,
+                    chat_body: ChatBody::Messages,
                     current_team_id: None,
                     current_channel_id: None,
                     current_chat_id: chat_id.clone(),
@@ -982,6 +1005,8 @@ impl Counter {
                 self.history.push(chat_page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
+
+                self.add_users_checked.clear();
 
                 if let Some(chat_id) = chat_id {
                     return Task::batch(vec![
@@ -1063,6 +1088,10 @@ impl Counter {
             }
             Message::SearchChatsContentChanged(content) => {
                 self.search_chats_input_value = content;
+                Task::none()
+            }
+            Message::SearchUsersContentChanged(content) => {
+                self.search_users_input_value = content;
                 Task::none()
             }
 
@@ -1446,10 +1475,11 @@ impl Counter {
                 Task::none()
             }
             Message::ToggleShowChatMembers => {
-                self.show_members = !self.show_members;
-                if self.show_members {
+                if self.page.chat_body != ChatBody::Members {
+                    self.page.chat_body = ChatBody::Members;
                     snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
                 } else {
+                    self.page.chat_body = ChatBody::Messages;
                     snap_to(
                         Id::new("conversation_column"),
                         RelativeOffset {
@@ -1458,6 +1488,27 @@ impl Counter {
                         },
                     )
                 }
+            }
+            Message::ToggleShowChatAdd => {
+                if self.page.chat_body != ChatBody::Add {
+                    self.page.chat_body = ChatBody::Add;
+                    snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
+                } else {
+                    self.page.chat_body = ChatBody::Messages;
+                    snap_to(
+                        Id::new("conversation_column"),
+                        RelativeOffset {
+                            x: 0.0,
+                            y: self.scrollbar_percentage_scroll,
+                        },
+                    )
+                }
+            }
+            Message::ToggleUserCheckbox(checked, id) => {
+                println!("{}", checked);
+                println!("{}", id);
+                self.add_users_checked.insert(id, checked);
+                Task::none()
             }
             // Websockets
             Message::WSConnected(info) => {

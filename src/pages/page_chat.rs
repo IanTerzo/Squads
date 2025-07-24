@@ -1,20 +1,19 @@
 use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
-use crate::components::message;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
-use crate::style;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
+use crate::{style, ChatBody};
 
 use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, row, stack, svg, text_input, Space};
+use iced::widget::{checkbox, column, container, mouse_area, row, stack, svg, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::{border, padding, Alignment, Color, Element, Length, Padding};
 
@@ -130,6 +129,7 @@ pub fn chat<'a>(
     theme: &'a style::Theme,
     current_chat: Option<&'a Chat>,
     users_typing: &HashMap<String, HashMap<String, Handle>>,
+    add_users_cheked: &HashMap<String, bool>,
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
@@ -138,9 +138,10 @@ pub fn chat<'a>(
     user_presences: &'a HashMap<String, Presence>,
     me: &'a Profile,
     search_chats_input_value: String,
+    search_users_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
-    show_members: &bool,
+    page_body: &ChatBody,
 ) -> Element<'a, Message> {
     let mut chats_column = column![].spacing(theme.features.list_spacing);
 
@@ -359,7 +360,8 @@ pub fn chat<'a>(
                 row![
                     mouse_area(svg("images/users-round.svg").width(19).height(19))
                         .on_release(Message::ToggleShowChatMembers),
-                    svg("images/user-round-plus.svg").width(19).height(19)
+                    mouse_area(svg("images/user-round-plus.svg").width(19).height(19))
+                        .on_release(Message::ToggleShowChatAdd),
                 ]
                 .spacing(14)
             )
@@ -460,8 +462,8 @@ pub fn chat<'a>(
             );
         }
 
-        let body = if !*show_members {
-            container(
+        let body = match page_body {
+            ChatBody::Messages => container(
                 scrollable(message_column)
                     .direction(scrollable::Direction::Vertical(
                         scrollable::Scrollbar::new()
@@ -473,9 +475,111 @@ pub fn chat<'a>(
                     .id(Id::new("conversation_column"))
                     .on_scroll(Message::OnScroll),
             )
-            .height(Length::Fill)
-        } else {
-            container(
+            .height(Length::Fill),
+            ChatBody::Add | ChatBody::Start => {
+                let mut user_column = column![].spacing(10);
+                for user in users {
+                    // Hotfix, this removes all non "human" users
+                    if user.1.surname.is_none() || user.1.display_name.is_none() {
+                        continue;
+                    }
+
+                    if !user
+                        .1
+                        .display_name
+                        .as_ref()
+                        .unwrap()
+                        .to_lowercase()
+                        .starts_with(&search_users_input_value.to_lowercase())
+                    {
+                        continue;
+                    }
+
+                    let is_checked = add_users_cheked.get(user.0).unwrap_or(&false).clone();
+                    let profile_row = row![
+                        text(
+                            user.1
+                                .display_name
+                                .clone()
+                                .unwrap_or("Unknown User".to_string())
+                        ),
+                        container(
+                            checkbox("", is_checked)
+                                .style(|_, _| checkbox::Style {
+                                    background: theme.colors.primary3.into(),
+                                    border: border::rounded(2),
+                                    icon_color: theme.colors.text,
+                                    text_color: None,
+                                })
+                                .on_toggle(|checked: bool| Message::ToggleUserCheckbox(
+                                    checked,
+                                    user.0.to_string()
+                                ))
+                        )
+                        .align_right(Length::Fill)
+                    ]
+                    .width(Length::Fill)
+                    .align_y(Alignment::Center);
+                    user_column = user_column
+                        .push(
+                            container(profile_row)
+                                .style(|_| container::Style {
+                                    background: Some(theme.colors.primary1.into()),
+                                    border: border::rounded(4),
+                                    ..Default::default()
+                                })
+                                .padding(Padding {
+                                    top: 9.0,
+                                    right: 6.0,
+                                    bottom: 9.0,
+                                    left: 6.0,
+                                }),
+                        )
+                        .into();
+                }
+
+                container(
+                    column![
+                        row![
+                            text_input("Search Users...", &search_users_input_value)
+                                .on_input(Message::SearchUsersContentChanged)
+                                .padding(10)
+                                .style(|_, _| theme.stylesheet.input),
+                            mouse_area(
+                                container(text("Add"))
+                                    .padding(Padding {
+                                        top: 8.0,
+                                        bottom: 8.0,
+                                        left: 13.0,
+                                        right: 13.0
+                                    })
+                                    .style(|_| {
+                                        container::Style {
+                                            background: Some(theme.colors.primary1.into()),
+                                            border: border::rounded(4),
+                                            ..Default::default()
+                                        }
+                                    })
+                            )
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(10)
+                        .padding(padding::right(18)),
+                        scrollable(user_column)
+                            .direction(scrollable::Direction::Vertical(
+                                scrollable::Scrollbar::new()
+                                    .width(theme.features.scrollbar_width)
+                                    .spacing(theme.features.scrollable_spacing)
+                                    .scroller_width(theme.features.scrollbar_width),
+                            ))
+                            .style(|_, _| theme.stylesheet.chat_scrollable)
+                            .id(Id::new("members_column"))
+                    ]
+                    .spacing(18),
+                )
+                .height(Length::Fill)
+            }
+            ChatBody::Members => container(
                 scrollable(members_column)
                     .direction(scrollable::Direction::Vertical(
                         scrollable::Scrollbar::new()
@@ -486,7 +590,7 @@ pub fn chat<'a>(
                     .style(|_, _| theme.stylesheet.chat_scrollable)
                     .id(Id::new("members_column")),
             )
-            .height(Length::Fill)
+            .height(Length::Fill),
         };
 
         let mut content_page = column![container(tile_row).padding(padding::bottom(14)), body,];
