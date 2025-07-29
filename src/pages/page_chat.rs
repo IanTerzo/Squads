@@ -5,6 +5,7 @@ use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
+use crate::parsing::parse_content_emojis;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -192,7 +193,7 @@ pub fn chat<'a>(
             chat_items = chat_items.push(container(picture).padding(6));
         }
 
-        let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
+        let mut chat_info_column = column![parse_content_emojis(truncate_name(chat_title, 20))];
         if let Some(users_typing) = users_typing.get(&chat.id) {
             if users_typing.into_iter().len() > 0 {
                 chat_info_column = chat_info_column
@@ -280,7 +281,7 @@ pub fn chat<'a>(
         let tile_row = row![
             picture,
             Space::with_width(15),
-            text(title),
+            parse_content_emojis(title),
             if let Some(is_one_on_one) = current_chat.is_one_on_one {
                 if !is_one_on_one {
                     row![

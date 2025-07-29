@@ -1,7 +1,7 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::parsing::{parse_card_html, parse_message_html};
+use crate::parsing::{parse_card_html, parse_content_emojis, parse_message_html};
 use crate::style;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -132,17 +132,7 @@ pub fn c_chat_message<'a>(
             }
         } else if message_type == "Text" {
             if let Some(content) = message.content {
-                let mut text_row = row![];
-
-                for char in content.chars() {
-                    if char.is_emoji_char() && !char.is_digit(10) {
-                        text_row = text_row.push(text(char).font(Font::with_name("Twemoji")));
-                    } else {
-                        text_row = text_row.push(text(char));
-                    }
-                }
-
-                contents_column = contents_column.push(text_row);
+                contents_column = contents_column.push(parse_content_emojis(content));
             }
         } else {
             if let Some(content) = message.content {

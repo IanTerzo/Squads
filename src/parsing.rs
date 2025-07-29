@@ -469,3 +469,17 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
         Err("Couldn't find Swift tag from card HTML".to_string())
     }
 }
+
+pub fn parse_content_emojis<'a>(content: String) -> Element<'a, Message> {
+    let mut text_row = row![];
+
+    for char in content.chars() {
+        if char.is_emoji_char() && !char.is_digit(10) {
+            text_row = text_row.push(text(char).font(Font::with_name("Twemoji")));
+        } else {
+            text_row = text_row.push(text(char));
+        }
+    }
+
+    text_row.into()
+}
