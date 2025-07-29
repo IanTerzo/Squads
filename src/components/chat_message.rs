@@ -1,5 +1,6 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
+use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::websockets::Presence;
@@ -55,41 +56,12 @@ pub fn c_chat_message<'a>(
                     31.0,
                 );
 
-                message_row = message_row.push(container(stack![
-                    container(user_picture).padding(Padding {
-                        top: 7.0,
-                        right: 11.0,
-                        bottom: 4.0,
-                        left: 8.0,
-                    }),
-                    container(circle(
-                        5.5,
-                        if let Some(presence) = presence {
-                            if let Some(activity) = &presence.presence.activity {
-                                match activity.as_str() {
-                                    "Available" => theme.colors.status_available,
-                                    "Busy" => theme.colors.status_busy,
-                                    "DoNotDisturb" => theme.colors.status_busy,
-                                    "InACall" => theme.colors.status_busy,
-                                    "Presenting" => theme.colors.status_busy,
-                                    "Away" => theme.colors.status_away,
-                                    "BeRightBack" => theme.colors.status_away,
-                                    _ => theme.colors.status_offline,
-                                }
-                            } else {
-                                theme.colors.status_offline
-                            }
-                        } else {
-                            theme.colors.status_offline
-                        }
-                    ))
-                    .padding(Padding {
-                        top: 30.0,
-                        right: 0.0,
-                        bottom: 0.0,
-                        left: 32.0
-                    })
-                ]));
+                message_row = message_row.push(c_picture_and_status(
+                    theme,
+                    user_picture,
+                    presence,
+                    (31.0, 31.0),
+                ));
                 message_info = message_info.push(text!("{}", display_name).font(Font {
                     weight: font::Weight::Bold,
                     ..Default::default()

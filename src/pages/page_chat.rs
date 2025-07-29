@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
+use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
@@ -173,30 +174,7 @@ pub fn chat<'a>(
             }
         }
 
-        let picture = if let Some(is_read) = chat.is_read {
-            if !is_read {
-                container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
-                    top: 0.0,
-                    right: 9.0,
-                    bottom: 0.0,
-                    left: 0.0,
-                })
-            } else {
-                container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
-                    top: 0.0,
-                    right: 9.0,
-                    bottom: 0.0,
-                    left: 13.0,
-                })
-            }
-        } else {
-            container(get_chat_picture(&chat, &me.id, &users)).padding(Padding {
-                top: 0.0,
-                right: 9.0,
-                bottom: 0.0,
-                left: 13.0,
-            })
-        };
+        let picture = get_chat_picture(&chat, &me.id, &users);
 
         if chat.members.len() == 2 {
             let presence = user_presences.get(
@@ -208,51 +186,10 @@ pub fn chat<'a>(
                     .mri,
             );
 
-            chat_items = chat_items.push(stack![
-                container(picture).padding(Padding {
-                    top: 5.0,
-                    bottom: 5.0,
-                    right: 0.0,
-                    left: 0.0
-                }),
-                container(circle(
-                    5.5,
-                    if let Some(presence) = presence {
-                        if let Some(activity) = &presence.presence.activity {
-                            match activity.as_str() {
-                                "Available" => theme.colors.status_available,
-                                "Busy" => theme.colors.status_busy,
-                                "DoNotDisturb" => theme.colors.status_busy,
-                                "InACall" => theme.colors.status_busy,
-                                "Presenting" => theme.colors.status_busy,
-                                "Away" => theme.colors.status_away,
-                                "BeRightBack" => theme.colors.status_away,
-                                _ => theme.colors.status_offline,
-                            }
-                        } else {
-                            theme.colors.status_offline
-                        }
-                    } else {
-                        theme.colors.status_offline
-                    }
-                ))
-                .padding(Padding {
-                    top: 24.0,
-                    right: 0.0,
-                    bottom: 0.0,
-                    left: if let Some(is_read) = chat.is_read {
-                        if !is_read {
-                            19.0
-                        } else {
-                            32.0
-                        }
-                    } else {
-                        32.0
-                    }
-                })
-            ]);
+            chat_items =
+                chat_items.push(c_picture_and_status(theme, picture, presence, (28.0, 28.0)));
         } else {
-            chat_items = chat_items.push(picture);
+            chat_items = chat_items.push(container(picture).padding(6));
         }
 
         let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
@@ -402,48 +339,18 @@ pub fn chat<'a>(
                     member_id.to_string(),
                     display_name.to_string(),
                 ),
-                31.0,
-                31.0,
+                28.0,
+                28.0,
             );
 
             let presence = user_presences.get(&member.mri);
 
-            message_row = message_row.push(container(stack![
-                container(user_picture).padding(Padding {
-                    top: 7.0,
-                    right: 11.0,
-                    bottom: 4.0,
-                    left: 8.0,
-                }),
-                container(circle(
-                    5.5,
-                    if let Some(presence) = presence {
-                        if let Some(activity) = &presence.presence.activity {
-                            match activity.as_str() {
-                                "Available" => theme.colors.status_available,
-                                "Busy" => theme.colors.status_busy,
-                                "DoNotDisturb" => theme.colors.status_busy,
-                                "InACall" => theme.colors.status_busy,
-                                "Presenting" => theme.colors.status_busy,
-                                "Away" => theme.colors.status_away,
-                                "BeRightBack" => theme.colors.status_away,
-                                _ => theme.colors.status_offline,
-                            }
-                        } else {
-                            theme.colors.status_offline
-                        }
-                    } else {
-                        theme.colors.status_offline
-                    }
-                ))
-                .padding(Padding {
-                    top: 30.0,
-                    right: 0.0,
-                    bottom: 0.0,
-                    left: 32.0
-                })
-            ]));
-
+            message_row = message_row.push(c_picture_and_status(
+                theme,
+                user_picture,
+                presence,
+                (28.0, 28.0),
+            ));
             message_row = message_row.push(text(display_name));
 
             members_column = members_column.push(
@@ -541,7 +448,7 @@ pub fn chat<'a>(
                 container(
                     column![
                         row![
-                            text_input("Search Users...", &search_users_input_value)
+                            text_input("Search users...", &search_users_input_value)
                                 .on_input(Message::SearchUsersContentChanged)
                                 .padding(10)
                                 .style(|_, _| theme.stylesheet.input),
