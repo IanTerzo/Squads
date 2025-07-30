@@ -282,9 +282,9 @@ pub fn c_chat_message<'a>(
                     ..Default::default()
                 })
                 .padding(Padding {
-                    top: 8.0,
+                    top: 2.0,
                     right: 6.0,
-                    bottom: 8.0,
+                    bottom: 2.0,
                     left: 6.0,
                 })
         )
@@ -293,5 +293,5 @@ pub fn c_chat_message<'a>(
         action_container
     );
 
-    return Some(message_stack.into());
+    return Some(container(message_stack).padding(padding::top(10)).into());
 }

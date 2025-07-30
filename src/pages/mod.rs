@@ -18,12 +18,8 @@ pub fn app<'a>(
     overlay: Option<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     if let Some(overlay) = overlay {
-        stack![
-            column![c_navbar(theme), container(content).padding(20)],
-            overlay,
-        ]
-        .into()
+        stack![column![c_navbar(theme), container(content)], overlay,].into()
     } else {
-        stack![column![c_navbar(theme), container(content).padding(20)]].into()
+        stack![column![c_navbar(theme), container(content)]].into()
     }
 }

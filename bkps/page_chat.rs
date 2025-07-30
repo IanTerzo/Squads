@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::api::{self, Chat, Profile};
+use crate::components::chat_minimized_message::c_chat_minimized_message;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
@@ -285,7 +286,7 @@ pub fn chat<'a>(
     let mut page = row![side_panel].spacing(theme.features.page_row_spacing);
 
     if let Some(current_chat) = current_chat {
-        let mut message_column = column![].spacing(3).padding(Padding {
+        let mut message_column = column![].padding(Padding {
             left: 6.0,
             right: 6.0,
             top: 0.0,
@@ -295,7 +296,40 @@ pub fn chat<'a>(
         if let Some(conversation) = conversation {
             let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
 
+            let mut last_message: Option<api::Message> = None;
+
             for message in ordered_conversation {
+                if let Some(ref last_message_co) = last_message {
+                    // Can it be none?
+                    if message.from == last_message_co.from {
+                        if let Some(ref last_arrival_time) = last_message_co.original_arrival_time {
+                            let last_date: String = last_arrival_time.chars().take(10).collect();
+
+                            if let Some(ref arrival_time) = message.original_arrival_time {
+                                let date: String = arrival_time.chars().take(10).collect();
+                                if last_date == date {
+                                    if let Some(message_element) = c_chat_minimized_message(
+                                        theme,
+                                        message.clone(),
+                                        chat_message_options,
+                                        emoji_map,
+                                        users,
+                                        user_presences,
+                                    ) {
+                                        message_column = message_column.push(message_element);
+                                    };
+
+                                    last_message = Some(message.clone());
+
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                last_message = Some(message.clone());
+
                 if let Some(message_element) = c_chat_message(
                     theme,
                     message,
