@@ -154,8 +154,6 @@ pub fn chat<'a>(
             bottom: 6.0,
         });
 
-    let mut chat_list_empty = true;
-
     for chat in chats {
         let chat_title = get_chat_title(&chat, &me.id, &users);
         if !chat_title
@@ -165,8 +163,6 @@ pub fn chat<'a>(
             continue;
         }
 
-        chat_list_empty = false;
-
         let mut chat_items = row![].align_y(Alignment::Center);
 
         if let Some(is_read) = chat.is_read {
@@ -174,9 +170,9 @@ pub fn chat<'a>(
                 chat_items = chat_items.push(
                     container(circle(2.5, theme.colors.notification)).padding(Padding {
                         top: 0.0,
-                        right: 4.0,
+                        right: 3.0,
                         bottom: 0.0,
-                        left: 4.0,
+                        left: 3.0,
                     }),
                 )
             }
@@ -275,19 +271,19 @@ pub fn chat<'a>(
         })
     ];
 
-    let mut side_panel = column![chat_options, chats_scrollable].width(230);
-
-    // Mantain the same padding as the scrollbar
-    if chat_list_empty {
-        side_panel = side_panel.padding(padding::right(19));
-    }
+    let mut side_panel = container(column![chat_options, chats_scrollable].width(230))
+        .style(|_| container::Style {
+            background: Some(theme.colors.primary1.into()),
+            ..Default::default()
+        })
+        .height(Length::Fill);
 
     let mut page = row![side_panel].spacing(theme.features.page_row_spacing);
 
     if let Some(current_chat) = current_chat {
-        let mut message_column = column![].spacing(3).padding(Padding {
-            left: 6.0,
-            right: 6.0,
+        let mut message_column = column![].spacing(10).padding(Padding {
+            left: 8.0,
+            right: 8.0,
             top: 0.0,
             bottom: 0.0,
         });
@@ -313,6 +309,7 @@ pub fn chat<'a>(
         let picture = get_chat_picture(&current_chat, &me.id, &users);
 
         let title_row = row![
+            Space::with_width(2), // Silly...
             picture,
             Space::with_width(15),
             parse_content_emojis(title),
@@ -358,7 +355,14 @@ pub fn chat<'a>(
             })
         ];
 
-        let mut members_column = column![].spacing(theme.features.list_spacing).padding(6);
+        let mut members_column = column![]
+            .spacing(theme.features.list_spacing)
+            .padding(Padding {
+                left: 8.0,
+                right: 6.0,
+                top: 6.0,
+                bottom: 6.0,
+            });
 
         for member in &current_chat.members {
             let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
@@ -428,10 +432,23 @@ pub fn chat<'a>(
                     .id(Id::new("conversation_column"))
                     .on_scroll(Message::OnScroll),
             )
-            .padding(padding::right(3))
+            .padding(Padding {
+                top: 8.0,
+                right: 3.0,
+                left: 0.0,
+                bottom: 0.0,
+            })
             .height(Length::Fill),
             ChatBody::Add | ChatBody::Start => {
-                let mut user_column = column![].spacing(theme.features.list_spacing).padding(6);
+                let mut user_column =
+                    column![]
+                        .spacing(theme.features.list_spacing)
+                        .padding(Padding {
+                            left: 8.0,
+                            right: 6.0,
+                            top: 6.0,
+                            bottom: 6.0,
+                        });
 
                 for user in users {
                     // Hotfix, this removes all non "human" users
@@ -519,7 +536,12 @@ pub fn chat<'a>(
                         ]
                         .align_y(Alignment::Center)
                         .spacing(10)
-                        .padding(padding::right(18)),
+                        .padding(Padding {
+                            top: 6.0,
+                            bottom: 0.0,
+                            left: 8.0,
+                            right: 8.0
+                        }),
                         scrollable(user_column)
                             .direction(scrollable::Direction::Vertical(
                                 scrollable::Scrollbar::new()
@@ -530,8 +552,9 @@ pub fn chat<'a>(
                             .style(|_, _| theme.stylesheet.chat_scrollable)
                             .id(Id::new("members_column"))
                     ]
-                    .spacing(18),
+                    .spacing(6),
                 )
+                .padding(padding::right(3))
                 .height(Length::Fill)
             }
             ChatBody::Members => container(
@@ -545,6 +568,7 @@ pub fn chat<'a>(
                     .style(|_, _| theme.stylesheet.chat_scrollable)
                     .id(Id::new("members_column")),
             )
+            .padding(padding::right(3))
             .height(Length::Fill),
         };
 
@@ -588,14 +612,19 @@ pub fn chat<'a>(
             content_page = content_page.push(Space::new(0, 25))
         }
 
-        let message_area = c_message_area(theme, message_area_content, message_area_height);
-
-        content_page = content_page.push(container(message_area).padding(Padding {
+        let message_area = container(c_message_area(
+            theme,
+            message_area_content,
+            message_area_height,
+        ))
+        .padding(Padding {
             left: 8.0,
             right: 8.0,
             top: 0.0,
             bottom: 6.0,
-        }));
+        });
+
+        content_page = content_page.push(message_area);
 
         page = page.push(content_page);
     }

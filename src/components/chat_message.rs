@@ -27,7 +27,7 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    let mut message_row = row![].spacing(3);
+    let mut message_row = row![].spacing(6);
 
     let mut contents_column = column![].spacing(4);
 
@@ -282,10 +282,10 @@ pub fn c_chat_message<'a>(
                     ..Default::default()
                 })
                 .padding(Padding {
-                    top: 8.0,
-                    right: 6.0,
-                    bottom: 8.0,
-                    left: 6.0,
+                    top: 4.0,
+                    right: 1.0,
+                    bottom: 4.0,
+                    left: 3.0,
                 })
         )
         .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))

@@ -8,16 +8,16 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
     column![
         container(row![
             row![
-                MouseArea::new(svg("images/chevron-left.svg").width(28).height(28))
+                MouseArea::new(svg("images/chevron-left.svg").width(23).height(23))
                     .on_release(Message::HistoryBack),
-                MouseArea::new(svg("images/chevron-right.svg").width(28).height(28))
+                MouseArea::new(svg("images/chevron-right.svg").width(23).height(23))
                     .on_release(Message::HistoryForward),
             ],
             container(
                 row![
-                    MouseArea::new(svg("images/house.svg").width(25).height(25))
+                    MouseArea::new(svg("images/house.svg").width(20).height(20))
                         .on_release(Message::OpenHome),
-                    MouseArea::new(svg("images/message-square.svg").width(25).height(25))
+                    MouseArea::new(svg("images/message-square.svg").width(20).height(20))
                         .on_enter(Message::PrefetchCurrentChat)
                         .on_release(Message::OpenCurrentChat)
                 ]
@@ -27,12 +27,12 @@ pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
         ])
         .style(|_| theme.stylesheet.navbar)
         .width(Fill)
-        .center_y(40)
+        .center_y(35)
         .padding(Padding {
-            top: 4.0,
-            right: 20.0,
+            top: 2.0,
+            right: 10.0,
             bottom: 0.0,
-            left: 20.0,
+            left: 10.0,
         }),
         container(Space::new(Length::Fill, 1)).style(|_| container::Style {
             background: Some(theme.colors.primary3.into()),
