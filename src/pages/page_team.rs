@@ -7,7 +7,7 @@ use directories::ProjectDirs;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
-use iced::{font, ContentFit, Element, Length, Padding};
+use iced::{font, padding, ContentFit, Element, Length, Padding};
 use std::collections::HashMap;
 
 pub fn team<'a>(
@@ -21,7 +21,12 @@ pub fn team<'a>(
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
-    let mut conversation_column = column![].spacing(12);
+    let mut conversation_column = column![].spacing(12).padding(Padding {
+        left: 8.0,
+        right: 8.0,
+        top: 0.0,
+        bottom: 0.0,
+    });
 
     if let Some(conversations) = conversations {
         let ordered_conversations: Vec<_> =
@@ -58,12 +63,24 @@ pub fn team<'a>(
                     .spacing(theme.features.scrollable_spacing)
                     .scroller_width(theme.features.scrollbar_width),
             ))
-            .style(|_, _| theme.stylesheet.scrollable)
+            .style(|_, _| theme.stylesheet.chat_scrollable)
             .id(Id::new("conversation_column")),
     )
+    .padding(padding::right(3))
     .height(Length::Fill);
 
-    let message_area = c_message_area(theme, message_area_content, message_area_height);
+    let message_area = container(c_message_area(
+        theme,
+        message_area_content,
+        message_area_height,
+    ))
+    .padding(Padding {
+        left: 8.0,
+        right: 8.0,
+        top: 0.0,
+        bottom: 6.0,
+    });
+
     let content_page = column![conversation_scrollbar, Space::new(0, 7), message_area].spacing(7);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
@@ -97,9 +114,36 @@ pub fn team<'a>(
 
     let sidetabs = column![text!("Class Notebook"), text!("Assignments")].spacing(8);
 
-    let mut channels_coloumn: Column<Message> = column![].spacing(theme.features.list_spacing);
+    let team_info = container(
+        column![
+            name_row,
+            sidetabs,
+            container(Space::new(214, 1)).style(|_| container::Style {
+                background: Some(theme.colors.primary3.into()),
+                ..Default::default()
+            }),
+        ]
+        .spacing(18),
+    )
+    .padding(Padding {
+        top: 11.0,
+        left: 10.0,
+        bottom: 14.0,
+        right: 0.0,
+    })
+    .style(|_| container::Style {
+        background: Some(theme.colors.primary1.into()),
+        ..Default::default()
+    });
 
-    let channel_count = team.channels.len();
+    let mut channels_coloumn: Column<Message> = column![]
+        .spacing(theme.features.list_spacing)
+        .padding(Padding {
+            right: 4.0,
+            left: 6.0,
+            top: 6.0,
+            bottom: 6.0,
+        });
 
     let channels_sorted = team.channels.sort_by_key(|item| item.id != team.id);
     for channel in team.channels.clone() {
@@ -116,8 +160,8 @@ pub fn team<'a>(
                         }
                     })
                     .padding(Padding::from([0, 8]))
-                    .center_y(47)
-                    .width(if channel_count <= 13 { 220 } else { 185 }),
+                    .center_y(45)
+                    .width(220),
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
             .on_release(Message::OpenTeam(team.id.clone(), channel.id)),
@@ -131,9 +175,15 @@ pub fn team<'a>(
                 .spacing(theme.features.scrollable_spacing)
                 .scroller_width(theme.features.scrollbar_width),
         ))
-        .style(|_, _| theme.stylesheet.scrollable);
+        .style(|_, _| theme.stylesheet.side_scrollable);
 
-    let team_info_column = column![name_row, sidetabs, team_scrollbar].spacing(18);
+    let team_info_column = container(column![team_info, team_scrollbar])
+        .style(|_| container::Style {
+            background: Some(theme.colors.primary1.into()),
+            ..Default::default()
+        })
+        .height(Length::Fill);
+
     row![team_info_column, content_page]
         .spacing(theme.features.page_row_spacing)
         .into()

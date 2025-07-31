@@ -27,7 +27,7 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    let mut message_row = row![].spacing(6);
+    let mut message_row = row![].spacing(3);
 
     let mut contents_column = column![].spacing(4);
 
@@ -282,10 +282,10 @@ pub fn c_chat_message<'a>(
                     ..Default::default()
                 })
                 .padding(Padding {
-                    top: 4.0,
-                    right: 1.0,
-                    bottom: 4.0,
-                    left: 3.0,
+                    top: 2.0,
+                    right: 6.0,
+                    bottom: 2.0,
+                    left: 6.0,
                 })
         )
         .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
@@ -293,5 +293,5 @@ pub fn c_chat_message<'a>(
         action_container
     );
 
-    return Some(message_stack.into());
+    return Some(container(message_stack).padding(padding::top(10)).into());
 }

@@ -6,14 +6,14 @@ use crate::style;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
-use iced::widget::{column, container, mouse_area, row, stack, svg, text};
+use iced::widget::{column, container, mouse_area, row, stack, svg, text, Space};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
 const LOG_THREAD_ACTIVITY: bool = false;
 
-pub fn c_chat_message<'a>(
+pub fn c_chat_minimized_message<'a>(
     theme: &'a style::Theme,
     message: crate::api::Message,
     chat_message_options: &HashMap<String, bool>,
@@ -27,72 +27,36 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    let mut message_row = row![].spacing(6);
-
     let mut contents_column = column![].spacing(4);
 
-    // Message info bar
+    let mut message_row = row![].spacing(3).width(Length::Fill);
 
-    let mut message_info = row![].spacing(10).align_y(Alignment::Center);
+    let is_hovered = chat_message_options
+        .get(&message.id.clone().unwrap())
+        .unwrap_or(&false)
+        .to_owned();
 
-    if let Some(message_type) = message.message_type.clone() {
-        if message_type == "RichText/Html" || message_type == "Text" {
-            if let Some(user_id) = message.from {
-                let display_name =
-                    if let Some(profile) = users.get(&user_id.replace("8:orgid:", "")) {
-                        profile.display_name.clone().unwrap()
-                    } else {
-                        message.im_display_name.unwrap()
-                    };
+    // Time
+    if is_hovered {
+        if let Some(arrival_time) = message.original_arrival_time {
+            let parsed_time: Vec<&str> = arrival_time.split("T").collect();
+            let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
+            let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
 
-                let presence = user_presences.get(&user_id);
-
-                let identifier = user_id.clone().replace(":", "");
-
-                let user_picture = c_cached_image(
-                    identifier.clone(),
-                    Message::FetchUserImage(identifier, user_id, display_name.clone()),
-                    31.0,
-                    31.0,
-                );
-
-                message_row = message_row.push(c_picture_and_status(
-                    theme,
-                    user_picture,
-                    presence,
-                    (31.0, 31.0),
-                ));
-                message_info = message_info.push(text!("{}", display_name).font(Font {
-                    weight: font::Weight::Bold,
-                    ..Default::default()
-                }));
-            } else {
-                if let Some(display_name) = message.im_display_name {
-                    message_info = message_info.push(text(display_name));
-                } else {
-                    message_info = message_info.push(text("Unknown User"));
-                }
-            }
-        } else if message_type == "RichText/Media_Card" {
-            if let Some(display_name) = message.im_display_name {
-                message_info = message_info.push(text(display_name));
-            } else {
-                message_info = message_info.push(text("Unknown User"));
-            }
+            message_row = message_row.push(
+                container(text(time).size(14).color(theme.colors.demo_text)).padding(Padding {
+                    left: 3.0,
+                    right: 5.0,
+                    top: 2.0,
+                    bottom: 0.0,
+                }),
+            )
+        } else {
+            message_row = message_row.push(Space::new(43, 1))
         }
+    } else {
+        message_row = message_row.push(Space::new(43, 1))
     }
-
-    if let Some(arrival_time) = message.original_arrival_time {
-        let parsed_time: Vec<&str> = arrival_time.split("T").collect();
-        let date = parsed_time[0].replace("-", "/");
-        let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
-        let time = format!("{}:{}", time_chunks[0], time_chunks[1]);
-
-        message_info = message_info.push(text(date).size(14).color(theme.colors.demo_text));
-        message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
-    }
-
-    contents_column = contents_column.push(message_info);
 
     // Message content
 
@@ -103,7 +67,7 @@ pub fn c_chat_message<'a>(
     };
 
     if deleted {
-        contents_column = contents_column.push(text("Message deleted").font(Font {
+        message_row = message_row.push(text("Message deleted").font(Font {
             style: font::Style::Italic,
             ..Font::default()
         }));
@@ -112,7 +76,7 @@ pub fn c_chat_message<'a>(
             if let Some(content) = message.content {
                 match parse_message_html(theme, content) {
                     Ok(result) => {
-                        contents_column = contents_column.push(result);
+                        message_row = message_row.push(result);
                     }
                     Err(e) => {
                         eprintln!("Error: {}", e);
@@ -123,7 +87,7 @@ pub fn c_chat_message<'a>(
             if let Some(content) = message.content {
                 match parse_card_html(content) {
                     Ok(result) => {
-                        contents_column = contents_column.push(result);
+                        message_row = message_row.push(result);
                     }
                     Err(e) => {
                         eprintln!("Error: {}", e);
@@ -132,14 +96,16 @@ pub fn c_chat_message<'a>(
             }
         } else if message_type == "Text" {
             if let Some(content) = message.content {
-                contents_column = contents_column.push(parse_content_emojis(content));
+                message_row = message_row.push(parse_content_emojis(content));
             }
         } else {
             if let Some(content) = message.content {
-                contents_column = contents_column.push(text(content));
+                message_row = message_row.push(text(content));
             }
         }
     }
+
+    contents_column = contents_column.push(message_row);
 
     // Files
 
@@ -230,18 +196,11 @@ pub fn c_chat_message<'a>(
         contents_column = contents_column.push(reactions_row);
     }
 
-    message_row = message_row.push(container(contents_column).width(Length::Fill));
-
     // Actions container
 
     let mut action_container = container(row![]);
 
     // Fill the container if the message is being hovered.
-
-    let is_hovered = chat_message_options
-        .get(&message.id.clone().unwrap())
-        .unwrap_or(&false)
-        .to_owned();
 
     if is_hovered {
         action_container = container(
@@ -271,7 +230,7 @@ pub fn c_chat_message<'a>(
 
     let message_stack = stack!(
         mouse_area(
-            container(message_row)
+            container(contents_column)
                 .style(move |_| container::Style {
                     background: if is_hovered {
                         Some(theme.colors.primary2_highlight.into())
@@ -282,10 +241,10 @@ pub fn c_chat_message<'a>(
                     ..Default::default()
                 })
                 .padding(Padding {
-                    top: 4.0,
-                    right: 1.0,
-                    bottom: 4.0,
-                    left: 3.0,
+                    top: 2.0,
+                    right: 6.0,
+                    bottom: 2.0,
+                    left: 6.0,
                 })
         )
         .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))

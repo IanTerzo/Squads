@@ -8,6 +8,7 @@ use iced::{
 pub struct Stylesheet {
     pub navbar: container::Style,
     pub scrollable: scrollable::Style,
+    pub side_scrollable: scrollable::Style,
     pub chat_scrollable: scrollable::Style,
     pub list_tab: container::Style,
     pub list_tab_selected: container::Style,
@@ -32,7 +33,9 @@ pub struct Colors {
     pub accent: Color,
     pub primary1: Color,
     pub primary2: Color,
+    pub primary2_highlight: Color,
     pub primary3: Color,
+    pub secondary1: Color,
     pub primary1_selected: Color,
     pub notification: Color,
     pub status_available: Color,
@@ -62,13 +65,15 @@ pub fn squads_dark() -> Theme {
         text: Color::WHITE,
         text_link: Color::parse("#6d74f4").expect("Color is invalid."),
         demo_text: Color::parse("#c1c1c1").expect("Color is invalid."),
-        background: Color::parse("#0d0e12").expect("Color is invalid."),
+        background: Color::parse("#1c1d22").expect("Color is invalid."),
         text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,
-        primary1: Color::parse("#1c2124").expect("Color is invalid."),
-        primary1_selected: Color::parse("#30393e").expect("Color is invalid."),
-        primary2: Color::parse("#161b1d").expect("Color is invalid."),
-        primary3: Color::parse("#2b3338").expect("Color is invalid."),
+        primary1: Color::parse("#13171a").expect("Color is invalid."),
+        primary1_selected: Color::parse("#283034").expect("Color is invalid."),
+        primary2: Color::parse("#1c1d22").expect("Color is invalid."),
+        primary2_highlight: Color::parse("#22282c").expect("Color is invalid."),
+        primary3: Color::parse("#303137").expect("Color is invalid."),
+        secondary1: Color::parse("#303137").expect("Color is invalid."),
         notification: Color::WHITE,
         status_available: Color::parse("#4db255").expect("Color is invalid."),
         status_offline: Color::parse("#696c65").expect("Color is invalid."),
@@ -77,10 +82,10 @@ pub fn squads_dark() -> Theme {
     };
 
     let features = Features {
-        scrollable_spacing: 12,
-        page_row_spacing: 13,
-        list_spacing: 10,
-        scrollbar_width: 7,
+        scrollable_spacing: 0,
+        page_row_spacing: 0,
+        list_spacing: 4,
+        scrollbar_width: 4,
     };
 
     let stylesheet = Stylesheet {
@@ -90,8 +95,8 @@ pub fn squads_dark() -> Theme {
             ..Default::default()
         },
         input: text_input::Style {
-            background: colors.primary1.into(),
-            border: border::rounded(8),
+            background: colors.secondary1.into(),
+            border: border::rounded(6),
             icon: colors.not_set,
             placeholder: colors.demo_text,
             value: colors.text,
@@ -99,8 +104,30 @@ pub fn squads_dark() -> Theme {
         },
         scrollable: scrollable::Style {
             container: container::Style {
-                background: Some(colors.background.into()),
+                background: Some(colors.not_set.into()),
+                ..Default::default()
+            },
+            vertical_rail: scrollable::Rail {
+                background: Some(colors.primary1.into()),
                 border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: colors.accent,
+                    border: border::rounded(10),
+                },
+            },
+            horizontal_rail: scrollable::Rail {
+                background: Some(colors.primary1.into()),
+                border: border::rounded(10),
+                scroller: scrollable::Scroller {
+                    color: colors.not_set,
+                    border: border::rounded(10),
+                },
+            },
+            gap: Some(colors.not_set.into()),
+        },
+        side_scrollable: scrollable::Style {
+            container: container::Style {
+                background: Some(colors.primary1.into()),
                 ..Default::default()
             },
             vertical_rail: scrollable::Rail {
@@ -156,7 +183,7 @@ pub fn squads_dark() -> Theme {
             ..Default::default()
         },
         message_area_bar: container::Style {
-            background: Some(colors.primary3.into()),
+            background: Some(colors.secondary1.into()),
             border: border::rounded(4),
 
             ..Default::default()
@@ -183,7 +210,7 @@ pub fn squads_dark() -> Theme {
             ..Default::default()
         },
         primary_button: container::Style {
-            background: Some(colors.primary2.into()),
+            background: Some(colors.secondary1.into()),
             border: border::rounded(4),
             ..Default::default()
         },

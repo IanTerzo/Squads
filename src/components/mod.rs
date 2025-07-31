@@ -1,5 +1,6 @@
 pub mod cached_image;
 pub mod chat_message;
+pub mod chat_minimized_message;
 pub mod conversation;
 pub mod expanded_image;
 pub mod message;
