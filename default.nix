@@ -4,7 +4,6 @@
 , llvmPackages
 , mold
 , lib
-, chromedriver
 , openssl
 , wayland
 , libGL
@@ -29,11 +28,17 @@ rustPlatform.buildRustPackage {
     openssl
     wayland
   ];
-  env = {
-    CHROMEDRIVER_PATH = chromedriver |> lib.getExe;
-  };
+  postInstall = ''
+    mkdir -p $out/share/applications
+    cp ${./resources/squads.desktop} $out/share/applications/squads.desktop
+    substituteInPlace $out/share/applications/squads.desktop \
+      --replace "Exec=Squads" "Exec=$out/bin/Squads"
+
+    mkdir -p $out/share/icons/hicolor/scalable/apps
+    cp ${./resources/squads.svg} $out/share/icons/hicolor/scalable/apps/squads.svg
+  '';
   postFixup = ''
-    wrapProgram $out/bin/squads-iced --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}
+    wrapProgram $out/bin/Squads --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}
   '';
   shellHook = ''
     export LD_LIBRARY_PATH=${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}
@@ -47,7 +52,6 @@ rustPlatform.buildRustPackage {
     homepage = "https://github.com/IanTerzo/Squads";
     license = licenses.gpl3Plus;
     platforms = platforms.unix;
-    mainProgram = "squads-iced";
+    mainProgram = "Squads";
   };
 }
-
