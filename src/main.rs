@@ -5,6 +5,7 @@ mod parsing;
 use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
 use iced::task::Handle;
+use itertools::Itertools;
 use parsing::parse_message_markdown;
 mod auth;
 mod pages;
@@ -52,6 +53,8 @@ use websockets::{
     connect, websockets_subscription, ConnectionInfo, Presence, Presences, WebsocketMessage,
     WebsocketResponse,
 };
+
+use crate::api::Conversation;
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -1568,7 +1571,6 @@ impl Counter {
                 let tenant = self.tenant.clone();
 
                 let message = message.resource;
-                //println!("{message:#?}");
                 if let Some(message_type) = &message.message_type {
                     if message_type == "Control/Typing" {
                         let chat_id = message.conversation_link.unwrap().replace(
@@ -1697,7 +1699,82 @@ impl Counter {
 
                                 return Task::batch(tasks);
                             }
+                            View::Team => {
+                                let message_link_data = message
+                                    .conversation_link
+                                    .clone()
+                                    .unwrap()
+                                    .replace(
+                                    "https://notifications.skype.net/v1/users/ME/conversations/",
+                                    "",
+                                );
 
+                                let message_link_parts: Vec<&str> =
+                                    message_link_data.split(";").collect();
+
+                                let channel_id = *message_link_parts.get(0).unwrap();
+
+                                if !channel_id.contains("@thread.tacv")
+                                    || channel_id.contains("48:threads")
+                                {
+                                    // If not a "team channel" conversation return.
+                                    return Task::none();
+                                }
+
+                                let message_link_id =
+                                    message_link_parts.get(1).unwrap().replace("messageid=", "");
+
+                                // Check if it is a new post, post edit, new reply, reply edit
+
+                                let mut reply_chain_exists = false;
+                                let mut reply_chain_message_exists = false;
+
+                                if let Some(conversation) =
+                                    self.team_conversations.get_mut(channel_id)
+                                {
+                                    for conversation in &mut conversation.reply_chains {
+                                        if message_link_id == conversation.id {
+                                            reply_chain_exists = true;
+
+                                            // Means that it is a reply or an edit
+                                            for (pos, conversation_message) in
+                                                conversation.messages.iter_mut().enumerate()
+                                            {
+                                                if conversation_message.id == message.id {
+                                                    // Edit
+                                                    conversation.messages[pos] = message.clone();
+                                                    reply_chain_message_exists = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if !reply_chain_exists {
+                                        // New post
+                                        conversation.reply_chains.insert(
+                                            0,
+                                            Conversation {
+                                                messages: vec![message.clone()],
+                                                container_id: message.id.clone().unwrap(),
+                                                id: message.id.clone().unwrap(),
+                                                latest_delivery_time: message
+                                                    .original_arrival_time
+                                                    .unwrap_or("n/a".to_string()),
+                                            },
+                                        );
+                                    } else if !reply_chain_message_exists {
+                                        // New reply
+                                        for conversation in &mut conversation.reply_chains {
+                                            if conversation.id == message_link_id {
+                                                conversation.messages.insert(0, message.clone());
+                                            }
+                                        }
+                                    }
+                                }
+
+                                return Task::none();
+                            }
                             _ => {}
                         }
                     }
