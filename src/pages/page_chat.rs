@@ -180,7 +180,7 @@ pub fn chat<'a>(
 
         let picture = get_chat_picture(&chat, &me.id, &users);
 
-        if chat.members.len() == 2 {
+        if chat.is_one_on_one.unwrap_or(false) {
             let presence = user_presences.get(
                 &chat
                     .members
@@ -197,12 +197,21 @@ pub fn chat<'a>(
         }
 
         let mut chat_info_column = column![parse_content_emojis(truncate_name(chat_title, 20))];
-        if let Some(users_typing) = users_typing.get(&chat.id) {
-            if users_typing.into_iter().len() > 0 {
-                chat_info_column = chat_info_column
-                    .push(text("is typing...").size(14).color(theme.colors.demo_text));
-            }
+
+        if users_typing.get(&chat.id).map_or(false, |u| !u.is_empty()) {
+            chat_info_column =
+                chat_info_column.push(text("is typing...").size(14).color(theme.colors.demo_text));
+        } else if chat.chat_type.clone().unwrap_or("any".to_string()) == "draft" {
+            chat_info_column =
+                chat_info_column.push(text("Draft").size(14).color(theme.colors.demo_text));
+        } else if !chat.is_one_on_one.unwrap_or(true) {
+            chat_info_column = chat_info_column.push(
+                text!("{} members", chat.members.len())
+                    .size(14)
+                    .color(theme.colors.demo_text),
+            );
         }
+
         chat_items = chat_items.push(chat_info_column);
 
         let chat_item = mouse_area(
@@ -303,7 +312,23 @@ pub fn chat<'a>(
                     message_column = message_column.push(message_element);
                 }
             }
-        };
+        } else {
+            if current_chat.chat_type.clone().unwrap_or("any".to_string()) == "draft" {
+                message_column = message_column.push(
+                    container(
+                        text("Type a message below to start your conversation.")
+                            .color(theme.colors.demo_text),
+                    )
+                    .width(Length::Fill)
+                    .padding(Padding {
+                        left: 8.0,
+                        top: 6.0,
+                        right: 0.0,
+                        bottom: 0.0,
+                    }),
+                );
+            }
+        }
 
         let title = truncate_name(get_chat_title(&current_chat, &me.id, &users), 52);
         let picture = get_chat_picture(&current_chat, &me.id, &users);
@@ -419,158 +444,212 @@ pub fn chat<'a>(
             );
         }
 
-        let body = match page_body {
-            ChatBody::Messages => container(
-                scrollable(message_column)
-                    .direction(scrollable::Direction::Vertical(
-                        scrollable::Scrollbar::new()
-                            .width(theme.features.scrollbar_width)
-                            .spacing(theme.features.scrollable_spacing)
-                            .scroller_width(theme.features.scrollbar_width),
-                    ))
-                    .style(|_, _| theme.stylesheet.chat_scrollable)
-                    .id(Id::new("conversation_column"))
-                    .on_scroll(Message::OnScroll),
-            )
-            .padding(Padding {
-                top: 8.0,
-                right: 3.0,
-                left: 0.0,
-                bottom: 0.0,
-            })
-            .height(Length::Fill),
-            ChatBody::Add | ChatBody::Start => {
-                let mut user_column =
-                    column![]
-                        .spacing(theme.features.list_spacing)
-                        .padding(Padding {
-                            left: 8.0,
-                            right: 6.0,
-                            top: 6.0,
-                            bottom: 6.0,
-                        });
+        let body =
+            match page_body {
+                ChatBody::Messages => container(
+                    scrollable(message_column)
+                        .direction(scrollable::Direction::Vertical(
+                            scrollable::Scrollbar::new()
+                                .width(theme.features.scrollbar_width)
+                                .spacing(theme.features.scrollable_spacing)
+                                .scroller_width(theme.features.scrollbar_width),
+                        ))
+                        .style(|_, _| theme.stylesheet.chat_scrollable)
+                        .id(Id::new("conversation_column"))
+                        .on_scroll(Message::OnScroll),
+                )
+                .padding(Padding {
+                    top: 8.0,
+                    right: 3.0,
+                    left: 0.0,
+                    bottom: 0.0,
+                })
+                .height(Length::Fill),
+                ChatBody::Add | ChatBody::Start => {
+                    let mut user_column =
+                        column![]
+                            .spacing(theme.features.list_spacing)
+                            .padding(Padding {
+                                left: 8.0,
+                                right: 6.0,
+                                top: 6.0,
+                                bottom: 6.0,
+                            });
 
-                for user in users {
-                    // Hotfix, this removes all non "human" users
-                    if user.1.surname.is_none() || user.1.display_name.is_none() {
-                        continue;
-                    }
+                    for user in users {
+                        // Hotfix, this removes all non "human" users
+                        if user.1.surname.is_none() || user.1.display_name.is_none() {
+                            continue;
+                        }
 
-                    if !user
-                        .1
-                        .display_name
-                        .as_ref()
-                        .unwrap()
-                        .to_lowercase()
-                        .starts_with(&search_users_input_value.to_lowercase())
-                    {
-                        continue;
-                    }
+                        if !user
+                            .1
+                            .display_name
+                            .as_ref()
+                            .unwrap()
+                            .to_lowercase()
+                            .starts_with(&search_users_input_value.to_lowercase())
+                        {
+                            continue;
+                        }
 
-                    let is_checked = add_users_cheked.get(user.0).unwrap_or(&false).clone();
-                    let profile_row = row![
-                        text(
-                            user.1
-                                .display_name
-                                .clone()
-                                .unwrap_or("Unknown User".to_string())
-                        ),
-                        container(
-                            checkbox("", is_checked)
-                                .style(|_, _| checkbox::Style {
-                                    background: theme.colors.primary3.into(),
-                                    border: border::rounded(2),
-                                    icon_color: theme.colors.text,
-                                    text_color: None,
-                                })
-                                .on_toggle(|checked: bool| Message::ToggleUserCheckbox(
-                                    checked,
-                                    user.0.to_string()
-                                ))
-                        )
-                        .align_right(Length::Fill)
-                    ]
-                    .width(Length::Fill)
-                    .align_y(Alignment::Center);
-                    user_column = user_column
-                        .push(
-                            container(profile_row)
-                                .style(|_| container::Style {
-                                    background: Some(theme.colors.primary1.into()),
-                                    border: border::rounded(4),
-                                    ..Default::default()
-                                })
-                                .padding(Padding {
-                                    top: 9.0,
-                                    right: 6.0,
-                                    bottom: 9.0,
-                                    left: 6.0,
-                                }),
-                        )
-                        .into();
-                }
+                        // Do not show user if already part of group or chat
+                        if current_chat
+                            .members
+                            .iter()
+                            .any(|member| &member.mri.replace("8:orgid:", "") == user.0)
+                        {
+                            continue;
+                        }
 
-                container(
-                    column![
-                        row![
-                            text_input("Search users...", &search_users_input_value)
-                                .on_input(Message::SearchUsersContentChanged)
-                                .padding(10)
-                                .style(|_, _| theme.stylesheet.input),
-                            mouse_area(
-                                container(text("Add"))
-                                    .padding(Padding {
-                                        top: 8.0,
-                                        bottom: 8.0,
-                                        left: 13.0,
-                                        right: 13.0
-                                    })
-                                    .style(|_| {
-                                        container::Style {
+                        let is_checked = add_users_cheked.get(user.0).unwrap_or(&false).clone();
+                        let profile_row = row![
+                            text(
+                                user.1
+                                    .display_name
+                                    .clone()
+                                    .unwrap_or("Unknown User".to_string())
+                            ),
+                            container(checkbox("", is_checked).style(|_, _| checkbox::Style {
+                                background: theme.colors.primary3.into(),
+                                border: border::rounded(2),
+                                icon_color: theme.colors.text,
+                                text_color: None,
+                            }))
+                            .align_right(Length::Fill)
+                        ]
+                        .width(Length::Fill)
+                        .align_y(Alignment::Center);
+                        user_column = user_column
+                            .push(
+                                mouse_area(
+                                    container(profile_row)
+                                        .style(|_| container::Style {
                                             background: Some(theme.colors.primary1.into()),
                                             border: border::rounded(4),
                                             ..Default::default()
-                                        }
-                                    })
+                                        })
+                                        .padding(Padding {
+                                            top: 9.0,
+                                            right: 6.0,
+                                            bottom: 9.0,
+                                            left: 6.0,
+                                        }),
+                                )
+                                .on_release(
+                                    Message::ToggleUserCheckbox(is_checked, user.0.to_string()),
+                                ),
                             )
+                            .into();
+                    }
+
+                    container(
+                        column![
+                            row![
+                                text_input("Search users...", &search_users_input_value)
+                                    .on_input(Message::SearchUsersContentChanged)
+                                    .padding(10)
+                                    .style(|_, _| theme.stylesheet.input),
+                                mouse_area(
+                                    container(text("Add"))
+                                        .padding(Padding {
+                                            top: 8.0,
+                                            bottom: 8.0,
+                                            left: 13.0,
+                                            right: 13.0
+                                        })
+                                        .style(|_| {
+                                            container::Style {
+                                                background: Some(theme.colors.primary1.into()),
+                                                border: border::rounded(4),
+                                                ..Default::default()
+                                            }
+                                        })
+                                )
+                                .on_release(
+                                    if !current_chat.is_one_on_one.unwrap_or(false) {
+                                        Message::AddToGroupChat(
+                                            current_chat.id.clone(),
+                                            add_users_cheked
+                                                .iter()
+                                                .filter_map(|(key, &val)| {
+                                                    if val {
+                                                        Some(key.clone())
+                                                    } else {
+                                                        None
+                                                    }
+                                                })
+                                                .collect(),
+                                        )
+                                    } else {
+                                        Message::StartGroupChat({
+                                            let mut users: Vec<String> = add_users_cheked
+                                                .iter()
+                                                .filter_map(|(key, &val)| {
+                                                    if val {
+                                                        Some(key.clone())
+                                                    } else {
+                                                        None
+                                                    }
+                                                })
+                                                .collect();
+
+                                            users.push(
+                                                current_chat
+                                                    .members
+                                                    .iter()
+                                                    .find(|member| {
+                                                        &member.mri.replace("8:orgid:", "")
+                                                            != &me.id
+                                                    })
+                                                    .unwrap()
+                                                    .mri
+                                                    .clone()
+                                                    .replace("8:orgid:", ""),
+                                            );
+
+                                            users
+                                        })
+                                    }
+                                )
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(10)
+                            .padding(Padding {
+                                top: 6.0,
+                                bottom: 0.0,
+                                left: 8.0,
+                                right: 8.0
+                            }),
+                            scrollable(user_column)
+                                .direction(scrollable::Direction::Vertical(
+                                    scrollable::Scrollbar::new()
+                                        .width(theme.features.scrollbar_width)
+                                        .spacing(theme.features.scrollable_spacing)
+                                        .scroller_width(theme.features.scrollbar_width),
+                                ))
+                                .style(|_, _| theme.stylesheet.chat_scrollable)
+                                .id(Id::new("members_column"))
                         ]
-                        .align_y(Alignment::Center)
-                        .spacing(10)
-                        .padding(Padding {
-                            top: 6.0,
-                            bottom: 0.0,
-                            left: 8.0,
-                            right: 8.0
-                        }),
-                        scrollable(user_column)
-                            .direction(scrollable::Direction::Vertical(
-                                scrollable::Scrollbar::new()
-                                    .width(theme.features.scrollbar_width)
-                                    .spacing(theme.features.scrollable_spacing)
-                                    .scroller_width(theme.features.scrollbar_width),
-                            ))
-                            .style(|_, _| theme.stylesheet.chat_scrollable)
-                            .id(Id::new("members_column"))
-                    ]
-                    .spacing(6),
+                        .spacing(6),
+                    )
+                    .padding(padding::right(3))
+                    .height(Length::Fill)
+                }
+                ChatBody::Members => container(
+                    scrollable(members_column)
+                        .direction(scrollable::Direction::Vertical(
+                            scrollable::Scrollbar::new()
+                                .width(theme.features.scrollbar_width)
+                                .spacing(theme.features.scrollable_spacing)
+                                .scroller_width(theme.features.scrollbar_width),
+                        ))
+                        .style(|_, _| theme.stylesheet.chat_scrollable)
+                        .id(Id::new("members_column")),
                 )
                 .padding(padding::right(3))
-                .height(Length::Fill)
-            }
-            ChatBody::Members => container(
-                scrollable(members_column)
-                    .direction(scrollable::Direction::Vertical(
-                        scrollable::Scrollbar::new()
-                            .width(theme.features.scrollbar_width)
-                            .spacing(theme.features.scrollable_spacing)
-                            .scroller_width(theme.features.scrollbar_width),
-                    ))
-                    .style(|_, _| theme.stylesheet.chat_scrollable)
-                    .id(Id::new("members_column")),
-            )
-            .padding(padding::right(3))
-            .height(Length::Fill),
-        };
+                .height(Length::Fill),
+            };
 
         let mut content_page = column![title_row_container, body];
 

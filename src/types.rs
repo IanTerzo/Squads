@@ -51,3 +51,23 @@ pub struct Properties<'a> {
     pub policy_violation: Option<&'a str>,
     pub format_variant: &'a str,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadMember {
+    pub id: String,
+    pub role: String,
+    pub share_history_time: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadProperties {
+    pub thread_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Thread {
+    pub members: Vec<ThreadMember>,
+    pub properties: Option<ThreadProperties>,
+}

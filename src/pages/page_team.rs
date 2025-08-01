@@ -64,6 +64,7 @@ pub fn team<'a>(
                     .scroller_width(theme.features.scrollbar_width),
             ))
             .style(|_, _| theme.stylesheet.chat_scrollable)
+            .on_scroll(Message::OnScroll)
             .id(Id::new("conversation_column")),
     )
     .padding(padding::right(3))

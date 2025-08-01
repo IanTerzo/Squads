@@ -54,7 +54,7 @@ use websockets::{
     WebsocketResponse,
 };
 
-use crate::api::Conversation;
+use crate::api::{add_member, start_thread, ChatMember, Conversation};
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -180,6 +180,10 @@ pub enum Message {
     GotConversations(String, TeamConversations), //callback
     OnScroll(Viewport),
     PostMessage,
+    StartGroupChat(Vec<String>),
+    CreatedGroupChat(String, String, String), //callback
+    AddToGroupChat(String, Vec<String>),
+    AddedToGroupChat(String, Vec<String>),
     FetchTeamImage(String, String, String, String),
     FetchUserImage(String, String, String),
     FetchMergedProfilePicture(String, Vec<(String, String)>),
@@ -701,6 +705,18 @@ impl Counter {
                     _ => return Task::none(), // Should never happen
                 };
 
+                let conversation_id = match self.page.view {
+                    View::Team => self.page.current_channel_id.clone().unwrap(),
+                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                    _ => "".to_string(),
+                };
+
+                let current_chat = self
+                    .chats
+                    .iter()
+                    .find(|chat| chat.id == conversation_id)
+                    .unwrap();
+
                 let message_area_text = message_area_content.text();
                 match action {
                     Action::Edit(Edit::Enter) => {
@@ -715,26 +731,67 @@ impl Counter {
                                 _ => {}
                             }
 
-                            let conversation_id = match self.page.view {
-                                View::Team => self.page.current_channel_id.clone().unwrap(),
-                                View::Chat => self.page.current_chat_id.clone().unwrap(),
-                                _ => "".to_string(),
-                            };
-
                             let me_id = self.me.id.clone();
 
                             let me_display_name = self.me.display_name.clone().unwrap();
 
                             let acess_tokens_arc = self.access_tokens.clone();
                             let tenant = self.tenant.clone();
-                            return post_message_task(
-                                message_area_text,
-                                acess_tokens_arc,
-                                tenant,
-                                conversation_id,
-                                me_id,
-                                me_display_name,
-                            );
+
+                            if current_chat.chat_type.clone().unwrap_or("any".to_string())
+                                != "draft"
+                            {
+                                return post_message_task(
+                                    message_area_text,
+                                    acess_tokens_arc,
+                                    tenant,
+                                    conversation_id,
+                                    me_id,
+                                    me_display_name,
+                                );
+                            } else {
+                                let members: Vec<ThreadMember> = current_chat
+                                    .members
+                                    .iter()
+                                    .map(|memeber| ThreadMember {
+                                        id: memeber.mri.clone(),
+                                        role: "Admin".to_string(),
+                                        share_history_time: None,
+                                    })
+                                    .collect();
+
+                                let new_thread = Thread {
+                                    members: members,
+                                    properties: Some(ThreadProperties {
+                                        thread_type: "chat".to_string(),
+                                    }),
+                                };
+
+                                let body = serde_json::to_string(&new_thread).unwrap();
+
+                                return Task::perform(
+                                    async move {
+                                        let access_token = get_or_gen_token(
+                                            acess_tokens_arc,
+                                            "https://ic3.teams.office.com/.default".to_string(),
+                                            &tenant,
+                                        )
+                                        .await;
+
+                                        let thread_link =
+                                            start_thread(&access_token, body).await.unwrap();
+
+                                        (conversation_id, thread_link)
+                                    },
+                                    move |(conversation_id, thread_link)| {
+                                        Message::CreatedGroupChat(
+                                            conversation_id,
+                                            thread_link,
+                                            message_area_text.clone(),
+                                        )
+                                    },
+                                );
+                            }
                         }
                     }
                     _ => message_area_content.perform(action),
@@ -752,7 +809,9 @@ impl Counter {
                 };
 
                 if self.page.view == View::Chat {
-                    if self.should_send_typing {
+                    if self.should_send_typing
+                        && current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft"
+                    {
                         self.should_send_typing = false;
 
                         let acess_tokens_arc = self.access_tokens.clone();
@@ -963,33 +1022,39 @@ impl Counter {
 
                 self.add_users_checked.clear();
 
-                Task::batch(vec![
-                    snap_to(Id::new("conversation_column"), RelativeOffset::END),
-                    Task::perform(
-                        async move {
-                            let time = get_epoch_ms();
+                let current_chat = self.chats.iter().find(|chat| chat.id == thread_id).unwrap();
 
-                            let body = format!(
-                                "{{\"consumptionhorizon\":\"{};{};{}\"}}",
-                                time, time, time
-                            );
+                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                    return Task::batch(vec![
+                        snap_to(Id::new("conversation_column"), RelativeOffset::END),
+                        Task::perform(
+                            async move {
+                                let time = get_epoch_ms();
 
-                            let access_token = get_or_gen_token(
-                                access_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
-                                &tenant,
-                            )
-                            .await;
+                                let body = format!(
+                                    "{{\"consumptionhorizon\":\"{};{};{}\"}}",
+                                    time, time, time
+                                );
 
-                            consumption_horizon(&access_token, thread_id.clone(), body)
-                                .await
-                                .unwrap();
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
 
-                            thread_id
-                        },
-                        Message::ReadChat,
-                    ),
-                ])
+                                consumption_horizon(&access_token, thread_id.clone(), body)
+                                    .await
+                                    .unwrap();
+
+                                thread_id
+                            },
+                            Message::ReadChat,
+                        ),
+                    ]);
+                } else {
+                    return snap_to(Id::new("conversation_column"), RelativeOffset::END);
+                };
             }
             Message::OpenCurrentChat => {
                 let chat_id = self.page.current_chat_id.clone();
@@ -1012,33 +1077,39 @@ impl Counter {
                 self.add_users_checked.clear();
 
                 if let Some(chat_id) = chat_id {
-                    return Task::batch(vec![
-                        snap_to(Id::new("conversation_column"), RelativeOffset::END),
-                        Task::perform(
-                            async move {
-                                let time = get_epoch_ms();
+                    let current_chat = self.chats.iter().find(|chat| chat.id == chat_id).unwrap();
 
-                                let body = format!(
-                                    "{{\"consumptionhorizon\":\"{};{};{}\"}}",
-                                    time, time, time
-                                );
+                    if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                        return Task::batch(vec![
+                            snap_to(Id::new("conversation_column"), RelativeOffset::END),
+                            Task::perform(
+                                async move {
+                                    let time = get_epoch_ms();
 
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
-                                    &tenant,
-                                )
-                                .await;
+                                    let body = format!(
+                                        "{{\"consumptionhorizon\":\"{};{};{}\"}}",
+                                        time, time, time
+                                    );
 
-                                consumption_horizon(&access_token, chat_id.clone(), body)
-                                    .await
-                                    .unwrap();
+                                    let access_token = get_or_gen_token(
+                                        access_tokens_arc,
+                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        &tenant,
+                                    )
+                                    .await;
 
-                                chat_id
-                            },
-                            Message::ReadChat,
-                        ),
-                    ]);
+                                    consumption_horizon(&access_token, chat_id.clone(), body)
+                                        .await
+                                        .unwrap();
+
+                                    chat_id
+                                },
+                                Message::ReadChat,
+                            ),
+                        ]);
+                    } else {
+                        return snap_to(Id::new("conversation_column"), RelativeOffset::END);
+                    };
                 }
                 Task::none()
             }
@@ -1192,26 +1263,11 @@ impl Counter {
                 let thread_id_clone = thread_id.clone();
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://ic3.teams.office.com/.default".to_string(),
-                            &tenant,
-                        )
-                        .await;
 
-                        conversations(&access_token, thread_id, None).await.unwrap()
-                    },
-                    move |result| Message::GotChatConversations(thread_id_clone.clone(), result), // This calls a message
-                )
-            }
-            Message::PrefetchCurrentChat => {
-                if let Some(chat_id) = self.page.current_chat_id.clone() {
-                    let chat_id_clone = chat_id.clone();
-                    let access_tokens_arc = self.access_tokens.clone();
-                    let tenant = self.tenant.clone();
-                    return Task::perform(
+                let current_chat = self.chats.iter().find(|chat| chat.id == thread_id).unwrap();
+
+                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                    Task::perform(
                         async move {
                             let access_token = get_or_gen_token(
                                 access_tokens_arc,
@@ -1220,12 +1276,41 @@ impl Counter {
                             )
                             .await;
 
-                            conversations(&access_token, chat_id_clone, None)
-                                .await
-                                .unwrap()
+                            conversations(&access_token, thread_id, None).await.unwrap()
                         },
-                        move |result| Message::GotChatConversations(chat_id.clone(), result), // This calls a message
-                    );
+                        move |result| {
+                            Message::GotChatConversations(thread_id_clone.clone(), result)
+                        }, // This calls a message
+                    )
+                } else {
+                    Task::none()
+                }
+            }
+            Message::PrefetchCurrentChat => {
+                if let Some(chat_id) = self.page.current_chat_id.clone() {
+                    let chat_id_clone = chat_id.clone();
+                    let access_tokens_arc = self.access_tokens.clone();
+                    let tenant = self.tenant.clone();
+
+                    let current_chat = self.chats.iter().find(|chat| chat.id == chat_id).unwrap();
+
+                    if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                        return Task::perform(
+                            async move {
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
+
+                                conversations(&access_token, chat_id_clone, None)
+                                    .await
+                                    .unwrap()
+                            },
+                            move |result| Message::GotChatConversations(chat_id.clone(), result), // This calls a message
+                        );
+                    }
                 }
                 Task::none()
             }
@@ -1299,14 +1384,200 @@ impl Counter {
                 let tenant = self.tenant.clone();
                 let me_id = self.me.id.clone();
                 let me_display_name = self.me.display_name.clone().unwrap();
+
+                let current_chat = self
+                    .chats
+                    .iter()
+                    .find(|chat| chat.id == conversation_id)
+                    .unwrap();
+
+                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                    return post_message_task(
+                        message_area_text,
+                        acess_tokens_arc,
+                        tenant,
+                        conversation_id,
+                        me_id,
+                        me_display_name,
+                    );
+                } else {
+                    let members: Vec<ThreadMember> = current_chat
+                        .members
+                        .iter()
+                        .map(|memeber| ThreadMember {
+                            id: memeber.mri.clone(),
+                            role: "Admin".to_string(),
+                            share_history_time: None,
+                        })
+                        .collect();
+
+                    let new_thread = Thread {
+                        members: members,
+                        properties: Some(ThreadProperties {
+                            thread_type: "chat".to_string(),
+                        }),
+                    };
+
+                    let body = serde_json::to_string(&new_thread).unwrap();
+
+                    return Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                acess_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            let thread_link = start_thread(&access_token, body).await.unwrap();
+
+                            (conversation_id, thread_link)
+                        },
+                        move |(conversation_id, thread_link)| {
+                            Message::CreatedGroupChat(
+                                conversation_id,
+                                thread_link,
+                                message_area_text.clone(),
+                            )
+                        },
+                    );
+                }
+            }
+            Message::StartGroupChat(user_ids) => {
+                let mut user_ids = user_ids;
+                user_ids.push(self.me.id.clone());
+
+                let members: Vec<ChatMember> = user_ids
+                    .iter()
+                    .map(|user_id| ChatMember {
+                        mri: format!("8:orgid:{}", user_id), // Users should all be of 8:orgid:
+                        is_muted: None,
+                        object_id: None,
+                        is_identity_masked: None,
+                        role: None,
+                    })
+                    .collect();
+
+                let mut rng = StdRng::from_os_rng();
+
+                let draft_id = format!("draft:{}", rng.random::<u64>()); // generate the temproary draft chat_id randomly
+
+                self.chats.insert(
+                    0,
+                    Chat {
+                        id: draft_id.clone(), // Signal that it isn't a real chat
+                        members: members,
+                        is_read: None,
+                        is_high_importance: None,
+                        is_one_on_one: Some(false),
+                        is_conversation_deleted: None,
+                        is_external: None,
+                        is_messaging_disabled: None,
+                        is_disabled: None,
+                        title: None,
+                        last_message: None,
+                        is_last_message_from_me: None,
+                        chat_sub_type: None,
+                        last_join_at: None,
+                        created_at: None,
+                        creator: None,
+                        hidden: None,
+                        added_by: None,
+                        chat_type: Some("draft".to_string()),
+                        picture: None,
+                    },
+                );
+
+                self.page.chat_body = ChatBody::Messages;
+
+                self.page.current_chat_id = Some(draft_id);
+
+                Task::none()
+            }
+            Message::CreatedGroupChat(draft_id, thread_link, message) => {
+                let chat_id =
+                    thread_link.replace("https://emea.ng.msg.teams.microsoft.com/v1/threads/", "");
+
+                self.chats
+                    .iter_mut()
+                    .find(|chat| chat.id == draft_id)
+                    .unwrap()
+                    .chat_type = Some("chat".to_string());
+
+                self.chats
+                    .iter_mut()
+                    .find(|chat| chat.id == draft_id)
+                    .unwrap()
+                    .id = chat_id.clone();
+
+                self.chat_conversations.insert(chat_id.clone(), vec![]);
+
+                self.page.current_chat_id = Some(chat_id.clone());
+
                 post_message_task(
-                    message_area_text,
-                    acess_tokens_arc,
-                    tenant,
-                    conversation_id,
-                    me_id,
-                    me_display_name,
+                    message,
+                    self.access_tokens.clone(),
+                    self.tenant.clone(),
+                    chat_id,
+                    self.me.id.clone(),
+                    self.me.display_name.clone().unwrap(),
                 )
+            }
+            Message::AddToGroupChat(chat_id, user_ids) => {
+                let members: Vec<ThreadMember> = user_ids
+                    .iter()
+                    .map(|user_id| ThreadMember {
+                        id: format!("8:orgid:{}", user_id), // Users should all be of 8:orgid:
+                        role: "Admin".to_string(),
+                        share_history_time: Some(-1),
+                    })
+                    .collect();
+
+                let chat_thread = Thread {
+                    members: members,
+                    properties: None,
+                };
+
+                // Serialize to JSON
+                let body = serde_json::to_string_pretty(&chat_thread).unwrap();
+
+                let acess_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            acess_tokens_arc,
+                            "https://ic3.teams.office.com/.default".to_string(),
+                            &tenant,
+                        )
+                        .await;
+
+                        add_member(&access_token, chat_id.clone(), body)
+                            .await
+                            .unwrap();
+
+                        (chat_id, user_ids)
+                    },
+                    |(chat_id, user_ids)| Message::AddedToGroupChat(chat_id, user_ids),
+                )
+            }
+            Message::AddedToGroupChat(chat_id, user_ids) => {
+                let mut chat = self.chats.iter_mut().find(|chat| chat.id == chat_id);
+                // Shouldn't happen
+                if let Some(chat) = chat.as_mut() {
+                    for user_id in user_ids {
+                        chat.members.push(ChatMember {
+                            mri: user_id,
+                            is_muted: None,
+                            object_id: None,
+                            role: None,
+                            is_identity_masked: None,
+                        });
+                    }
+                }
+
+                self.page.chat_body = ChatBody::Messages;
+                Task::none()
             }
             Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
                 let acess_tokens_arc = self.access_tokens.clone();
@@ -1508,9 +1779,7 @@ impl Counter {
                 }
             }
             Message::ToggleUserCheckbox(checked, id) => {
-                println!("{}", checked);
-                println!("{}", id);
-                self.add_users_checked.insert(id, checked);
+                self.add_users_checked.insert(id, !checked);
                 Task::none()
             }
             // Websockets
@@ -1721,6 +1990,11 @@ impl Counter {
                                     return Task::none();
                                 }
 
+                                if message_link_parts.get(1).is_none() {
+                                    // Should't happpen, but just to be sure
+                                    return Task::none();
+                                }
+
                                 let message_link_id =
                                     message_link_parts.get(1).unwrap().replace("messageid=", "");
 
@@ -1736,7 +2010,6 @@ impl Counter {
                                         if message_link_id == conversation.id {
                                             reply_chain_exists = true;
 
-                                            // Means that it is a reply or an edit
                                             for (pos, conversation_message) in
                                                 conversation.messages.iter_mut().enumerate()
                                             {
@@ -1773,7 +2046,12 @@ impl Counter {
                                     }
                                 }
 
-                                return Task::none();
+                                if self.scrollbar_scroll < 60 {
+                                    return snap_to(
+                                        Id::new("conversation_column"),
+                                        RelativeOffset::END,
+                                    );
+                                }
                             }
                             _ => {}
                         }

@@ -1461,7 +1461,7 @@ pub async fn send_message(
         conversation_id
     );
     if LOG_REQUESTS {
-        println!("Log: GET {}", url);
+        println!("Log: POST {}", url);
     }
     let access_token = format!("Bearer {}", token.value);
 
@@ -1480,6 +1480,84 @@ pub async fn send_message(
     if res.status().is_success() {
         let body = res.text().await?;
         Ok(body)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
+}
+
+// Api: Emea v1
+// Scope: https://ic3.teams.office.com/.default
+pub async fn start_thread(
+    token: &AccessToken,
+    body: String,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let url = "https://teams.microsoft.com/api/chatsvc/emea/v1/threads";
+
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert("authorization", access_token.parse().unwrap());
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.post(url).body(body).headers(headers).send().await?;
+
+    if res.status().is_success() {
+        if let Some(location) = res.headers().get(LOCATION) {
+            Ok(location.to_str().unwrap().to_string())
+        } else {
+            Err("Couldn't get location header".into())
+        }
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
+}
+
+// Api: Emea v1
+// Scope: https://ic3.teams.office.com/.default
+pub async fn add_member(
+    token: &AccessToken,
+    thread_id: String,
+    body: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let url = format!(
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/threads/{}/members",
+        thread_id
+    );
+
+    if LOG_REQUESTS {
+        println!("Log: PUT {}", url);
+    }
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert("authorization", access_token.parse().unwrap());
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.put(url).body(body).headers(headers).send().await?;
+
+    if res.status().is_success() {
+        Ok(())
     } else {
         let error_message = format!(
             "Status code: {}, Response body: {}",

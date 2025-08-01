@@ -435,7 +435,7 @@ where
         None => match value.as_f64() {
             Some(n) => Ok(n as u64),
             None => Err(serde::de::Error::custom("Number is not a valid u64")),
-        }
+        },
     }
 }
 
