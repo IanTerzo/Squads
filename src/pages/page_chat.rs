@@ -17,6 +17,7 @@ use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{checkbox, column, container, mouse_area, row, stack, svg, text_input, Space};
 use iced::widget::{scrollable, text};
+use iced::Alignment::Center;
 use iced::{border, padding, Alignment, Color, Element, Length, Padding};
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
@@ -143,16 +144,38 @@ pub fn chat<'a>(
     search_users_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
-    page_body: &ChatBody,
+    page_body: &'a ChatBody,
 ) -> Element<'a, Message> {
-    let mut chats_column = column![]
+    let mut chats_column = if *page_body == ChatBody::Start {
+        column![container(
+            row![
+                svg("images/message-square.svg").width(18).height(18),
+                text("New chat").color(theme.colors.demo_text)
+            ]
+            .align_y(Center)
+            .spacing(10)
+        )
+        .style(move |_| { theme.stylesheet.list_tab_selected })
+        .center_y(47)
+        .padding(12)
+        .width(220)]
         .spacing(theme.features.list_spacing)
         .padding(Padding {
             right: 4.0,
             left: 6.0,
             top: 6.0,
             bottom: 6.0,
-        });
+        })
+    } else {
+        column![]
+            .spacing(theme.features.list_spacing)
+            .padding(Padding {
+                right: 4.0,
+                left: 6.0,
+                top: 6.0,
+                bottom: 6.0,
+            })
+    };
 
     for chat in chats {
         let chat_title = get_chat_title(&chat, &me.id, &users);
@@ -218,7 +241,7 @@ pub fn chat<'a>(
             container(chat_items)
                 .style(move |_| {
                     if let Some(current_chat) = current_chat {
-                        if chat.id == current_chat.id {
+                        if chat.id == current_chat.id && *page_body != ChatBody::Start {
                             theme.stylesheet.list_tab_selected
                         } else {
                             theme.stylesheet.list_tab
@@ -255,7 +278,8 @@ pub fn chat<'a>(
                         .style(|_, _| theme.stylesheet.input),
                 )
                 .width(188),
-                svg("images/square-pen.svg").width(22).height(22)
+                mouse_area(svg("images/square-pen.svg").width(22).height(22))
+                    .on_release(Message::StartChat)
             ]
             .spacing(10)
             .align_y(Alignment::Center),
@@ -333,41 +357,55 @@ pub fn chat<'a>(
         let title = truncate_name(get_chat_title(&current_chat, &me.id, &users), 52);
         let picture = get_chat_picture(&current_chat, &me.id, &users);
 
-        let title_row = row![
-            Space::with_width(2), // Silly...
-            picture,
-            Space::with_width(15),
-            parse_content_emojis(title),
-            if let Some(is_one_on_one) = current_chat.is_one_on_one {
-                if !is_one_on_one {
-                    row![
-                        Space::with_width(8),
-                        svg("images/pencil.svg").width(17).height(17),
-                    ]
+        let title_row = if *page_body != ChatBody::Start {
+            row![
+                Space::with_width(2), // Silly...
+                picture,
+                Space::with_width(15),
+                parse_content_emojis(title),
+                if let Some(is_one_on_one) = current_chat.is_one_on_one {
+                    if !is_one_on_one {
+                        row![
+                            Space::with_width(8),
+                            svg("images/pencil.svg").width(17).height(17),
+                        ]
+                    } else {
+                        row![]
+                    }
                 } else {
                     row![]
-                }
-            } else {
-                row![]
-            },
-            container(
-                row![
-                    mouse_area(svg("images/users-round.svg").width(19).height(19))
-                        .on_release(Message::ToggleShowChatMembers),
-                    mouse_area(svg("images/user-round-plus.svg").width(19).height(19))
-                        .on_release(Message::ToggleShowChatAdd),
-                ]
-                .spacing(14)
-            )
-            .align_right(Length::Fill)
-        ]
-        .padding(Padding {
-            top: 10.0,
-            right: 30.0,
-            bottom: 10.0,
-            left: 14.0,
-        })
-        .align_y(Alignment::Center);
+                },
+                container(
+                    row![
+                        mouse_area(svg("images/users-round.svg").width(19).height(19))
+                            .on_release(Message::ToggleShowChatMembers),
+                        mouse_area(svg("images/user-round-plus.svg").width(19).height(19))
+                            .on_release(Message::ToggleShowChatAdd),
+                    ]
+                    .spacing(14)
+                )
+                .align_right(Length::Fill)
+            ]
+            .padding(Padding {
+                top: 10.0,
+                right: 30.0,
+                bottom: 10.0,
+                left: 14.0,
+            })
+            .align_y(Alignment::Center)
+        } else {
+            row![
+                Space::with_width(2), // Silly...
+                text("Start chat"),
+            ]
+            .padding(Padding {
+                top: 10.0,
+                right: 30.0,
+                bottom: 10.0,
+                left: 14.0,
+            })
+            .align_y(Alignment::Center)
+        };
 
         let title_row_container = column![
             container(title_row).style(|_| container::Style {
@@ -493,12 +531,18 @@ pub fn chat<'a>(
                             continue;
                         }
 
-                        // Do not show user if already part of group or chat
+                        // Do not show user if already part of group or chat (except if in the start chat menu)
                         if current_chat
                             .members
                             .iter()
                             .any(|member| &member.mri.replace("8:orgid:", "") == user.0)
+                            && *page_body != ChatBody::Start
                         {
+                            continue;
+                        }
+
+                        // Remove yourself if the alst check din't chatch you if in start chat body
+                        if *user.0 == me.id {
                             continue;
                         }
 
@@ -551,23 +595,29 @@ pub fn chat<'a>(
                                     .padding(10)
                                     .style(|_, _| theme.stylesheet.input),
                                 mouse_area(
-                                    container(text("Add"))
-                                        .padding(Padding {
-                                            top: 8.0,
-                                            bottom: 8.0,
-                                            left: 13.0,
-                                            right: 13.0
-                                        })
-                                        .style(|_| {
-                                            container::Style {
-                                                background: Some(theme.colors.primary1.into()),
-                                                border: border::rounded(4),
-                                                ..Default::default()
-                                            }
-                                        })
+                                    container(if *page_body == ChatBody::Start {
+                                        text("Start")
+                                    } else {
+                                        text("Add")
+                                    })
+                                    .padding(Padding {
+                                        top: 8.0,
+                                        bottom: 8.0,
+                                        left: 13.0,
+                                        right: 13.0
+                                    })
+                                    .style(|_| {
+                                        container::Style {
+                                            background: Some(theme.colors.primary1.into()),
+                                            border: border::rounded(4),
+                                            ..Default::default()
+                                        }
+                                    })
                                 )
                                 .on_release(
-                                    if !current_chat.is_one_on_one.unwrap_or(false) {
+                                    if !current_chat.is_one_on_one.unwrap_or(false)
+                                        && *page_body != ChatBody::Start
+                                    {
                                         Message::AddToGroupChat(
                                             current_chat.id.clone(),
                                             add_users_cheked
@@ -582,34 +632,40 @@ pub fn chat<'a>(
                                                 .collect(),
                                         )
                                     } else {
-                                        Message::StartGroupChat({
-                                            let mut users: Vec<String> = add_users_cheked
-                                                .iter()
-                                                .filter_map(|(key, &val)| {
-                                                    if val {
-                                                        Some(key.clone())
-                                                    } else {
-                                                        None
-                                                    }
-                                                })
-                                                .collect();
-
-                                            users.push(
-                                                current_chat
-                                                    .members
+                                        if add_users_cheked.len() > 0 {
+                                            Message::StartGroupChat({
+                                                let mut users: Vec<String> = add_users_cheked
                                                     .iter()
-                                                    .find(|member| {
-                                                        &member.mri.replace("8:orgid:", "")
-                                                            != &me.id
+                                                    .filter_map(|(key, &val)| {
+                                                        if val {
+                                                            Some(key.clone())
+                                                        } else {
+                                                            None
+                                                        }
                                                     })
-                                                    .unwrap()
-                                                    .mri
-                                                    .clone()
-                                                    .replace("8:orgid:", ""),
-                                            );
+                                                    .collect();
 
-                                            users
-                                        })
+                                                if *page_body != ChatBody::Start {
+                                                    users.push(
+                                                        current_chat
+                                                            .members
+                                                            .iter()
+                                                            .find(|member| {
+                                                                &member.mri.replace("8:orgid:", "")
+                                                                    != &me.id
+                                                            })
+                                                            .unwrap()
+                                                            .mri
+                                                            .clone()
+                                                            .replace("8:orgid:", ""),
+                                                    );
+                                                }
+
+                                                users
+                                            })
+                                        } else {
+                                            Message::DoNothing(())
+                                        }
                                     }
                                 )
                             ]
@@ -651,7 +707,13 @@ pub fn chat<'a>(
                 .height(Length::Fill),
             };
 
-        let mut content_page = column![title_row_container, body];
+        let mut content_page = column![];
+
+        if *page_body != ChatBody::Start {
+            content_page = content_page.push(title_row_container);
+        }
+
+        content_page = content_page.push(body);
 
         if let Some(chat_typing) = users_typing.get(&current_chat.id) {
             if !chat_typing.is_empty() {
@@ -703,7 +765,9 @@ pub fn chat<'a>(
             bottom: 6.0,
         });
 
-        content_page = content_page.push(message_area);
+        if *page_body != ChatBody::Start {
+            content_page = content_page.push(message_area);
+        }
 
         page = page.push(content_page);
     }

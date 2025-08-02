@@ -194,6 +194,7 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
+    StartChat,
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -760,9 +761,20 @@ impl Counter {
 
                                 let new_thread = Thread {
                                     members: members,
-                                    properties: Some(ThreadProperties {
-                                        thread_type: "chat".to_string(),
-                                    }),
+                                    properties: if current_chat.members.len() == 2 {
+                                        // You and the other person (one on one chat)
+                                        Some(ThreadProperties {
+                                            thread_type: "chat".to_string(),
+                                            fixed_roster: Some(true),
+                                            unique_roster_thread: Some(true),
+                                        })
+                                    } else {
+                                        Some(ThreadProperties {
+                                            thread_type: "chat".to_string(),
+                                            fixed_roster: Some(false),
+                                            unique_roster_thread: Some(false),
+                                        })
+                                    },
                                 };
 
                                 let body = serde_json::to_string(&new_thread).unwrap();
@@ -1017,6 +1029,7 @@ impl Counter {
                 self.history.truncate(self.history_index + 1);
 
                 self.add_users_checked.clear();
+                self.search_users_input_value = "".to_string();
 
                 if !thread_id.starts_with("draft:") {
                     return Task::batch(vec![
@@ -1403,6 +1416,8 @@ impl Counter {
                         members: members,
                         properties: Some(ThreadProperties {
                             thread_type: "chat".to_string(),
+                            fixed_roster: Some(false),
+                            unique_roster_thread: Some(false),
                         }),
                     };
 
@@ -1457,7 +1472,11 @@ impl Counter {
                         members: members,
                         is_read: None,
                         is_high_importance: None,
-                        is_one_on_one: Some(false),
+                        is_one_on_one: if user_ids.len() > 2 {
+                            Some(false)
+                        } else {
+                            Some(true)
+                        },
                         is_conversation_deleted: None,
                         is_external: None,
                         is_messaging_disabled: None,
@@ -1510,8 +1529,29 @@ impl Counter {
                     self.me.id.clone(),
                     self.me.display_name.clone().unwrap(),
                 )
+                .chain(snap_to(Id::new("conversation_column"), RelativeOffset::END))
             }
             Message::AddToGroupChat(chat_id, user_ids) => {
+                // Handle if it is a draft
+                if chat_id.starts_with("draft:") {
+                    self.chats
+                        .iter_mut()
+                        .find(|chat| chat.id == chat_id)
+                        .unwrap()
+                        .members
+                        .extend(user_ids.iter().map(|user_id| ChatMember {
+                            mri: format!("8:orgid:{}", user_id), // Users should all be of 8:orgid:
+                            role: None,
+                            is_muted: None,
+                            object_id: None,
+                            is_identity_masked: None,
+                        }));
+
+                    self.page.chat_body = ChatBody::Messages;
+
+                    return Task::none();
+                }
+
                 let members: Vec<ThreadMember> = user_ids
                     .iter()
                     .map(|user_id| ThreadMember {
@@ -1770,6 +1810,14 @@ impl Counter {
                 self.add_users_checked.insert(id, !checked);
                 Task::none()
             }
+            Message::StartChat => {
+                self.add_users_checked.clear();
+                self.search_users_input_value = "".to_string();
+
+                self.page.chat_body = ChatBody::Start;
+                Task::none()
+            }
+
             // Websockets
             Message::WSConnected(info) => {
                 let access_tokens_arc = self.access_tokens.clone();

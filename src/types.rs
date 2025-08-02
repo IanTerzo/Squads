@@ -64,6 +64,9 @@ pub struct ThreadMember {
 #[serde(rename_all = "camelCase")]
 pub struct ThreadProperties {
     pub thread_type: String,
+    pub fixed_roster: Option<bool>,
+    #[serde(rename = "uniquerosterthread")]
+    pub unique_roster_thread: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
