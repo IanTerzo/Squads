@@ -711,12 +711,6 @@ impl Counter {
                     _ => "".to_string(),
                 };
 
-                let current_chat = self
-                    .chats
-                    .iter()
-                    .find(|chat| chat.id == conversation_id)
-                    .unwrap();
-
                 let message_area_text = message_area_content.text();
                 match action {
                     Action::Edit(Edit::Enter) => {
@@ -738,9 +732,7 @@ impl Counter {
                             let acess_tokens_arc = self.access_tokens.clone();
                             let tenant = self.tenant.clone();
 
-                            if current_chat.chat_type.clone().unwrap_or("any".to_string())
-                                != "draft"
-                            {
+                            if !conversation_id.starts_with("draft:") {
                                 return post_message_task(
                                     message_area_text,
                                     acess_tokens_arc,
@@ -750,6 +742,12 @@ impl Counter {
                                     me_display_name,
                                 );
                             } else {
+                                let current_chat = self
+                                    .chats
+                                    .iter()
+                                    .find(|chat| chat.id == conversation_id)
+                                    .unwrap();
+
                                 let members: Vec<ThreadMember> = current_chat
                                     .members
                                     .iter()
@@ -809,9 +807,7 @@ impl Counter {
                 };
 
                 if self.page.view == View::Chat {
-                    if self.should_send_typing
-                        && current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft"
-                    {
+                    if self.should_send_typing && !conversation_id.starts_with("draft:") {
                         self.should_send_typing = false;
 
                         let acess_tokens_arc = self.access_tokens.clone();
@@ -1022,9 +1018,7 @@ impl Counter {
 
                 self.add_users_checked.clear();
 
-                let current_chat = self.chats.iter().find(|chat| chat.id == thread_id).unwrap();
-
-                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                if !thread_id.starts_with("draft:") {
                     return Task::batch(vec![
                         snap_to(Id::new("conversation_column"), RelativeOffset::END),
                         Task::perform(
@@ -1077,9 +1071,7 @@ impl Counter {
                 self.add_users_checked.clear();
 
                 if let Some(chat_id) = chat_id {
-                    let current_chat = self.chats.iter().find(|chat| chat.id == chat_id).unwrap();
-
-                    if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                    if !chat_id.starts_with("draft:") {
                         return Task::batch(vec![
                             snap_to(Id::new("conversation_column"), RelativeOffset::END),
                             Task::perform(
@@ -1264,9 +1256,7 @@ impl Counter {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                let current_chat = self.chats.iter().find(|chat| chat.id == thread_id).unwrap();
-
-                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                if !thread_id.starts_with("draft:") {
                     Task::perform(
                         async move {
                             let access_token = get_or_gen_token(
@@ -1292,9 +1282,7 @@ impl Counter {
                     let access_tokens_arc = self.access_tokens.clone();
                     let tenant = self.tenant.clone();
 
-                    let current_chat = self.chats.iter().find(|chat| chat.id == chat_id).unwrap();
-
-                    if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                    if !chat_id.starts_with("draft:") {
                         return Task::perform(
                             async move {
                                 let access_token = get_or_gen_token(
@@ -1385,13 +1373,7 @@ impl Counter {
                 let me_id = self.me.id.clone();
                 let me_display_name = self.me.display_name.clone().unwrap();
 
-                let current_chat = self
-                    .chats
-                    .iter()
-                    .find(|chat| chat.id == conversation_id)
-                    .unwrap();
-
-                if current_chat.chat_type.clone().unwrap_or("any".to_string()) != "draft" {
+                if !conversation_id.starts_with("draft:") {
                     return post_message_task(
                         message_area_text,
                         acess_tokens_arc,
@@ -1401,6 +1383,12 @@ impl Counter {
                         me_display_name,
                     );
                 } else {
+                    let current_chat = self
+                        .chats
+                        .iter()
+                        .find(|chat| chat.id == conversation_id)
+                        .unwrap();
+
                     let members: Vec<ThreadMember> = current_chat
                         .members
                         .iter()
