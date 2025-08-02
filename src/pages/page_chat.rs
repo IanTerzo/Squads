@@ -279,7 +279,7 @@ pub fn chat<'a>(
                 )
                 .width(188),
                 mouse_area(svg("images/square-pen.svg").width(22).height(22))
-                    .on_release(Message::StartChat)
+                    .on_release(Message::ToggleNewChatMenu)
             ]
             .spacing(10)
             .align_y(Alignment::Center),
@@ -633,7 +633,7 @@ pub fn chat<'a>(
                                         )
                                     } else {
                                         if add_users_cheked.len() > 0 {
-                                            Message::StartGroupChat({
+                                            Message::StartChat({
                                                 let mut users: Vec<String> = add_users_cheked
                                                     .iter()
                                                     .filter_map(|(key, &val)| {

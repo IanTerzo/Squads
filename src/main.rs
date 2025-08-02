@@ -166,6 +166,7 @@ pub enum Message {
     SearchChatsContentChanged(String),
     SearchUsersContentChanged(String),
     AllowPostIsTyping(()),
+    ToggleNewChatMenu,
     // Teams requests
     GotActivities(Vec<api::Message>),
     GotUsers(HashMap<String, Profile>, Profile),
@@ -180,7 +181,7 @@ pub enum Message {
     GotConversations(String, TeamConversations), //callback
     OnScroll(Viewport),
     PostMessage,
-    StartGroupChat(Vec<String>),
+    StartChat(Vec<String>),
     CreatedGroupChat(String, String, String), //callback
     AddToGroupChat(String, Vec<String>),
     AddedToGroupChat(String, Vec<String>),
@@ -194,7 +195,6 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
-    StartChat,
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -1173,6 +1173,18 @@ impl Counter {
                 self.search_users_input_value = content;
                 Task::none()
             }
+            Message::ToggleNewChatMenu => {
+                self.add_users_checked.clear();
+                self.search_users_input_value = "".to_string();
+
+                if self.page.chat_body == ChatBody::Start {
+                    self.page.chat_body = ChatBody::Messages
+                } else {
+                    self.page.chat_body = ChatBody::Start
+                }
+
+                Task::none()
+            }
 
             // Teams requests
             Message::GotActivities(activities) => {
@@ -1446,8 +1458,55 @@ impl Counter {
                     );
                 }
             }
-            Message::StartGroupChat(user_ids) => {
+            Message::StartChat(user_ids) => {
                 let mut user_ids = user_ids;
+                // Check if the one to one chat already exists
+                if user_ids.len() == 1 {
+                    for chat in &self.chats {
+                        if chat.members.len() == 2 {
+                            if chat
+                                .members
+                                .iter()
+                                .any(|member| member.mri.replace("8:orgid:", "") == user_ids[0])
+                            {
+                                let chat_id = chat.id.clone();
+
+                                self.page.chat_body = ChatBody::Messages;
+                                self.page.current_chat_id = Some(chat_id.clone());
+
+                                let chat_id_clone = chat_id.clone();
+                                let access_tokens_arc = self.access_tokens.clone();
+                                let tenant = self.tenant.clone();
+
+                                // Prefetch the chat in case it wasn't already fetched
+                                return Task::batch(vec![
+                                    Task::perform(
+                                        async move {
+                                            let access_token = get_or_gen_token(
+                                                access_tokens_arc,
+                                                "https://ic3.teams.office.com/.default".to_string(),
+                                                &tenant,
+                                            )
+                                            .await;
+
+                                            conversations(&access_token, chat_id, None)
+                                                .await
+                                                .unwrap()
+                                        },
+                                        move |result| {
+                                            Message::GotChatConversations(
+                                                chat_id_clone.clone(),
+                                                result,
+                                            )
+                                        },
+                                    ),
+                                    snap_to(Id::new("conversation_column"), RelativeOffset::END),
+                                ]);
+                            }
+                        }
+                    }
+                }
+
                 user_ids.push(self.me.id.clone());
 
                 let members: Vec<ChatMember> = user_ids
@@ -1808,13 +1867,6 @@ impl Counter {
             }
             Message::ToggleUserCheckbox(checked, id) => {
                 self.add_users_checked.insert(id, !checked);
-                Task::none()
-            }
-            Message::StartChat => {
-                self.add_users_checked.clear();
-                self.search_users_input_value = "".to_string();
-
-                self.page.chat_body = ChatBody::Start;
                 Task::none()
             }
 
