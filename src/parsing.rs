@@ -14,7 +14,9 @@ use iced::widget::{
 };
 use iced::{font, Element, Font};
 use image::image_dimensions;
-use markdown_it::{plugins, MarkdownIt};
+use markdown_it::parser::block::{BlockRule, BlockState};
+use markdown_it::parser::inline::{InlineRule, InlineState};
+use markdown_it::{plugins, MarkdownIt, Node, NodeValue, Renderer};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use serde_json::Value;
@@ -22,10 +24,43 @@ use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 use xxhash_rust::xxh3::xxh3_64;
 
+const CRAB_CLAW: &str = "\n";
+
+#[derive(Debug)]
+// This is a structure that represents your custom Node in AST.
+pub struct InlineFerris;
+
+// This defines how your custom node should be rendered.
+impl NodeValue for InlineFerris {
+    fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
+        fmt.self_close("br", &(vec![] as Vec<(&str, String)>));
+    }
+}
+
+// This is an extension for the inline subparser.
+struct FerrisInlineScanner;
+
+impl InlineRule for FerrisInlineScanner {
+    const MARKER: char = '\n';
+
+    fn run(state: &mut InlineState) -> Option<(Node, usize)> {
+        let input = &state.src[state.pos..state.pos_max];
+        println!("inline input: {}", input);
+
+        if !input.starts_with(CRAB_CLAW) {
+            return None;
+        }
+
+        Some((Node::new(InlineFerris), CRAB_CLAW.len()))
+    }
+}
+
 pub fn parse_message_markdown(text: String) -> String {
     // TODO: handle newlines
+    // let stripped = text.strip_suffix('\n');
 
     let mut md = MarkdownIt::new();
+    md.inline.add_rule::<FerrisInlineScanner>();
     plugins::cmark::add(&mut md);
     let html = md.parse(text.as_str()).render();
 

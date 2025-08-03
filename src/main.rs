@@ -121,6 +121,7 @@ struct Counter {
     team_message_area_height: f32,
     chat_message_area_content: Content,
     chat_message_area_height: f32,
+    subject_input_value: String,
     expanded_image: Option<(String, String)>,
     add_users_checked: HashMap<String, bool>, // Where string is the user id
 
@@ -165,6 +166,7 @@ pub enum Message {
     SearchTeamsContentChanged(String),
     SearchChatsContentChanged(String),
     SearchUsersContentChanged(String),
+    SubjectInputContentChanged(String),
     AllowPostIsTyping(()),
     ToggleNewChatMenu,
     // Teams requests
@@ -303,6 +305,7 @@ fn post_message_task(
     conversation_id: String,
     me_id: String,
     me_display_name: String,
+    subject: Option<String>,
 ) -> Task<Message> {
     Task::perform(
         async move {
@@ -337,7 +340,7 @@ fn post_message_task(
                 amsreferences: vec![],
                 properties: Properties {
                     importance: "",
-                    subject: None,
+                    subject: subject.as_deref(),
                     title: "",
                     cards: "[]",
                     links: "[]",
@@ -433,6 +436,7 @@ impl Counter {
             search_teams_input_value: "".to_string(),
             search_chats_input_value: "".to_string(),
             search_users_input_value: "".to_string(),
+            subject_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
@@ -515,6 +519,7 @@ impl Counter {
                         &reply_options,
                         &self.emoji_map,
                         &self.users,
+                        &self.subject_input_value,
                         &self.team_message_area_content,
                         &self.team_message_area_height,
                     ),
@@ -729,11 +734,21 @@ impl Counter {
                         } else if message_area_content.text() != "\n".to_string() {
                             // Post a message instead if the content is not empty
 
+                            let subject_text = if self.page.view == View::Team {
+                                Some(self.subject_input_value.clone())
+                            } else {
+                                None
+                            };
+
                             match self.page.view {
                                 View::Team => self.team_message_area_content = Content::new(),
                                 View::Chat => self.chat_message_area_content = Content::new(),
                                 _ => {}
                             }
+
+                            *message_area_height = 54.0;
+
+                            self.subject_input_value = "".to_string();
 
                             let me_id = self.me.id.clone();
 
@@ -750,6 +765,7 @@ impl Counter {
                                     conversation_id,
                                     me_id,
                                     me_display_name,
+                                    subject_text,
                                 );
                             } else {
                                 let current_chat = self
@@ -1182,6 +1198,10 @@ impl Counter {
                 self.search_users_input_value = content;
                 Task::none()
             }
+            Message::SubjectInputContentChanged(content) => {
+                self.subject_input_value = content;
+                Task::none()
+            }
             Message::ToggleNewChatMenu => {
                 self.add_users_checked.clear();
                 self.search_users_input_value = "".to_string();
@@ -1386,6 +1406,12 @@ impl Counter {
                     _ => return Task::none(), // Should never happen
                 };
 
+                let subject_text = if self.page.view == View::Team {
+                    Some(self.subject_input_value.clone())
+                } else {
+                    None
+                };
+
                 let message_area_text = message_area_content.text();
 
                 match self.page.view {
@@ -1395,6 +1421,8 @@ impl Counter {
                 }
 
                 *message_area_height = 54.0;
+
+                self.subject_input_value = "".to_string();
 
                 let conversation_id = match self.page.view {
                     View::Team => self.page.current_channel_id.clone().unwrap(),
@@ -1415,6 +1443,7 @@ impl Counter {
                         conversation_id,
                         me_id,
                         me_display_name,
+                        subject_text,
                     );
                 } else {
                     let current_chat = self
@@ -1596,6 +1625,7 @@ impl Counter {
                     chat_id,
                     self.me.id.clone(),
                     self.me.display_name.clone().unwrap(),
+                    None,
                 )
                 .chain(snap_to(Id::new("conversation_column"), RelativeOffset::END))
             }

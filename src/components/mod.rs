@@ -5,6 +5,7 @@ pub mod conversation;
 pub mod expanded_image;
 pub mod message;
 pub mod message_area;
+pub mod message_area_team;
 pub mod navbar;
 pub mod picture_and_status;
 pub mod preview_message;

@@ -1,4 +1,5 @@
 use crate::api::{Channel, Profile, Team, TeamConversations};
+use crate::components::message_area_team::c_message_area_team;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
 use crate::style;
 use crate::utils::truncate_name;
@@ -18,6 +19,7 @@ pub fn team<'a>(
     reply_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    subject_input_content: &String,
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
@@ -70,9 +72,10 @@ pub fn team<'a>(
     .padding(padding::right(3))
     .height(Length::Fill);
 
-    let message_area = container(c_message_area(
+    let message_area = container(c_message_area_team(
         theme,
         message_area_content,
+        subject_input_content,
         message_area_height,
     ))
     .padding(Padding {
