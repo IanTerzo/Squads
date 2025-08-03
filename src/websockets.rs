@@ -1,10 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use async_tungstenite::tungstenite;
+use async_tungstenite::tokio::ConnectStream;
+use async_tungstenite::{tungstenite, WebSocketStream};
+use base64::read;
 use futures::sink::SinkExt;
 use futures::stream::{Stream, StreamExt};
 use iced::futures;
+use iced::futures::stream::{SplitSink, SplitStream};
 use iced::stream;
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
@@ -18,7 +21,7 @@ use crate::auth::{get_or_gen_skype_token, get_or_gen_token};
 #[allow(clippy::large_enum_variant)]
 enum State {
     Disconnected,
-    Connected(async_tungstenite::WebSocketStream<async_tungstenite::tokio::ConnectStream>),
+    Connected(SplitStream<WebSocketStream<ConnectStream>>),
 }
 
 // Can be expanded in case headers are needed
@@ -383,13 +386,29 @@ pub fn connect(
                     let (url, surl) = begin_websockets(&skype_token.value, endpoint).await;
                     match async_tungstenite::tokio::connect_async(url).await {
                         Ok((websocket, _)) => {
+                            let (mut write, read) = websocket.split();
+
                             let _ = output
                                 .send(WebsocketResponse::Connected(ConnectionInfo {
                                     endpoint: endpoint.to_string(),
                                     surl,
                                 }))
                                 .await;
-                            state = State::Connected(websocket);
+
+                            // Ping every 40 seconds to keep the connection alive
+                            tokio::spawn(async move {
+                                loop {
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(40)).await;
+                                    if let Err(e) =
+                                        write.send(tungstenite::Message::Text("ping".into())).await
+                                    {
+                                        eprintln!("Failed to send ping: {}", e);
+                                        break;
+                                    }
+                                }
+                            });
+
+                            state = State::Connected(read);
                         }
                         Err(e) => {
                             eprintln!("Failed to connect: {}", e);
@@ -397,8 +416,8 @@ pub fn connect(
                         }
                     }
                 }
-                State::Connected(websocket) => {
-                    let mut fused_websocket = websocket.by_ref().fuse();
+                State::Connected(read) => {
+                    let mut fused_websocket = read.by_ref().fuse();
 
                     futures::select! {
                         received = fused_websocket.select_next_some() => {
