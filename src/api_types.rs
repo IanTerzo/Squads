@@ -337,8 +337,11 @@ pub struct Profile {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
 pub struct Users {
+    #[serde(rename = "@odata.context")]
+    pub content: Option<String>,
+    #[serde(rename = "@odata.nextLink")]
+    pub next_link: Option<String>,
     pub value: Vec<Profile>,
 }
 

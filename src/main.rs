@@ -267,12 +267,21 @@ fn init_tasks(
                 )
                 .await;
 
-                let users = users(&access_token_graph);
-
                 let mut profile_map = HashMap::new();
+                let mut next_link_params = Some("$top=555".to_string());
 
-                for profile in users.await.unwrap().value {
-                    profile_map.insert(profile.id.clone(), profile);
+                // Iterate while there is a next_link
+
+                while let Some(params) = next_link_params.take() {
+                    let users_value = users(&access_token_graph, &params).await.unwrap();
+
+                    for profile in users_value.value {
+                        profile_map.insert(profile.id.clone(), profile);
+                    }
+
+                    next_link_params = users_value
+                        .next_link
+                        .map(|url| url.replace("https://graph.microsoft.com/v1.0/users?", ""));
                 }
 
                 let profile = me(&access_token_graph).await.unwrap();

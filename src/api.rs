@@ -885,8 +885,11 @@ pub async fn me(token: &AccessToken) -> Result<Profile, Box<dyn std::error::Erro
 
 // Api: Graph
 // Scope: https://graph.microsoft.com/.default
-pub async fn users(token: &AccessToken) -> Result<Users, Box<dyn std::error::Error>> {
-    let url = "https://graph.microsoft.com/v1.0/users?$top=999";
+pub async fn users(
+    token: &AccessToken,
+    parameters: &str,
+) -> Result<Users, Box<dyn std::error::Error>> {
+    let url = format!("https://graph.microsoft.com/v1.0/users?{}", parameters);
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
