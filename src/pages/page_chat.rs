@@ -331,6 +331,7 @@ pub fn chat<'a>(
                     chat_message_options,
                     emoji_map,
                     users,
+                    me,
                     user_presences,
                 ) {
                     message_column = message_column.push(message_element);

@@ -55,6 +55,7 @@ use websockets::{
 };
 
 use crate::api::{add_member, start_thread, ChatMember, Conversation};
+use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -169,6 +170,7 @@ pub enum Message {
     SubjectInputContentChanged(String),
     AllowPostIsTyping(()),
     ToggleNewChatMenu,
+    Reply(Option<String>, Option<String>, Option<String>),
     // Teams requests
     GotActivities(Vec<api::Message>),
     GotUsers(HashMap<String, Profile>, Profile),
@@ -1211,6 +1213,40 @@ impl Counter {
                 } else {
                     self.page.chat_body = ChatBody::Start
                 }
+
+                Task::none()
+            }
+            Message::Reply(message_content, display_name, message_id) => {
+                let area_content = &mut self.chat_message_area_content;
+
+                if area_content.text() != "\n" {
+                    content_send(area_content, "\n\n");
+                }
+
+                content_send(
+                    area_content,
+                    &format!(
+                        ">[{}][{}] {}\n",
+                        display_name.unwrap_or("Unknown User".to_string()),
+                        message_id.unwrap_or("0".to_string()),
+                        if let Some(message_content) = message_content {
+                            get_html_preview(&message_content)
+                        } else {
+                            "".to_string()
+                        },
+                    ),
+                );
+
+                let max_area_height = 0.5 * self.window_height;
+
+                let line_count = area_content.line_count();
+                let new_height = 33.0 + line_count as f32 * 21.0;
+
+                self.chat_message_area_height = if new_height > max_area_height {
+                    max_area_height
+                } else {
+                    new_height
+                };
 
                 Task::none()
             }

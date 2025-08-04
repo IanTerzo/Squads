@@ -6,6 +6,7 @@ use crate::style;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
+use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use std::collections::HashMap;
@@ -19,6 +20,7 @@ pub fn c_chat_message<'a>(
     chat_message_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
@@ -37,21 +39,21 @@ pub fn c_chat_message<'a>(
 
     if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" || message_type == "Text" {
-            if let Some(user_id) = message.from {
+            if let Some(ref user_id) = message.from {
                 let display_name =
                     if let Some(profile) = users.get(&user_id.replace("8:orgid:", "")) {
                         profile.display_name.clone().unwrap()
                     } else {
-                        message.im_display_name.unwrap()
+                        message.im_display_name.clone().unwrap()
                     };
 
-                let presence = user_presences.get(&user_id);
+                let presence = user_presences.get(user_id);
 
                 let identifier = user_id.clone().replace(":", "");
 
                 let user_picture = c_cached_image(
                     identifier.clone(),
-                    Message::FetchUserImage(identifier, user_id, display_name.clone()),
+                    Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
                     31.0,
                     31.0,
                 );
@@ -67,14 +69,14 @@ pub fn c_chat_message<'a>(
                     ..Default::default()
                 }));
             } else {
-                if let Some(display_name) = message.im_display_name {
+                if let Some(display_name) = message.im_display_name.clone() {
                     message_info = message_info.push(text(display_name));
                 } else {
                     message_info = message_info.push(text("Unknown User"));
                 }
             }
         } else if message_type == "RichText/Media_Card" {
-            if let Some(display_name) = message.im_display_name {
+            if let Some(display_name) = message.im_display_name.clone() {
                 message_info = message_info.push(text(display_name));
             } else {
                 message_info = message_info.push(text("Unknown User"));
@@ -109,7 +111,7 @@ pub fn c_chat_message<'a>(
         }));
     } else if let Some(message_type) = message.message_type.clone() {
         if message_type == "RichText/Html" {
-            if let Some(content) = message.content {
+            if let Some(content) = message.content.clone() {
                 match parse_message_html(theme, content) {
                     Ok(result) => {
                         contents_column = contents_column.push(result);
@@ -120,7 +122,7 @@ pub fn c_chat_message<'a>(
                 }
             }
         } else if message_type == "RichText/Media_Card" {
-            if let Some(content) = message.content {
+            if let Some(content) = message.content.clone() {
                 match parse_card_html(content) {
                     Ok(result) => {
                         contents_column = contents_column.push(result);
@@ -131,11 +133,11 @@ pub fn c_chat_message<'a>(
                 }
             }
         } else if message_type == "Text" {
-            if let Some(content) = message.content {
+            if let Some(content) = message.content.clone() {
                 contents_column = contents_column.push(parse_content_emojis(content));
             }
         } else {
-            if let Some(content) = message.content {
+            if let Some(content) = message.content.clone() {
                 contents_column = contents_column.push(text(content));
             }
         }
@@ -244,29 +246,51 @@ pub fn c_chat_message<'a>(
         .to_owned();
 
     if is_hovered {
-        action_container = container(
+        action_container =
             container(
                 container(
-                    row![
-                        svg("images/pencil.svg").width(17).height(17),
-                        svg("images/reply.svg").width(21).height(21),
-                        container(text("+").size(20))
-                    ]
-                    .align_y(Alignment::Center)
-                    .spacing(8),
+                    container(
+                        if message.from.clone().unwrap_or("none".to_string())
+                            == format!("8:orgid:{}", me.id)
+                        {
+                            row![
+                                svg("images/pencil.svg").width(17).height(17),
+                                mouse_area(svg("images/reply.svg").width(21).height(21))
+                                    .on_release(Message::Reply(
+                                        message.content,
+                                        message.im_display_name.clone(),
+                                        message.id.clone(),
+                                    )),
+                                container(text("+").size(20))
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(8)
+                        } else {
+                            row![
+                                mouse_area(svg("images/reply.svg").width(21).height(21))
+                                    .on_release(Message::Reply(
+                                        message.content,
+                                        message.im_display_name.clone(),
+                                        message.id.clone(),
+                                    )),
+                                container(text("+").size(20))
+                            ]
+                            .align_y(Alignment::Center)
+                            .spacing(8)
+                        },
+                    )
+                    .padding(Padding {
+                        top: 3.0,
+                        right: 6.0,
+                        bottom: 3.0,
+                        left: 6.0,
+                    })
+                    .style(|_| theme.stylesheet.primary_button),
                 )
-                .padding(Padding {
-                    top: 3.0,
-                    right: 6.0,
-                    bottom: 3.0,
-                    left: 6.0,
-                })
-                .style(|_| theme.stylesheet.primary_button),
+                .padding(padding::right(10))
+                .align_y(Alignment::Center),
             )
-            .padding(padding::right(10))
-            .align_y(Alignment::Center),
-        )
-        .align_right(iced::Length::Fill);
+            .align_right(iced::Length::Fill);
     }
 
     let message_stack = stack!(

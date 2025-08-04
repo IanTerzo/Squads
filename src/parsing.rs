@@ -15,7 +15,6 @@ use iced::widget::{
 use iced::{font, Element, Font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
-use markdown_it::parser::inline::{InlineRule, InlineState};
 use markdown_it::{plugins, MarkdownIt, Node, NodeValue, Renderer};
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -24,34 +23,104 @@ use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 use xxhash_rust::xxh3::xxh3_64;
 
-const CRAB_CLAW: &str = "\n";
-
 #[derive(Debug)]
-// This is a structure that represents your custom Node in AST.
-pub struct InlineFerris;
+pub struct BlockQuote(String);
 
-// This defines how your custom node should be rendered.
-impl NodeValue for InlineFerris {
+impl NodeValue for BlockQuote {
     fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
-        fmt.self_close("br", &(vec![] as Vec<(&str, String)>));
+        fmt.open("blockquote", &(vec![]));
+        fmt.text(&self.0);
+        fmt.close("blockquote");
     }
 }
 
-// This is an extension for the inline subparser.
-struct FerrisInlineScanner;
+#[derive(Debug)]
+pub struct BlockReply(String, String, Option<String>); // Content, Name, Id
 
-impl InlineRule for FerrisInlineScanner {
-    const MARKER: char = '\n';
+impl NodeValue for BlockReply {
+    fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
+        let id = self.2.clone().unwrap_or("0".to_string());
 
-    fn run(state: &mut InlineState) -> Option<(Node, usize)> {
-        let input = &state.src[state.pos..state.pos_max];
-        println!("inline input: {}", input);
+        let mut attrs_blockquote = node.attrs.clone();
+        attrs_blockquote.push(("itemtype", "http://schema.skype.com/Reply".into()));
+        attrs_blockquote.push(("itemid", id.clone().into()));
 
-        if !input.starts_with(CRAB_CLAW) {
+        let mut attrs_strong = node.attrs.clone();
+        attrs_strong.push(("itemprop", "mri".into()));
+        attrs_strong.push(("itemid", id.clone().into()));
+
+        let mut attrs_span = node.attrs.clone();
+        attrs_span.push(("itemprop", "time".into()));
+        attrs_span.push(("itemid", id.clone().into()));
+
+        let mut attrs_p = node.attrs.clone();
+        attrs_p.push(("itemprop", "preview".into()));
+
+        fmt.open("blockquote", &attrs_blockquote);
+        fmt.open("strong", &attrs_strong);
+        fmt.text(&self.1);
+        fmt.close("strong");
+        fmt.open("span", &attrs_span);
+        fmt.close("span");
+        fmt.open("p", &attrs_p);
+        fmt.text(&self.0);
+        fmt.close("p");
+
+        fmt.close("blockquote");
+    }
+}
+
+struct BlockQuoteScanner;
+
+impl BlockRule for BlockQuoteScanner {
+    fn run(state: &mut BlockState) -> Option<(Node, usize)> {
+        // get contents of a line number `state.line` and check it
+        let line = state.get_line(state.line).trim();
+        if !line.starts_with(r#">"#) {
             return None;
         }
 
-        Some((Node::new(InlineFerris), CRAB_CLAW.len()))
+        let content = &line[1..line.len()];
+
+        let cleaned = content.trim_start();
+
+        if cleaned.starts_with('[') {
+            if let Some(end) = cleaned.find(']') {
+                let reply_name = cleaned[1..end].trim().to_string();
+                let other_part = &cleaned[end + 1..cleaned.len()].trim();
+
+                if other_part.starts_with('[') {
+                    if let Some(end) = other_part.find(']') {
+                        let reply_id = other_part[1..end].trim().to_string();
+                        let other_part = &other_part[end + 1..other_part.len()].trim();
+                        Some((
+                            Node::new(BlockReply(
+                                other_part.to_string(),
+                                reply_name,
+                                Some(reply_id),
+                            )),
+                            1,
+                        ))
+                    } else {
+                        Some((
+                            Node::new(BlockReply(other_part.to_string(), reply_name, None)),
+                            1,
+                        ))
+                    }
+                } else {
+                    Some((
+                        Node::new(BlockReply(other_part.to_string(), reply_name, None)),
+                        1,
+                    ))
+                }
+            } else {
+                Some((Node::new(BlockQuote(cleaned.to_string())), 1))
+            }
+        } else {
+            Some((Node::new(BlockQuote(cleaned.to_string())), 1))
+        }
+
+        // return new node and number of lines it occupies
     }
 }
 
@@ -60,7 +129,7 @@ pub fn parse_message_markdown(text: String) -> String {
     // let stripped = text.strip_suffix('\n');
 
     let mut md = MarkdownIt::new();
-    md.inline.add_rule::<FerrisInlineScanner>();
+    md.block.add_rule::<BlockQuoteScanner>();
     plugins::cmark::add(&mut md);
     let html = md.parse(text.as_str()).render();
 
@@ -517,4 +586,16 @@ pub fn parse_content_emojis<'a>(content: String) -> Element<'a, Message> {
     }
 
     text_row.into()
+}
+
+pub fn get_html_preview(html: &str) -> String {
+    let document = Html::parse_document(html);
+
+    document
+        .root_element()
+        .text() // Iterator over all text nodes
+        .map(|s| s.trim()) // Remove extra whitespace
+        .filter(|s| !s.is_empty()) // Skip empty text
+        .collect::<Vec<_>>()
+        .join(" ") // Join with space
 }
