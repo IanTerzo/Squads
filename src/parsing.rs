@@ -15,10 +15,9 @@ use iced::widget::{
 use iced::{font, Element, Font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
-use markdown_it::parser::inline::InlineRule;
-use markdown_it::parser::inline::InlineState;
-use markdown_it::parser::inline::Text;
+use markdown_it::plugins::extra::linkify;
 use markdown_it::plugins::extra::strikethrough;
+use markdown_it::plugins::extra::tables;
 use markdown_it::{plugins, MarkdownIt, Node, NodeValue, Renderer};
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -132,8 +131,10 @@ pub fn parse_message_markdown(text: String) -> String {
     let mut md = MarkdownIt::new();
     md.block.add_rule::<BlockQuoteScanner>();
     plugins::cmark::add(&mut md);
-    plugins::extra::add(&mut md);
     plugins::html::add(&mut md);
+    linkify::add(&mut md);
+    strikethrough::add(&mut md);
+    tables::add(&mut md);
 
     let html = md.parse(text.as_str()).render();
 
