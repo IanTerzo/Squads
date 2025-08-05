@@ -15,6 +15,10 @@ use iced::widget::{
 use iced::{font, Element, Font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
+use markdown_it::parser::inline::InlineRule;
+use markdown_it::parser::inline::InlineState;
+use markdown_it::parser::inline::Text;
+use markdown_it::plugins::extra::strikethrough;
 use markdown_it::{plugins, MarkdownIt, Node, NodeValue, Renderer};
 use scraper::{Html, Selector};
 use serde::Deserialize;
@@ -74,7 +78,6 @@ struct BlockQuoteScanner;
 
 impl BlockRule for BlockQuoteScanner {
     fn run(state: &mut BlockState) -> Option<(Node, usize)> {
-        // get contents of a line number `state.line` and check it
         let line = state.get_line(state.line).trim();
         if !line.starts_with(r#">"#) {
             return None;
@@ -119,8 +122,6 @@ impl BlockRule for BlockQuoteScanner {
         } else {
             Some((Node::new(BlockQuote(cleaned.to_string())), 1))
         }
-
-        // return new node and number of lines it occupies
     }
 }
 
@@ -131,6 +132,9 @@ pub fn parse_message_markdown(text: String) -> String {
     let mut md = MarkdownIt::new();
     md.block.add_rule::<BlockQuoteScanner>();
     plugins::cmark::add(&mut md);
+    plugins::extra::add(&mut md);
+    plugins::html::add(&mut md);
+
     let html = md.parse(text.as_str()).render();
 
     html
