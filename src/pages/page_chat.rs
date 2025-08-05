@@ -594,6 +594,7 @@ pub fn chat<'a>(
                                 text_input("Search users...", &search_users_input_value)
                                     .on_input(Message::SearchUsersContentChanged)
                                     .padding(10)
+                                    .id("search_users_input")
                                     .style(|_, _| theme.stylesheet.input),
                                 mouse_area(
                                     container(if *page_body == ChatBody::Start {

@@ -6,6 +6,7 @@ use crate::api::Profile;
 use crate::api::Team;
 use crate::components::conversation::c_conversation;
 use crate::style;
+use crate::websockets::Presence;
 use crate::Message;
 
 use iced::widget::mouse_area;
@@ -25,6 +26,7 @@ pub fn home<'a>(
     expanded_conversations: HashMap<String, Vec<api::Message>>,
     emoji_map: &'a HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    user_presences: &'a HashMap<String, Presence>,
     window_width: f32,
     search_teams_input_value: String,
 ) -> Element<'a, Message> {
@@ -162,6 +164,7 @@ pub fn home<'a>(
                         false,
                         emoji_map,
                         users,
+                        user_presences,
                     );
                     if let Some(message) = message {
                         activities_colum = activities_colum.push(mouse_area(message).on_release(

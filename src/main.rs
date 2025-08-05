@@ -5,6 +5,7 @@ mod parsing;
 use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
 use iced::task::Handle;
+use iced::widget::text_input::{self, focus};
 use itertools::Itertools;
 use parsing::parse_message_markdown;
 mod auth;
@@ -55,6 +56,7 @@ use websockets::{
 };
 
 use crate::api::{add_member, start_thread, ChatMember, Conversation};
+use crate::components::emoji_picker::c_emoji_picker;
 use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -376,7 +378,7 @@ fn content_send(content: &mut Content, message: &str) {
 impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content = fs::read_to_string("resources/emojis.json").unwrap();
-        let emojies: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
+        let emojis: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {
@@ -434,7 +436,7 @@ impl Counter {
             expanded_image: None,
             should_send_typing: true,
             history_index: 0,
-            emoji_map: emojies,
+            emoji_map: emojis,
             search_teams_input_value: "".to_string(),
             search_chats_input_value: "".to_string(),
             search_users_input_value: "".to_string(),
@@ -479,6 +481,7 @@ impl Counter {
                     self.activity_expanded_conversations.clone(),
                     &self.emoji_map,
                     &self.users,
+                    &self.user_presences,
                     self.window_width,
                     self.search_teams_input_value.clone(),
                 ),
@@ -521,6 +524,7 @@ impl Counter {
                         &reply_options,
                         &self.emoji_map,
                         &self.users,
+                        &self.user_presences,
                         &self.subject_input_value,
                         &self.team_message_area_content,
                         &self.team_message_area_height,
@@ -1209,12 +1213,12 @@ impl Counter {
                 self.search_users_input_value = "".to_string();
 
                 if self.page.chat_body == ChatBody::Start {
-                    self.page.chat_body = ChatBody::Messages
+                    self.page.chat_body = ChatBody::Messages;
+                    Task::none()
                 } else {
-                    self.page.chat_body = ChatBody::Start
+                    self.page.chat_body = ChatBody::Start;
+                    focus(text_input::Id::new("search_users_input"))
                 }
-
-                Task::none()
             }
             Message::Reply(message_content, display_name, message_id) => {
                 let area_content = &mut self.chat_message_area_content;
@@ -1928,7 +1932,10 @@ impl Counter {
             Message::ToggleShowChatAdd => {
                 if self.page.chat_body != ChatBody::Add {
                     self.page.chat_body = ChatBody::Add;
-                    snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
+                    Task::batch(vec![
+                        focus(text_input::Id::new("search_users_input")),
+                        snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 }),
+                    ])
                 } else {
                     self.page.chat_body = ChatBody::Messages;
                     snap_to(

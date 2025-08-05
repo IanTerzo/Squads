@@ -3,6 +3,7 @@ use crate::components::message_area_team::c_message_area_team;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
 use crate::style;
 use crate::utils::truncate_name;
+use crate::websockets::Presence;
 use crate::Message;
 use directories::ProjectDirs;
 use iced::widget::scrollable::Id;
@@ -19,6 +20,7 @@ pub fn team<'a>(
     reply_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    user_presences: &'a HashMap<String, Presence>,
     subject_input_content: &String,
     message_area_content: &'a Content,
     message_area_height: &f32,
@@ -47,6 +49,7 @@ pub fn team<'a>(
                 show_replies,
                 emoji_map,
                 users,
+                user_presences,
             );
 
             // let ordered_conversation: Vec<_> = c;

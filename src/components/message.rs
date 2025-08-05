@@ -1,7 +1,9 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
+use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
+use crate::websockets::Presence;
 use crate::Message;
 use iced::overlay::menu::{Menu, State};
 use iced::widget::{column, container, mouse_area, row, svg, text};
@@ -31,6 +33,7 @@ pub fn c_message<'a>(
     message: crate::api::Message,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    user_presences: &'a HashMap<String, Presence>,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -56,12 +59,16 @@ pub fn c_message<'a>(
 
                     let user_picture = c_cached_image(
                         identifier.clone(),
-                        Message::FetchUserImage(identifier, user_id, display_name.clone()),
+                        Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
                         31.0,
                         31.0,
                     );
 
-                    message_info = message_info.push(user_picture);
+                    let presence = user_presences.get(&user_id);
+
+                    let picture_and_status =
+                        c_picture_and_status(theme, user_picture, presence, (31.0, 31.0));
+                    message_info = message_info.push(picture_and_status);
                     message_info = message_info.push(text!("{}", display_name));
                 } else {
                     message_info = message_info.push(text("Unknown User"));
