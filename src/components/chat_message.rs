@@ -42,9 +42,17 @@ pub fn c_chat_message<'a>(
             if let Some(ref user_id) = message.from {
                 let display_name =
                     if let Some(profile) = users.get(&user_id.replace("8:orgid:", "")) {
-                        profile.display_name.clone().unwrap()
+                        profile.display_name.clone().unwrap_or(
+                            message
+                                .im_display_name
+                                .clone()
+                                .unwrap_or("Unknown User".to_string()),
+                        )
                     } else {
-                        message.im_display_name.clone().unwrap()
+                        message
+                            .im_display_name
+                            .clone()
+                            .unwrap_or("Unknown User".to_string())
                     };
 
                 let presence = user_presences.get(user_id);

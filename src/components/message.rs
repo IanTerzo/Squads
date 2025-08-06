@@ -53,7 +53,10 @@ pub fn c_message<'a>(
             if let Some(user_id) = message.from {
                 let profile = users.get(&user_id.replace("8:orgid:", ""));
                 if let Some(profile) = profile {
-                    let display_name = profile.display_name.clone().unwrap();
+                    let display_name = profile
+                        .display_name
+                        .clone()
+                        .unwrap_or("Unknown User".to_string());
 
                     let identifier = user_id.clone().replace(":", "");
 

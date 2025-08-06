@@ -26,7 +26,7 @@ pub struct TeamsMessage<'a> {
     pub content: &'a str,
     pub messagetype: &'a str,
     pub contenttype: &'a str,
-    pub imdisplayname: &'a str,
+    pub imdisplayname: Option<&'a str>,
     pub clientmessageid: &'a str,
     pub call_id: &'a str,
     pub state: i32,

@@ -308,7 +308,7 @@ fn post_message_task(
     tenant: String,
     conversation_id: String,
     me_id: String,
-    me_display_name: String,
+    me_display_name: Option<String>,
     subject: Option<String>,
 ) -> Task<Message> {
     Task::perform(
@@ -336,7 +336,7 @@ fn post_message_task(
                 content: &html,
                 messagetype: "RichText/Html",
                 contenttype: "Text",
-                imdisplayname: &me_display_name,
+                imdisplayname: me_display_name.as_deref(),
                 clientmessageid: &message_id.to_string(),
                 call_id: "",
                 state: 0,
@@ -758,7 +758,7 @@ impl Counter {
 
                             let me_id = self.me.id.clone();
 
-                            let me_display_name = self.me.display_name.clone().unwrap();
+                            let me_display_name = self.me.display_name.clone();
 
                             let acess_tokens_arc = self.access_tokens.clone();
                             let tenant = self.tenant.clone();
@@ -1473,7 +1473,7 @@ impl Counter {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
                 let me_id = self.me.id.clone();
-                let me_display_name = self.me.display_name.clone().unwrap();
+                let me_display_name = self.me.display_name.clone();
 
                 if !conversation_id.starts_with("draft:") {
                     return post_message_task(
@@ -1664,7 +1664,7 @@ impl Counter {
                     self.tenant.clone(),
                     chat_id,
                     self.me.id.clone(),
-                    self.me.display_name.clone().unwrap(),
+                    self.me.display_name.clone(),
                     None,
                 )
                 .chain(snap_to(Id::new("conversation_column"), RelativeOffset::END))
