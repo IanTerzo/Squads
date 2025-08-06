@@ -15,6 +15,8 @@ use iced::widget::{
 use iced::{font, Element, Font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
+use markdown_it::parser::inline::InlineRule;
+use markdown_it::parser::inline::InlineState;
 use markdown_it::plugins::extra::linkify;
 use markdown_it::plugins::extra::strikethrough;
 use markdown_it::plugins::extra::tables;
@@ -124,19 +126,60 @@ impl BlockRule for BlockQuoteScanner {
     }
 }
 
+#[derive(Debug)]
+// This is a structure that represents your custom Node in AST.
+pub struct NewlineParser;
+
+// This defines how your custom node should be rendered.
+impl NodeValue for NewlineParser {
+    fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
+        fmt.self_close("br", &(vec![] as Vec<(&str, String)>));
+    }
+}
+
+// This is an extension for the inline subparser.
+struct InlineNewlineScanner;
+
+impl InlineRule for InlineNewlineScanner {
+    const MARKER: char = '\n';
+
+    fn run(state: &mut InlineState) -> Option<(Node, usize)> {
+        let input = &state.src[state.pos..state.pos_max];
+        println!("inline input: {}", input);
+
+        if !input.starts_with("\n") {
+            return None;
+        }
+
+        Some((Node::new(NewlineParser), 1))
+    }
+}
+
 pub fn parse_message_markdown(text: String) -> String {
     // TODO: handle newlines
-    // let stripped = text.strip_suffix('\n');
 
+    // Replace multiple newlines with repeated <br>
+    let mut processed = String::new();
+
+    for line in text.lines() {
+        if line.is_empty() {
+            processed.push_str("<p>&nbsp;</p>");
+        } else {
+            processed.push_str(&format!("{}\n", line));
+        }
+    }
+
+    println!("{}", processed);
     let mut md = MarkdownIt::new();
     md.block.add_rule::<BlockQuoteScanner>();
+    md.inline.add_rule::<InlineNewlineScanner>();
     plugins::cmark::add(&mut md);
     plugins::html::add(&mut md);
     linkify::add(&mut md);
     strikethrough::add(&mut md);
     tables::add(&mut md);
 
-    let html = md.parse(text.as_str()).render();
+    let html = md.parse(&processed).render();
 
     html
 }
