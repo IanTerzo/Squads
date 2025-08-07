@@ -145,7 +145,6 @@ impl InlineRule for InlineNewlineScanner {
 
     fn run(state: &mut InlineState) -> Option<(Node, usize)> {
         let input = &state.src[state.pos..state.pos_max];
-        println!("inline input: {}", input);
 
         if !input.starts_with("\n") {
             return None;
@@ -156,20 +155,22 @@ impl InlineRule for InlineNewlineScanner {
 }
 
 pub fn parse_message_markdown(text: String) -> String {
-    // TODO: handle newlines
-
-    // Replace multiple newlines with repeated <br>
     let mut processed = String::new();
-
+    let mut in_block = false;
     for line in text.lines() {
-        if line.is_empty() {
-            processed.push_str("<p>&nbsp;</p>");
+        if line.is_empty() && !in_block {
+            processed.push_str("<p>&nbsp;</p>\n\n");
+        } else if line.starts_with("```") && !in_block {
+            processed.push_str("```\n");
+            in_block = true;
+        } else if line == "```" && in_block {
+            processed.push_str("```\n");
+            in_block = false;
         } else {
             processed.push_str(&format!("{}\n", line));
         }
     }
 
-    println!("{}", processed);
     let mut md = MarkdownIt::new();
     md.block.add_rule::<BlockQuoteScanner>();
     md.inline.add_rule::<InlineNewlineScanner>();
@@ -180,7 +181,6 @@ pub fn parse_message_markdown(text: String) -> String {
     tables::add(&mut md);
 
     let html = md.parse(&processed).render();
-
     html
 }
 
