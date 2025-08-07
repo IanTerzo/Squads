@@ -758,6 +758,7 @@ pub fn chat<'a>(
         let message_area = container(c_message_area(
             theme,
             message_area_content,
+            None,
             message_area_height,
         ))
         .padding(Padding {

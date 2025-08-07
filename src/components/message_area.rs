@@ -1,6 +1,8 @@
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, rich_text, row, span, svg, text, text_editor};
-use iced::{font, padding, Alignment, Element, Font, Length, Padding};
+use iced::widget::{
+    column, container, mouse_area, rich_text, row, span, svg, text, text_editor, text_input, Space,
+};
+use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 
 use crate::style;
 use crate::types::MessageAreaAction;
@@ -9,6 +11,7 @@ use crate::Message;
 pub fn c_message_area<'a>(
     theme: &'a style::Theme,
     message_area_content: &'a Content,
+    subject_input_content: Option<&String>,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
     container(
@@ -56,7 +59,9 @@ pub fn c_message_area<'a>(
                             ]
                             .spacing(8),
                             row![
-                                svg("images/list.svg").width(23).height(23),
+                                mouse_area(svg("images/list.svg").width(23).height(23)).on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::List)
+                                ),
                                 svg("images/list-ordered.svg").width(23).height(23)
                             ]
                             .padding(padding::top(3))
@@ -93,6 +98,42 @@ pub fn c_message_area<'a>(
                 })
             )
             .style(|_| theme.stylesheet.message_area_bar),
+            if let Some(subject_input_content) = subject_input_content {
+                column![
+                    container(
+                        text_input("Subject", &subject_input_content)
+                            .font(Font {
+                                weight: font::Weight::Bold,
+                                ..Default::default()
+                            })
+                            .on_input(Message::SubjectInputContentChanged)
+                            .padding(6)
+                            .style(|_, _| text_input::Style {
+                                background: theme.colors.primary1.into(),
+                                border: border::rounded(6),
+                                icon: theme.colors.not_set,
+                                placeholder: theme.colors.demo_text,
+                                value: theme.colors.text,
+                                selection: theme.colors.text_selection,
+                            },)
+                    )
+                    .padding(2),
+                    container(
+                        container(Space::new(Length::Fill, 1)).style(|_| container::Style {
+                            background: Some(theme.colors.primary3.into()),
+                            ..Default::default()
+                        })
+                    )
+                    .padding(Padding {
+                        left: 6.0,
+                        right: 6.0,
+                        top: 0.0,
+                        bottom: 6.0
+                    })
+                ]
+            } else {
+                column![]
+            },
             text_editor(message_area_content)
                 .padding(8)
                 .height(*message_area_height)

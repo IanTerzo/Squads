@@ -10,6 +10,7 @@ pub enum MessageAreaAction {
     Blockquote,
     Link,
     Image,
+    List,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

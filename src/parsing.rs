@@ -1,6 +1,7 @@
 use crate::components::cached_image::c_cached_gif;
 use crate::components::cached_image::c_cached_image;
 use crate::style;
+use crate::widgets::circle::circle;
 use crate::Message;
 use ahash::AHasher;
 use base64::decode;
@@ -12,6 +13,8 @@ use iced::widget::mouse_area;
 use iced::widget::{
     column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
 };
+use iced::Alignment;
+use iced::Color;
 use iced::{font, Element, Font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
@@ -156,20 +159,34 @@ impl InlineRule for InlineNewlineScanner {
 
 pub fn parse_message_markdown(text: String) -> String {
     let mut processed = String::new();
-    let mut in_block = false;
+    let mut in_code_block = false;
+    let mut in_list_block = false;
+
+    // Preparse
+
     for line in text.lines() {
-        if line.is_empty() && !in_block {
+        if line.is_empty() && !in_code_block {
             processed.push_str("<p>&nbsp;</p>\n\n");
-        } else if line.starts_with("```") && !in_block {
-            processed.push_str("```\n");
-            in_block = true;
-        } else if line == "```" && in_block {
-            processed.push_str("```\n");
-            in_block = false;
-        } else {
+        } else if line.starts_with("- ") && line != "- " {
             processed.push_str(&format!("{}\n", line));
+            in_list_block = true;
+        } else if line.starts_with("```") && !in_code_block {
+            processed.push_str("```\n");
+            in_code_block = true;
+        } else if line == "```" && in_code_block {
+            processed.push_str("```\n");
+            in_code_block = false;
+        } else {
+            if in_list_block {
+                processed.push_str(&format!("\n{}\n", line));
+                in_list_block = false;
+            } else {
+                processed.push_str(&format!("{}\n", line));
+            }
         }
     }
+
+    // Parse
 
     let mut md = MarkdownIt::new();
     md.block.add_rule::<BlockQuoteScanner>();
@@ -181,6 +198,7 @@ pub fn parse_message_markdown(text: String) -> String {
     tables::add(&mut md);
 
     let html = md.parse(&processed).render();
+
     html
 }
 
@@ -264,7 +282,11 @@ fn transform_html<'a>(
     for child in element.children() {
         if let Some(child_element) = scraper::ElementRef::wrap(child) {
             let element_name = child_element.value().name();
-            if child.has_children() && element_name != "blockquote" && element_name != "code" {
+            if child.has_children()
+                && element_name != "blockquote"
+                && element_name != "code"
+                && element_name != "ul"
+            {
                 dynamic_container = dynamic_container.push(
                     transform_html(theme, child_element, cascading_properties.clone())
                         .into_element(),
@@ -454,6 +476,21 @@ fn transform_html<'a>(
                         })
                         .into(),
                 );
+            } else if element_name == "ul" {
+                let mut ul_list = column![].spacing(2);
+                for li in child_element.select(&Selector::parse("li").unwrap()) {
+                    ul_list = ul_list.push(
+                        row![
+                            Space::new(1, 1),
+                            circle(3.0, Color::new(1.0, 1.0, 1.0, 1.0)),
+                            transform_html(theme, li, cascading_properties.clone()).into_element()
+                        ]
+                        .spacing(10)
+                        .align_y(Alignment::Center),
+                    );
+                }
+
+                dynamic_container = dynamic_container.push(ul_list.into())
             }
         } else if child.value().is_text() {
             // ID might be useful for hover logic

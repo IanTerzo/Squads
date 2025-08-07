@@ -733,10 +733,25 @@ impl Counter {
                 };
 
                 let message_area_text = message_area_content.text();
+                let cursor_line_index = message_area_content.cursor_position().0;
+                let current_line = message_area_text.lines().nth(cursor_line_index);
                 match action {
                     Action::Edit(Edit::Enter) => {
                         if self.shift_held_down {
-                            message_area_content.perform(action);
+                            if let Some(current_line) = current_line {
+                                if current_line.starts_with("- ") && current_line != "- " {
+                                    message_area_content.perform(action);
+                                    content_send(message_area_content, "- ");
+                                } else if current_line == "- " {
+                                    // Low-key a hitfix but it works
+                                    message_area_content.perform(Action::Edit(Edit::Backspace));
+                                    message_area_content.perform(Action::Edit(Edit::Backspace));
+                                } else {
+                                    message_area_content.perform(action);
+                                }
+                            } else {
+                                message_area_content.perform(action);
+                            }
                         } else if message_area_content.text() != "\n".to_string() {
                             // Post a message instead if the content is not empty
 
@@ -982,6 +997,20 @@ impl Counter {
                             }
                         }
                         content_send(content, "`");
+                    }
+                    MessageAreaAction::List => {
+                        if let Some(selection) = selection {
+                            let mut lines = selection.lines().peekable();
+
+                            while let Some(line) = lines.next() {
+                                content_send(content, &format!("- {}", line));
+                                if lines.peek().is_some() {
+                                    content_send(content, "\n");
+                                }
+                            }
+                        } else {
+                            content_send(content, "- ");
+                        }
                     }
                 }
 
