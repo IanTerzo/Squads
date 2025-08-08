@@ -11,6 +11,7 @@ pub enum MessageAreaAction {
     Link,
     Image,
     List,
+    OrderedList,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

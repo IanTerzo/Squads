@@ -62,7 +62,10 @@ pub fn c_message_area<'a>(
                                 mouse_area(svg("images/list.svg").width(23).height(23)).on_release(
                                     Message::MessageAreaAction(MessageAreaAction::List)
                                 ),
-                                svg("images/list-ordered.svg").width(23).height(23)
+                                mouse_area(svg("images/list-ordered.svg").width(23).height(23))
+                                    .on_release(Message::MessageAreaAction(
+                                        MessageAreaAction::OrderedList
+                                    ))
                             ]
                             .padding(padding::top(3))
                             .spacing(8),

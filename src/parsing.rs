@@ -20,6 +20,7 @@ use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
 use markdown_it::parser::inline::InlineRule;
 use markdown_it::parser::inline::InlineState;
+use markdown_it::plugins::cmark::block::paragraph;
 use markdown_it::plugins::extra::linkify;
 use markdown_it::plugins::extra::strikethrough;
 use markdown_it::plugins::extra::tables;
@@ -198,7 +199,6 @@ pub fn parse_message_markdown(text: String) -> String {
     tables::add(&mut md);
 
     let html = md.parse(&processed).render();
-
     html
 }
 
@@ -286,6 +286,7 @@ fn transform_html<'a>(
                 && element_name != "blockquote"
                 && element_name != "code"
                 && element_name != "ul"
+                && element_name != "ol"
             {
                 dynamic_container = dynamic_container.push(
                     transform_html(theme, child_element, cascading_properties.clone())
@@ -491,6 +492,23 @@ fn transform_html<'a>(
                 }
 
                 dynamic_container = dynamic_container.push(ul_list.into())
+            } else if element_name == "ol" {
+                let mut ol_list = column![].spacing(2);
+                for (i, li) in child_element
+                    .select(&Selector::parse("li").unwrap())
+                    .enumerate()
+                {
+                    ol_list = ol_list.push(
+                        row![
+                            Space::new(10, 1),
+                            text!("{}. ", i + 1),
+                            transform_html(theme, li, cascading_properties.clone()).into_element()
+                        ]
+                        .align_y(Alignment::Center),
+                    );
+                }
+
+                dynamic_container = dynamic_container.push(ol_list.into())
             }
         } else if child.value().is_text() {
             // ID might be useful for hover logic

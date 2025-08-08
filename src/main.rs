@@ -37,6 +37,7 @@ use pages::page_login::login;
 use pages::page_team::team;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -743,8 +744,21 @@ impl Counter {
                                     message_area_content.perform(action);
                                     content_send(message_area_content, "- ");
                                 } else if current_line == "- " {
-                                    // Low-key a hitfix but it works
+                                    // Low-key a hotfix but it works
+                                    message_area_content.perform(Action::SelectLine);
                                     message_area_content.perform(Action::Edit(Edit::Backspace));
+                                } else if Regex::new(r"^\d+\. .+").unwrap().is_match(current_line) {
+                                    message_area_content.perform(action);
+                                    if let Some((number, _)) = current_line.split_once('.') {
+                                        if let Ok(number) = number.parse::<u64>() {
+                                            content_send(
+                                                message_area_content,
+                                                &format!("{}. ", number + 1),
+                                            );
+                                        }
+                                    }
+                                } else if Regex::new(r"^\d+\. $").unwrap().is_match(current_line) {
+                                    message_area_content.perform(Action::SelectLine);
                                     message_area_content.perform(Action::Edit(Edit::Backspace));
                                 } else {
                                     message_area_content.perform(action);
@@ -1010,6 +1024,21 @@ impl Counter {
                             }
                         } else {
                             content_send(content, "- ");
+                        }
+                    }
+                    MessageAreaAction::OrderedList => {
+                        if let Some(selection) = selection {
+                            let mut lines = selection.lines().enumerate().peekable();
+
+                            while let Some((index, line)) = lines.next() {
+                                content_send(content, &format!("{}. {}", index + 1, line));
+
+                                if lines.peek().is_some() {
+                                    content_send(content, "\n");
+                                }
+                            }
+                        } else {
+                            content_send(content, "1.  ");
                         }
                     }
                 }
