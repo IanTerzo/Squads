@@ -25,4 +25,10 @@ The official client for comparison...
 
 ## Attribution
 
-Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
+- Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
+- Squads uses icons from [Lucide](https://lucide.dev/). Lucide is licensed under the ISC license.
+- The ferris icon used is made by [Karen Rustad Tölva](https://rustacean.net/). (No license)
+
+## Acknowledgments
+
+Thanks to [Brian Stadnicki](https://github.com/BrianStadnicki/opercom-web-app) and Opercom for helping in figuring out some of the API, especially regarding activities, and to [Eion Robb](https://github.com/EionRobb/purple-teams) and Purple Teams for clearing up a lot about how authentication works.
