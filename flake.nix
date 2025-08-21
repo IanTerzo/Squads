@@ -17,7 +17,7 @@
     });
     overlays = forAllSystems (pkgs: system: {
       squads = final: prev: {
-        squads = self.squads.${system}.squads;
+        squads = self.packages.${system}.squads;
       };
       default = self.overlays.${system}.squads;
     });
