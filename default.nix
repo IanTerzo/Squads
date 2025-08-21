@@ -13,7 +13,7 @@
 
 rustPlatform.buildRustPackage {
   name = "squads";
-  src = ./.;
+  src = lib.cleanSource ./.;
   cargoLock = {
     lockFile = ./Cargo.lock;
   };

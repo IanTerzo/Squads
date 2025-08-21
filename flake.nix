@@ -15,11 +15,11 @@
       squads = pkgs.callPackage ./. {};
       default = self.packages.${system}.squads;
     });
-    overlays = forAllSystems (pkgs: system: {
+    overlays = {
       squads = final: prev: {
-        squads = self.packages.${system}.squads;
+        squads = self.packages.${prev.system}.squads;
       };
-      default = self.overlays.${system}.squads;
-    });
+      default = self.overlays.squads;
+    };
   };
 }
