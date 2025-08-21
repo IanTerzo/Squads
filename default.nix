@@ -1,3 +1,3 @@
 final: prev: {
-  squads = prev.callPackage ./. {};
+  squads = prev.callPackage ./package.nix {};
 }
