@@ -12,11 +12,11 @@
   in
   {
     packages = forAllSystems (pkgs: system: {
-      squads = pkgs.callPackage ./. {};
+      squads = pkgs.callPackage ./package.nix {};
       default = self.packages.${system}.squads;
     });
     overlays = {
-      squads = import ./overlay.nix;
+      squads = import ./.;
       default = self.overlays.squads;
     };
   };
