@@ -1,7 +1,7 @@
 use iced::{
     border,
     widget::{container, scrollable, text_editor, text_input},
-    Color,
+    Border, Color,
 };
 
 #[derive(Debug)]
@@ -14,6 +14,7 @@ pub struct Stylesheet {
     pub list_tab_selected: container::Style,
     pub input: text_input::Style,
     pub primary_button: container::Style,
+    pub accent_button: container::Style,
     pub message_area: text_editor::Style,
     pub message_area_bar: container::Style,
     pub message_area_tab_active: container::Style,
@@ -31,6 +32,8 @@ pub struct Colors {
     pub demo_text: Color,
     pub text_selection: Color,
     pub accent: Color,
+    pub emotion_background: Color,
+    pub emotion_border: Color,
     pub primary1: Color,
     pub primary2: Color,
     pub primary2_highlight: Color,
@@ -68,6 +71,8 @@ pub fn squads_dark() -> Theme {
         background: Color::parse("#1c1d22").expect("Color is invalid."),
         text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,
+        emotion_background: Color::from_rgba(0.427, 0.4, 0.8, 0.15),
+        emotion_border: Color::from_rgba(0.427, 0.4, 0.8, 0.34),
         primary1: Color::parse("#13171a").expect("Color is invalid."),
         primary1_selected: Color::parse("#283034").expect("Color is invalid."),
         primary2: Color::parse("#1c1d22").expect("Color is invalid."),
@@ -212,6 +217,15 @@ pub fn squads_dark() -> Theme {
         primary_button: container::Style {
             background: Some(colors.secondary1.into()),
             border: border::rounded(4),
+            ..Default::default()
+        },
+        accent_button: container::Style {
+            background: Some(colors.emotion_background.into()),
+            border: Border {
+                color: colors.emotion_border,
+                width: 2.0,
+                radius: 4.0.into(),
+            },
             ..Default::default()
         },
         conversation: container::Style {

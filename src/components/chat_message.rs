@@ -9,6 +9,7 @@ use crate::Message;
 use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
+use itertools::Itertools;
 use std::collections::HashMap;
 use unicode_properties::UnicodeEmoji;
 
@@ -199,6 +200,7 @@ pub fn c_chat_message<'a>(
                     if reacters == 0 {
                         continue;
                     }
+
                     let mut reaction_text = text("(?)");
                     let font = Font::with_name("Twemoji");
 
@@ -207,9 +209,24 @@ pub fn c_chat_message<'a>(
                         reaction_text = text(reaction_unicode.clone()).font(font);
                     }
 
+                    let mut self_has_reacted = false;
+                    for reactor in &reaction.users {
+                        if let Some(reactor_id) = reactor.mri.split(":").nth(2) {
+                            if reactor_id == me.id {
+                                self_has_reacted = true
+                            }
+                        }
+                    }
+
                     let reaction_container =
                         container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(|_| theme.stylesheet.primary_button)
+                            .style(move |_| {
+                                if self_has_reacted {
+                                    theme.stylesheet.accent_button
+                                } else {
+                                    theme.stylesheet.primary_button
+                                }
+                            })
                             .padding(Padding {
                                 top: 3.0,
                                 right: 3.0,
