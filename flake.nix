@@ -16,9 +16,7 @@
       default = self.packages.${system}.squads;
     });
     overlays = {
-      squads = final: prev: {
-        squads = prev.callPackage ./. {};
-      };
+      squads = import ./overlay.nix;
       default = self.overlays.squads;
     };
   };
