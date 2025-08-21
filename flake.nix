@@ -16,8 +16,8 @@
       default = self.packages.${system}.squads;
     });
     overlays = {
-      squads = final: prev: {
-        squads = self.packages.${prev.system}.squads;
+      squads = final: prev: with self.packages.${final.system}; {
+        inherit squads;
       };
       default = self.overlays.squads;
     };
