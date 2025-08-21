@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
-use std::thread;
+use std::{env, fmt::format, thread};
 use std::time::Duration;
 use std::{collections::HashMap, fs};
 use style::global_theme;
@@ -378,7 +378,7 @@ fn content_send(content: &mut Content, message: &str) {
 
 impl Counter {
     fn new() -> (Self, Task<Message>) {
-        let file_content = fs::read_to_string("resources/emojis.json").unwrap();
+        let file_content = fs::read_to_string(format!("{}/emojis.json", env::var("SQUADS_RESOURCE_DIR").unwrap_or("resources".to_string()))).unwrap();
         let emojis: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
