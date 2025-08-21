@@ -17,7 +17,7 @@
     });
     overlays = {
       squads = final: prev: {
-        squads = final.callPackage ./. {};
+        squads = prev.callPackage ./. {};
       };
       default = self.overlays.squads;
     };
