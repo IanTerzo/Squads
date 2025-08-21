@@ -37,11 +37,13 @@ rustPlatform.buildRustPackage {
     mkdir -p $out/share/icons/hicolor/scalable/apps
     cp ${./resources/squads.svg} $out/share/icons/hicolor/scalable/apps/squads.svg
     cp -r ${./resources} $out/share/resources
+    cp -r ${./images} $out/share/images
   '';
   postFixup = ''
     wrapProgram $out/bin/Squads \
       --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]} \
-      --set SQUADS_RESOURCE_DIR $out/share/resources
+      --set SQUADS_RESOURCE_DIR $out/share/resources \
+      --set SQUADS_IMAGE_DIR $out/share/images
   '';
   shellHook = ''
     export LD_LIBRARY_PATH=${lib.makeLibraryPath [openssl wayland libGL libxkbcommon]}

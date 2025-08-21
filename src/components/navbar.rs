@@ -1,23 +1,23 @@
 use iced::widget::{column, container, row, svg, MouseArea, Space};
 use iced::{Element, Fill, Length, Padding};
 
-use crate::style;
+use crate::{style, utils};
 use crate::{Message, Page, View};
 
 pub fn c_navbar(theme: &style::Theme) -> Element<Message> {
     column![
         container(row![
             row![
-                MouseArea::new(svg("images/chevron-left.svg").width(23).height(23))
+                MouseArea::new(svg(utils::get_image_dir().join("chevron-left.svg")).width(23).height(23))
                     .on_release(Message::HistoryBack),
-                MouseArea::new(svg("images/chevron-right.svg").width(23).height(23))
+                MouseArea::new(svg(utils::get_image_dir().join("chevron-right.svg")).width(23).height(23))
                     .on_release(Message::HistoryForward),
             ],
             container(
                 row![
-                    MouseArea::new(svg("images/house.svg").width(20).height(20))
+                    MouseArea::new(svg(utils::get_image_dir().join("house.svg")).width(20).height(20))
                         .on_release(Message::OpenHome),
-                    MouseArea::new(svg("images/message-square.svg").width(20).height(20))
+                    MouseArea::new(svg(utils::get_image_dir().join("message-square.svg")).width(20).height(20))
                         .on_enter(Message::PrefetchCurrentChat)
                         .on_release(Message::OpenCurrentChat)
                 ]

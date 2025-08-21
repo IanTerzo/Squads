@@ -378,7 +378,7 @@ fn content_send(content: &mut Content, message: &str) {
 
 impl Counter {
     fn new() -> (Self, Task<Message>) {
-        let file_content = fs::read_to_string(format!("{}/emojis.json", env::var("SQUADS_RESOURCE_DIR").unwrap_or("resources".to_string()))).unwrap();
+        let file_content = fs::read_to_string(utils::get_resource_dir().join("emojis.json")).unwrap();
         let emojis: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));

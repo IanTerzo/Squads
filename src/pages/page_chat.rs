@@ -6,7 +6,7 @@ use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
 use crate::parsing::parse_content_emojis;
-use crate::utils::truncate_name;
+use crate::utils::{self, truncate_name};
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
 use crate::Message;
@@ -149,7 +149,7 @@ pub fn chat<'a>(
     let mut chats_column = if *page_body == ChatBody::Start {
         column![container(
             row![
-                svg("images/message-square.svg").width(18).height(18),
+                svg(utils::get_image_dir().join("message-square.svg")).width(18).height(18),
                 text("New chat").color(theme.colors.demo_text)
             ]
             .align_y(Center)
@@ -278,7 +278,7 @@ pub fn chat<'a>(
                         .style(|_, _| theme.stylesheet.input),
                 )
                 .width(188),
-                mouse_area(svg("images/square-pen.svg").width(22).height(22))
+                mouse_area(svg(utils::get_image_dir().join("square-pen.svg")).width(22).height(22))
                     .on_release(Message::ToggleNewChatMenu)
             ]
             .spacing(10)
@@ -368,7 +368,7 @@ pub fn chat<'a>(
                     if !is_one_on_one {
                         row![
                             Space::with_width(8),
-                            svg("images/pencil.svg").width(17).height(17),
+                            svg(utils::get_image_dir().join("pencil.svg")).width(17).height(17),
                         ]
                     } else {
                         row![]
@@ -378,9 +378,9 @@ pub fn chat<'a>(
                 },
                 container(
                     row![
-                        mouse_area(svg("images/users-round.svg").width(19).height(19))
+                        mouse_area(svg(utils::get_image_dir().join("users-round.svg")).width(19).height(19))
                             .on_release(Message::ToggleShowChatMembers),
-                        mouse_area(svg("images/user-round-plus.svg").width(19).height(19))
+                        mouse_area(svg(utils::get_image_dir().join("user-round-plus.svg")).width(19).height(19))
                             .on_release(Message::ToggleShowChatAdd),
                     ]
                     .spacing(14)

@@ -2,9 +2,7 @@ use directories::ProjectDirs;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::{
-    fs,
-    io::Write,
-    time::{SystemTime, UNIX_EPOCH},
+    env, fs, io::Write, path::{PathBuf}, time::{SystemTime, UNIX_EPOCH}
 };
 
 pub fn truncate_name(name: String, max_length: usize) -> String {
@@ -68,4 +66,12 @@ pub fn get_epoch_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis()
+}
+
+pub fn get_image_dir() -> PathBuf {
+	PathBuf::from(env::var("SQUADS_IMAGE_DIR").unwrap_or("images".to_string()))
+}
+
+pub fn get_resource_dir() -> PathBuf {
+	PathBuf::from(env::var("SQUADS_RESOURCE_DIR").unwrap_or("resources".to_string()))
 }
