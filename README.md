@@ -23,6 +23,35 @@ The official client for comparison...
 
 ![squads](https://github.com/IanTerzo/Squads/blob/master/images/teams_preview2.png?raw=true)
 
+## Installation
+
+### NixOS
+
+Squads exposes a Nix flake for local usage. Add the following input to your
+system flake.
+
+```nix
+squads = {
+  url = "github:IanTerzo/Squads";
+  # Optionally use your own nixpkgs. Not necessarily future-proof.
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+Then add the overlay to your `pkgs`.
+
+```nix
+pkgs = import nixpkgs {
+  inherit system;
+  overlays = [
+    (import squads)
+  ];
+};
+```
+
+It is also possible to use Squads without flakes by building the default output
+of the repository.
+
 ## Attribution
 
 - Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
