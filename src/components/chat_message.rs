@@ -5,6 +5,7 @@ use crate::parsing::{parse_card_html, parse_content_emojis, parse_message_html};
 use crate::style;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
+use crate::utils;
 use crate::Message;
 use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
@@ -163,7 +164,7 @@ pub fn c_chat_message<'a>(
                     let file_container = mouse_area(
                         container(
                             row![
-                                svg("images/paperclip.svg").width(16).height(16),
+                                svg(utils::get_image_dir().join("paperclip.svg")).width(16).height(16),
                                 text(file.file_name.clone().unwrap_or("File".to_string()))
                                     .color(theme.colors.text_link)
                             ]
@@ -279,8 +280,8 @@ pub fn c_chat_message<'a>(
                             == format!("8:orgid:{}", me.id)
                         {
                             row![
-                                svg("images/pencil.svg").width(17).height(17),
-                                mouse_area(svg("images/reply.svg").width(21).height(21))
+                                svg(utils::get_image_dir().join("pencil.svg")).width(17).height(17),
+                                mouse_area(svg(utils::get_image_dir().join("reply.svg")).width(21).height(21))
                                     .on_release(Message::Reply(
                                         message.content,
                                         message.im_display_name.clone(),
@@ -292,7 +293,7 @@ pub fn c_chat_message<'a>(
                             .spacing(8)
                         } else {
                             row![
-                                mouse_area(svg("images/reply.svg").width(21).height(21))
+                                mouse_area(svg(utils::get_image_dir().join("reply.svg")).width(21).height(21))
                                     .on_release(Message::Reply(
                                         message.content,
                                         message.im_display_name.clone(),

@@ -1,5 +1,5 @@
 {
-  description = "A very basic flake";
+  description = "Squads overlay flake";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
@@ -11,10 +11,13 @@
     forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (pkgsFor system) system);
   in
   {
-    devShells = forAllSystems (pkgs: system: self.packages.${system}.default);
     packages = forAllSystems (pkgs: system: {
-      squads = pkgs.callPackage ./. {};
+      squads = pkgs.callPackage ./package.nix {};
       default = self.packages.${system}.squads;
     });
+    overlays = {
+      squads = import ./.;
+      default = self.overlays.squads;
+    };
   };
 }

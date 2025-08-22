@@ -2,7 +2,7 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
-use crate::style;
+use crate::{style, utils};
 use crate::websockets::Presence;
 use crate::Message;
 use iced::overlay::menu::{Menu, State};
@@ -268,7 +268,7 @@ pub fn c_message<'a>(
                     let file_container = mouse_area(
                         container(
                             row![
-                                svg("images/paperclip.svg").width(16).height(16),
+                                svg(utils::get_image_dir().join("paperclip.svg")).width(16).height(16),
                                 text(file.file_name.clone().unwrap_or("File".to_string()))
                                     .color(theme.colors.text_link)
                             ]
