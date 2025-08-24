@@ -23,7 +23,7 @@ pub fn home<'a>(
     theme: &'a style::Theme,
     teams: &Vec<Team>,
     activities: &Vec<crate::api::Message>,
-    expanded_conversations: HashMap<String, Vec<api::Message>>,
+    expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>,
     emoji_map: &'a HashMap<String, String>,
     users: &HashMap<String, Profile>,
     user_presences: &'a HashMap<String, Presence>,
@@ -156,32 +156,51 @@ pub fn home<'a>(
             let message_activity_id = message.id.unwrap().to_string();
 
             if let Some(conversation) = expanded_conversations.get(&message_activity_id) {
-                if conversation.len() > 0 {
-                    let message = c_conversation(
-                        theme,
-                        conversation.iter().rev().cloned().collect(), // Can be optimized
-                        message_activity_id.clone(),
-                        false,
-                        emoji_map,
-                        users,
-                        user_presences,
-                    );
-                    if let Some(message) = message {
-                        activities_colum = activities_colum.push(mouse_area(message).on_release(
-                            Message::ExpandActivity(thread_id, message_id, message_activity_id),
-                        ));
+                if conversation.0 {
+                    if conversation.1.len() > 0 {
+                        let message = c_conversation(
+                            theme,
+                            conversation.1.iter().rev().cloned().collect(), // Can be optimized
+                            message_activity_id.clone(),
+                            false,
+                            emoji_map,
+                            users,
+                            user_presences,
+                        );
+                        if let Some(message) = message {
+                            activities_colum = activities_colum.push(
+                                mouse_area(message).on_release(Message::ToggleExpandActivity(
+                                    thread_id,
+                                    message_id,
+                                    message_activity_id,
+                                )),
+                            );
+                        }
+                    } else {
+                        activities_colum = activities_colum.push(
+                            mouse_area(text("Failed to load conversation.")).on_release(
+                                Message::ToggleExpandActivity(
+                                    thread_id,
+                                    message_id,
+                                    message_activity_id,
+                                ),
+                            ),
+                        );
                     }
                 } else {
                     activities_colum = activities_colum.push(
-                        mouse_area(text("Failed to load conversation.")).on_release(
-                            Message::ExpandActivity(thread_id, message_id, message_activity_id),
-                        ),
+                        mouse_area(c_preview_message(theme, activity, window_width, emoji_map))
+                            .on_release(Message::ToggleExpandActivity(
+                                thread_id,
+                                message_id,
+                                message_activity_id,
+                            )),
                     );
                 }
             } else {
                 activities_colum = activities_colum.push(
                     mouse_area(c_preview_message(theme, activity, window_width, emoji_map))
-                        .on_release(Message::ExpandActivity(
+                        .on_release(Message::ToggleExpandActivity(
                             thread_id,
                             message_id,
                             message_activity_id,

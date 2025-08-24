@@ -43,9 +43,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
-use std::{env, fmt::format, thread};
 use std::time::Duration;
 use std::{collections::HashMap, fs};
+use std::{env, fmt::format, thread};
 use style::global_theme;
 use tokio::time::sleep;
 use types::*;
@@ -56,7 +56,7 @@ use websockets::{
     WebsocketResponse,
 };
 
-use crate::api::{add_member, start_thread, ChatMember, Conversation};
+use crate::api::{add_member, is_read, start_thread, ChatMember, Conversation};
 use crate::components::emoji_picker::c_emoji_picker;
 use crate::parsing::get_html_preview;
 
@@ -117,7 +117,7 @@ struct Counter {
     chat_message_options: HashMap<String, bool>, // String is the message id
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
-    activity_expanded_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
+    activity_expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>, // String is the thread id, bool is toggled
     search_teams_input_value: String,
     search_chats_input_value: String,
     search_users_input_value: String,
@@ -179,7 +179,7 @@ pub enum Message {
     GotUsers(HashMap<String, Profile>, Profile),
     GotUserDetails(Vec<Team>, Vec<Chat>),
     // UI initiated
-    ExpandActivity(String, u64, String),
+    ToggleExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
     PrefetchChat(String),
     PrefetchCurrentChat,
@@ -378,7 +378,8 @@ fn content_send(content: &mut Content, message: &str) {
 
 impl Counter {
     fn new() -> (Self, Task<Message>) {
-        let file_content = fs::read_to_string(utils::get_resource_dir().join("emojis.json")).unwrap();
+        let file_content =
+            fs::read_to_string(utils::get_resource_dir().join("emojis.json")).unwrap();
         let emojis: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
@@ -1376,9 +1377,40 @@ impl Counter {
                 Task::none()
             }
             // UI initiated
-            Message::ExpandActivity(thread_id, message_id, message_activity_id) => {
+            Message::ToggleExpandActivity(thread_id, message_id, message_activity_id) => {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
+                if let Some(activity) = self
+                    .activity_expanded_conversations
+                    .get_mut(&message_activity_id)
+                {
+                    if activity.0 {
+                        activity.0 = false;
+                        return Task::perform(
+                            async move {
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
+                                is_read(
+                                    &access_token,
+                                    "48:notifications".to_string(),
+                                    message_activity_id.to_string(),
+                                    "{\"isread\":\"true\"}".to_string(),
+                                )
+                                .await
+                                .unwrap();
+                            },
+                            Message::DoNothing,
+                        );
+                    } else {
+                        activity.0 = true;
+                        return Task::none(); // Send isread false instead ?
+                    }
+                }
+
                 Task::perform(
                     async move {
                         let access_token = get_or_gen_token(
@@ -1400,7 +1432,7 @@ impl Counter {
             }
             Message::GotExpandedActivity(message_activity_id, messages) => {
                 self.activity_expanded_conversations
-                    .insert(message_activity_id, messages);
+                    .insert(message_activity_id, (true, messages));
                 Task::none()
             }
             Message::PrefetchChat(thread_id) => {
