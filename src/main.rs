@@ -57,7 +57,7 @@ use websockets::{
 };
 
 use crate::api::{add_member, is_read, start_thread, ChatMember, Conversation};
-use crate::components::emoji_picker::c_emoji_picker;
+use crate::components::emoji_picker::{self, c_emoji_picker};
 use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -128,6 +128,7 @@ struct Counter {
     subject_input_value: String,
     expanded_image: Option<(String, String)>,
     add_users_checked: HashMap<String, bool>, // Where string is the user id
+    show_emoji_picker: bool,
 
     // Teams requested data
     me: Profile,
@@ -202,6 +203,7 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
+    ToggleEmojiPicker,
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -447,6 +449,7 @@ impl Counter {
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
             users: user_profiles,
+            show_emoji_picker: false,
             me: profile,
             teams: teams.clone(),
             chats: chats.clone(),
@@ -578,6 +581,8 @@ impl Counter {
                     ),
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                    } else if self.show_emoji_picker {
+                        Some(c_emoji_picker(&self.theme, &self.emoji_map))
                     } else {
                         None
                     },
@@ -2039,6 +2044,10 @@ impl Counter {
             }
             Message::ToggleUserCheckbox(checked, id) => {
                 self.add_users_checked.insert(id, !checked);
+                Task::none()
+            }
+            Message::ToggleEmojiPicker => {
+                self.show_emoji_picker = !self.show_emoji_picker;
                 Task::none()
             }
 

@@ -4,9 +4,9 @@ use iced::widget::{
 };
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 
-use crate::{style, utils};
 use crate::types::MessageAreaAction;
 use crate::Message;
+use crate::{style, utils};
 
 pub fn c_message_area<'a>(
     theme: &'a style::Theme,
@@ -59,32 +59,53 @@ pub fn c_message_area<'a>(
                             ]
                             .spacing(8),
                             row![
-                                mouse_area(svg(utils::get_image_dir().join("list.svg")).width(23).height(23)).on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::List)
-                                ),
-                                mouse_area(svg(utils::get_image_dir().join("list-ordered.svg")).width(23).height(23))
-                                    .on_release(Message::MessageAreaAction(
-                                        MessageAreaAction::OrderedList
-                                    ))
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("list.svg"))
+                                        .width(23)
+                                        .height(23)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::List)),
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("list-ordered.svg"))
+                                        .width(23)
+                                        .height(23)
+                                )
+                                .on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::OrderedList)
+                                )
                             ]
                             .padding(padding::top(3))
                             .spacing(8),
                             row![
-                                mouse_area(svg(utils::get_image_dir().join("code.svg")).width(23).height(23)).on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::Code)
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("code.svg"))
+                                        .width(23)
+                                        .height(23)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Code)),
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("text-quote.svg"))
+                                        .width(23)
+                                        .height(23)
+                                )
+                                .on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::Blockquote)
                                 ),
-                                mouse_area(svg(utils::get_image_dir().join("text-quote.svg")).width(23).height(23))
-                                    .on_release(Message::MessageAreaAction(
-                                        MessageAreaAction::Blockquote
-                                    )),
-                                mouse_area(svg(utils::get_image_dir().join("link.svg")).width(19).height(19)).on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::Link)
-                                ),
-                                mouse_area(svg(utils::get_image_dir().join("image.svg")).width(19).height(19))
-                                    .on_release(Message::MessageAreaAction(
-                                        MessageAreaAction::Image
-                                    )),
-                                svg(utils::get_image_dir().join("at-sign.svg")).width(19).height(19)
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("link.svg"))
+                                        .width(19)
+                                        .height(19)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Link)),
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("image.svg"))
+                                        .width(19)
+                                        .height(19)
+                                )
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Image)),
+                                svg(utils::get_image_dir().join("at-sign.svg"))
+                                    .width(19)
+                                    .height(19)
                             ]
                             .padding(padding::top(3))
                             .spacing(8),
@@ -145,8 +166,15 @@ pub fn c_message_area<'a>(
                 .style(|_, _| theme.stylesheet.message_area),
             row![
                 row![
-                    svg(utils::get_image_dir().join("smile.svg")).width(20).height(20),
-                    svg(utils::get_image_dir().join("upload.svg")).width(20).height(20),
+                    mouse_area(
+                        svg(utils::get_image_dir().join("smile.svg"))
+                            .width(20)
+                            .height(20)
+                    )
+                    .on_release(Message::ToggleEmojiPicker),
+                    svg(utils::get_image_dir().join("upload.svg"))
+                        .width(20)
+                        .height(20),
                 ]
                 .spacing(8),
                 container(
