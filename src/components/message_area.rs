@@ -171,7 +171,7 @@ pub fn c_message_area<'a>(
                             .width(20)
                             .height(20)
                     )
-                    .on_release(Message::ToggleEmojiPicker),
+                    .on_release(Message::ToggleEmojiPicker((0.0, 0.0))),
                     svg(utils::get_image_dir().join("upload.svg"))
                         .width(20)
                         .height(20),

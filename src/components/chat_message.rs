@@ -3,9 +3,9 @@ use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_content_emojis, parse_message_html};
 use crate::style;
+use crate::utils;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
-use crate::utils;
 use crate::Message;
 use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
@@ -164,7 +164,9 @@ pub fn c_chat_message<'a>(
                     let file_container = mouse_area(
                         container(
                             row![
-                                svg(utils::get_image_dir().join("paperclip.svg")).width(16).height(16),
+                                svg(utils::get_image_dir().join("paperclip.svg"))
+                                    .width(16)
+                                    .height(16),
                                 text(file.file_name.clone().unwrap_or("File".to_string()))
                                     .color(theme.colors.text_link)
                             ]
@@ -245,14 +247,17 @@ pub fn c_chat_message<'a>(
 
     if are_reactions {
         reactions_row = reactions_row.push(
-            container(text("+"))
-                .style(|_| theme.stylesheet.primary_button)
-                .padding(Padding {
-                    top: 3.0,
-                    right: 5.0,
-                    bottom: 3.0,
-                    left: 5.0,
-                }),
+            mouse_area(
+                container(text("+"))
+                    .style(|_| theme.stylesheet.primary_button)
+                    .padding(Padding {
+                        top: 3.0,
+                        right: 5.0,
+                        bottom: 3.0,
+                        left: 5.0,
+                    }),
+            )
+            .on_release(Message::ToggleEmojiPicker((0.0, 0.0))),
         );
 
         contents_column = contents_column.push(reactions_row);
@@ -272,51 +277,62 @@ pub fn c_chat_message<'a>(
         .to_owned();
 
     if is_hovered {
-        action_container =
+        action_container = container(
             container(
                 container(
-                    container(
-                        if message.from.clone().unwrap_or("none".to_string())
-                            == format!("8:orgid:{}", me.id)
-                        {
-                            row![
-                                svg(utils::get_image_dir().join("pencil.svg")).width(17).height(17),
-                                mouse_area(svg(utils::get_image_dir().join("reply.svg")).width(21).height(21))
-                                    .on_release(Message::Reply(
-                                        message.content,
-                                        message.im_display_name.clone(),
-                                        message.id.clone(),
-                                    )),
-                                container(text("+").size(20))
-                            ]
-                            .align_y(Alignment::Center)
-                            .spacing(8)
-                        } else {
-                            row![
-                                mouse_area(svg(utils::get_image_dir().join("reply.svg")).width(21).height(21))
-                                    .on_release(Message::Reply(
-                                        message.content,
-                                        message.im_display_name.clone(),
-                                        message.id.clone(),
-                                    )),
-                                container(text("+").size(20))
-                            ]
-                            .align_y(Alignment::Center)
-                            .spacing(8)
-                        },
-                    )
-                    .padding(Padding {
-                        top: 3.0,
-                        right: 6.0,
-                        bottom: 3.0,
-                        left: 6.0,
-                    })
-                    .style(|_| theme.stylesheet.primary_button),
+                    if message.from.clone().unwrap_or("none".to_string())
+                        == format!("8:orgid:{}", me.id)
+                    {
+                        row![
+                            svg(utils::get_image_dir().join("pencil.svg"))
+                                .width(17)
+                                .height(17),
+                            mouse_area(
+                                svg(utils::get_image_dir().join("reply.svg"))
+                                    .width(21)
+                                    .height(21)
+                            )
+                            .on_release(Message::Reply(
+                                message.content,
+                                message.im_display_name.clone(),
+                                message.id.clone(),
+                            )),
+                            mouse_area(container(text("+").size(20)))
+                                .on_release(Message::ToggleEmojiPicker((0.0, 0.0)))
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(8)
+                    } else {
+                        row![
+                            mouse_area(
+                                svg(utils::get_image_dir().join("reply.svg"))
+                                    .width(21)
+                                    .height(21)
+                            )
+                            .on_release(Message::Reply(
+                                message.content,
+                                message.im_display_name.clone(),
+                                message.id.clone(),
+                            )),
+                            mouse_area(container(text("+").size(20)))
+                                .on_release(Message::ToggleEmojiPicker((0.0, 0.0)))
+                        ]
+                        .align_y(Alignment::Center)
+                        .spacing(8)
+                    },
                 )
-                .padding(padding::right(10))
-                .align_y(Alignment::Center),
+                .padding(Padding {
+                    top: 3.0,
+                    right: 6.0,
+                    bottom: 3.0,
+                    left: 6.0,
+                })
+                .style(|_| theme.stylesheet.primary_button),
             )
-            .align_right(iced::Length::Fill);
+            .padding(padding::right(10))
+            .align_y(Alignment::Center),
+        )
+        .align_right(iced::Length::Fill);
     }
 
     let message_stack = stack!(

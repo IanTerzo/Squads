@@ -8,6 +8,7 @@ use iced::{Color, Element, Font, Length, Padding};
 
 pub fn c_emoji_picker<'a>(
     theme: &'a Theme,
+    pos: &'a (f32, f32),
     emoji_map: &'a HashMap<String, String>,
 ) -> Element<'a, Message> {
     let mut emojies_column = column![];
@@ -22,7 +23,7 @@ pub fn c_emoji_picker<'a>(
                 )
                 .padding(2),
             )
-            .on_release(Message::Hello(_emoji_id.to_string())),
+            .on_release(Message::EmojiPickerPicked(_emoji_id.to_string())),
         );
         if (i + 1) % 9 == 0 {
             emojies_column = emojies_column.push(emoji_row);
@@ -46,14 +47,13 @@ pub fn c_emoji_picker<'a>(
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .align_bottom(Length::Fill)
         .padding(Padding {
-            bottom: 150.0,
-            left: 260.0,
+            bottom: pos.0,
+            left: pos.1,
             top: 0.0,
             right: 0.0,
         }),
     )
-    .on_release(Message::ToggleEmojiPicker)
+    .on_release(Message::ToggleEmojiPicker((0.0, 0.0)))
     .into()
 }

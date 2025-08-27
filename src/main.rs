@@ -129,6 +129,7 @@ struct Counter {
     expanded_image: Option<(String, String)>,
     add_users_checked: HashMap<String, bool>, // Where string is the user id
     show_emoji_picker: bool,
+    emoji_picker_pos: (f32, f32),
 
     // Teams requested data
     me: Profile,
@@ -203,7 +204,8 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
-    ToggleEmojiPicker,
+    ToggleEmojiPicker((f32, f32)),
+    EmojiPickerPicked(String),
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -450,6 +452,7 @@ impl Counter {
             access_tokens: access_tokens.clone(),
             users: user_profiles,
             show_emoji_picker: false,
+            emoji_picker_pos: (0.0, 0.0),
             me: profile,
             teams: teams.clone(),
             chats: chats.clone(),
@@ -582,7 +585,11 @@ impl Counter {
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
                     } else if self.show_emoji_picker {
-                        Some(c_emoji_picker(&self.theme, &self.emoji_map))
+                        Some(c_emoji_picker(
+                            &self.theme,
+                            &self.emoji_picker_pos,
+                            &self.emoji_map,
+                        ))
                     } else {
                         None
                     },
@@ -2046,8 +2053,13 @@ impl Counter {
                 self.add_users_checked.insert(id, !checked);
                 Task::none()
             }
-            Message::ToggleEmojiPicker => {
+            Message::ToggleEmojiPicker(pos) => {
                 self.show_emoji_picker = !self.show_emoji_picker;
+                self.emoji_picker_pos = pos;
+                Task::none()
+            }
+            Message::EmojiPickerPicked(emoji_id) => {
+                println!("{}", emoji_id);
                 Task::none()
             }
 
