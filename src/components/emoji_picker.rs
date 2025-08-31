@@ -15,15 +15,8 @@ pub fn c_emoji_picker<'a>(
     let mut emoji_row = row![];
     for (i, (_emoji_id, emoji)) in emoji_map.iter().enumerate() {
         emoji_row = emoji_row.push(
-            mouse_area(
-                container(
-                    container(text(emoji).font(Font::with_name("Twemoji")).size(28))
-                        .width(36)
-                        .height(36),
-                )
-                .padding(2),
-            )
-            .on_release(Message::EmojiPickerPicked(_emoji_id.to_string())),
+            mouse_area(container(container(text(emoji).size(28)).width(36).height(36)).padding(2))
+                .on_release(Message::EmojiPickerPicked(_emoji_id.to_string())),
         );
         if (i + 1) % 9 == 0 {
             emojies_column = emojies_column.push(emoji_row);

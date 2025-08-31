@@ -2,31 +2,15 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
-use crate::{style, utils};
 use crate::websockets::Presence;
 use crate::Message;
+use crate::{style, utils};
 use iced::overlay::menu::{Menu, State};
 use iced::widget::{column, container, mouse_area, row, svg, text};
 use iced::{border, font, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
-use unicode_properties::UnicodeEmoji;
 
 const LOG_THREAD_ACTIVITY: bool = false;
-
-pub fn parse_subject<'a>(subject: String) -> Element<'a, Message> {
-    let mut text_row = row![];
-    for c in subject.chars() {
-        if c.is_emoji_char() && !c.is_digit(10) {
-            text_row = text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
-        } else {
-            text_row = text_row.push(text(c).size(18).font(font::Font {
-                weight: font::Weight::Bold,
-                ..Default::default()
-            }));
-        }
-    }
-    text_row.into()
-}
 
 pub fn c_message<'a>(
     theme: &'a style::Theme,
@@ -102,28 +86,21 @@ pub fn c_message<'a>(
 
     // Message subject
 
-    if let Some(properties) = &message.properties.clone() {
+    if let Some(properties) = &message.properties {
         if let Some(title) = &properties.title {
             if title != "" {
                 let trimmed_title = title.trim_start();
                 let mut text_row = row![];
                 if trimmed_title != "" {
-                    for c in trimmed_title.chars() {
-                        if c.is_emoji_char() && !c.is_digit(10) {
-                            text_row =
-                                text_row.push(text(c).font(Font::with_name("Twemoji")).size(18));
-                        } else {
-                            text_row = text_row.push(text(c).size(18).font(font::Font {
-                                weight: font::Weight::Bold,
-                                ..Default::default()
-                            }));
-                        }
-                    }
+                    text_row =
+                        text_row.push(text(trimmed_title.to_string()).size(18).font(font::Font {
+                            weight: font::Weight::Bold,
+                            ..Default::default()
+                        }));
                     if let Some(subject) = &properties.subject {
                         let trimmed_subject = subject.trim_start();
                         if trimmed_subject != "" {
-                            message_column =
-                                message_column.push(parse_subject(trimmed_subject.to_string()));
+                            message_column = message_column.push(text(trimmed_subject.to_string()));
                         }
                     }
                 }
@@ -132,8 +109,7 @@ pub fn c_message<'a>(
                 if let Some(subject) = &properties.subject {
                     let trimmed_subject = subject.trim_start();
                     if trimmed_subject != "" {
-                        message_column =
-                            message_column.push(parse_subject(trimmed_subject.to_string()));
+                        message_column = message_column.push(text(trimmed_subject.to_string()));
                     }
                 }
             }
@@ -141,7 +117,7 @@ pub fn c_message<'a>(
             let trimmed_subject = subject.trim_start();
             // Edgecase
             if trimmed_subject != "" {
-                message_column = message_column.push(parse_subject(trimmed_subject.to_string()));
+                message_column = message_column.push(text(trimmed_subject.to_string()));
             }
         }
     }
@@ -192,17 +168,7 @@ pub fn c_message<'a>(
             }
         } else if message_type == "Text" {
             if let Some(content) = message.content {
-                let mut text_row = row![];
-
-                for c in content.chars() {
-                    if c.is_emoji_char() {
-                        text_row = text_row.push(text(c).font(Font::with_name("Twemoji")));
-                    } else {
-                        text_row = text_row.push(text(c));
-                    }
-                }
-
-                message_column = message_column.push(text_row);
+                message_column = message_column.push(text(content));
             }
         } else {
             if let Some(content) = message.content {
@@ -224,11 +190,10 @@ pub fn c_message<'a>(
                         continue;
                     }
                     let mut reaction_text = text("(?)");
-                    let font = Font::with_name("Twemoji");
 
                     let reaction_val = emoji_map.get(&reaction.key);
                     if let Some(reaction_unicode) = reaction_val {
-                        reaction_text = text(reaction_unicode.clone()).font(font);
+                        reaction_text = text(reaction_unicode.clone());
                     }
 
                     let reaction_container =
@@ -268,7 +233,9 @@ pub fn c_message<'a>(
                     let file_container = mouse_area(
                         container(
                             row![
-                                svg(utils::get_image_dir().join("paperclip.svg")).width(16).height(16),
+                                svg(utils::get_image_dir().join("paperclip.svg"))
+                                    .width(16)
+                                    .height(16),
                                 text(file.file_name.clone().unwrap_or("File".to_string()))
                                     .color(theme.colors.text_link)
                             ]

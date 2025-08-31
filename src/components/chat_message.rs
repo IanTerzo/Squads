@@ -1,7 +1,7 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::parsing::{parse_card_html, parse_content_emojis, parse_message_html};
+use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::utils;
 use crate::websockets::Presence;
@@ -12,7 +12,6 @@ use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use itertools::Itertools;
 use std::collections::HashMap;
-use unicode_properties::UnicodeEmoji;
 
 const LOG_THREAD_ACTIVITY: bool = false;
 
@@ -144,7 +143,7 @@ pub fn c_chat_message<'a>(
             }
         } else if message_type == "Text" {
             if let Some(content) = message.content.clone() {
-                contents_column = contents_column.push(parse_content_emojis(content));
+                contents_column = contents_column.push(text(content));
             }
         } else {
             if let Some(content) = message.content.clone() {
@@ -205,11 +204,10 @@ pub fn c_chat_message<'a>(
                     }
 
                     let mut reaction_text = text("(?)");
-                    let font = Font::with_name("Twemoji");
 
                     let reaction_val = emoji_map.get(&reaction.key);
                     if let Some(reaction_unicode) = reaction_val {
-                        reaction_text = text(reaction_unicode.clone()).font(font);
+                        reaction_text = text(reaction_unicode.clone());
                     }
 
                     let mut self_has_reacted = false;

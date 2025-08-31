@@ -29,7 +29,6 @@ use scraper::{Html, Selector};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use unicode_properties::UnicodeEmoji;
 use xxhash_rust::xxh3::xxh3_64;
 
 #[derive(Debug)]
@@ -300,9 +299,8 @@ fn transform_html<'a>(
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Emoji" {
                         if let Some(alt) = child_element.attr("alt") {
-                            let font = Font::with_name("Twemoji");
                             dynamic_container = dynamic_container
-                                .push(rich_text![Span::new(alt.to_string()).font(font)].into());
+                                .push(rich_text![Span::new(alt.to_string())].into());
                         }
                     } else if itemtype == "http://schema.skype.com/AMSImage" {
                         // most consistent way to get the image id
@@ -521,8 +519,7 @@ fn transform_html<'a>(
 
             let words = text_content.split_inclusive(" ");
 
-            let mut font_text = Font::default();
-            let mut font_emojis = Font::with_name("Twemoji");
+            let mut font_text = Font::with_name("Open Sans Twemoji");
             let mut color = theme.colors.text;
             let mut underline = false;
             let mut strikethrough = false;
@@ -532,7 +529,6 @@ fn transform_html<'a>(
                 // check for consistency
                 if property == "strong" {
                     font_text.weight = font::Weight::Bold;
-                    font_emojis.weight = font::Weight::Bold;
                 }
             }
             if let Some(property) = cascading_properties.get("u") {
@@ -548,13 +544,11 @@ fn transform_html<'a>(
             if let Some(property) = cascading_properties.get("i") {
                 if property == "i" {
                     font_text.style = font::Style::Italic;
-                    font_emojis.style = font::Style::Italic;
                 }
             }
             if let Some(property) = cascading_properties.get("em") {
                 if property == "em" {
                     font_text.style = font::Style::Italic;
-                    font_emojis.style = font::Style::Italic;
                 }
             }
             if let Some(value) = cascading_properties.get("a") {
@@ -574,25 +568,14 @@ fn transform_html<'a>(
 
                 // Use a different font for emojis
                 for char in word.chars() {
-                    if char.is_emoji_char() && !char.is_digit(10) {
-                        let mut text_span = Span::new(char.to_string());
-                        text_span = text_span
-                            .font(font_emojis)
-                            .color(color)
-                            .underline(underline)
-                            .strikethrough(strikethrough);
+                    let mut text_span = Span::new(char.to_string());
+                    text_span = text_span
+                        .font(font_text)
+                        .color(color)
+                        .underline(underline)
+                        .strikethrough(strikethrough);
 
-                        spans.push(text_span);
-                    } else {
-                        let mut text_span = Span::new(char.to_string());
-                        text_span = text_span
-                            .font(font_text)
-                            .color(color)
-                            .underline(underline)
-                            .strikethrough(strikethrough);
-
-                        spans.push(text_span);
-                    }
+                    spans.push(text_span);
                 }
 
                 // TODO: show an underline when hovering a link
@@ -675,20 +658,6 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
     } else {
         Err("Couldn't find Swift tag from card HTML".to_string())
     }
-}
-
-pub fn parse_content_emojis<'a>(content: String) -> Element<'a, Message> {
-    let mut text_row = row![];
-
-    for char in content.chars() {
-        if char.is_emoji_char() && !char.is_digit(10) {
-            text_row = text_row.push(text(char).font(Font::with_name("Twemoji")));
-        } else {
-            text_row = text_row.push(text(char));
-        }
-    }
-
-    text_row.into()
 }
 
 pub fn get_html_preview(html: &str) -> String {

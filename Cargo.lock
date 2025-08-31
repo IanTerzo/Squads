@@ -25,7 +25,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "unicode-properties",
  "unicode-segmentation",
  "url",
  "urlencoding",

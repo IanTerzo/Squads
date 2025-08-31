@@ -94,7 +94,7 @@ pub fn c_preview_message<'a>(
                     border: border::rounded(4),
                     ..Default::default()
                 }),
-                text!("{reaction_unicode}",).font(Font::with_name("Twemoji")),
+                text!("{reaction_unicode}",),
                 // show thread and mesage preview
             ]
             .spacing(8),

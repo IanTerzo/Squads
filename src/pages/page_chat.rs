@@ -5,7 +5,6 @@ use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
-use crate::parsing::parse_content_emojis;
 use crate::utils::{self, truncate_name};
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -18,7 +17,7 @@ use iced::widget::text_editor::Content;
 use iced::widget::{checkbox, column, container, mouse_area, row, stack, svg, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::Alignment::Center;
-use iced::{border, padding, Alignment, Color, Element, Length, Padding};
+use iced::{border, padding, Alignment, Color, Element, Font, Length, Padding};
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
     if let Some(chat_title) = &chat.title {
@@ -149,7 +148,9 @@ pub fn chat<'a>(
     let mut chats_column = if *page_body == ChatBody::Start {
         column![container(
             row![
-                svg(utils::get_image_dir().join("message-square.svg")).width(18).height(18),
+                svg(utils::get_image_dir().join("message-square.svg"))
+                    .width(18)
+                    .height(18),
                 text("New chat").color(theme.colors.demo_text)
             ]
             .align_y(Center)
@@ -219,7 +220,7 @@ pub fn chat<'a>(
             chat_items = chat_items.push(container(picture).padding(6));
         }
 
-        let mut chat_info_column = column![parse_content_emojis(truncate_name(chat_title, 20))];
+        let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
 
         if users_typing.get(&chat.id).map_or(false, |u| !u.is_empty()) {
             chat_info_column =
@@ -278,8 +279,12 @@ pub fn chat<'a>(
                         .style(|_, _| theme.stylesheet.input),
                 )
                 .width(188),
-                mouse_area(svg(utils::get_image_dir().join("square-pen.svg")).width(22).height(22))
-                    .on_release(Message::ToggleNewChatMenu)
+                mouse_area(
+                    svg(utils::get_image_dir().join("square-pen.svg"))
+                        .width(22)
+                        .height(22)
+                )
+                .on_release(Message::ToggleNewChatMenu)
             ]
             .spacing(10)
             .align_y(Alignment::Center),
@@ -363,12 +368,14 @@ pub fn chat<'a>(
                 Space::with_width(2), // Silly...
                 picture,
                 Space::with_width(15),
-                parse_content_emojis(title),
+                text(title),
                 if let Some(is_one_on_one) = current_chat.is_one_on_one {
                     if !is_one_on_one {
                         row![
                             Space::with_width(8),
-                            svg(utils::get_image_dir().join("pencil.svg")).width(17).height(17),
+                            svg(utils::get_image_dir().join("pencil.svg"))
+                                .width(17)
+                                .height(17),
                         ]
                     } else {
                         row![]
@@ -378,10 +385,18 @@ pub fn chat<'a>(
                 },
                 container(
                     row![
-                        mouse_area(svg(utils::get_image_dir().join("users-round.svg")).width(19).height(19))
-                            .on_release(Message::ToggleShowChatMembers),
-                        mouse_area(svg(utils::get_image_dir().join("user-round-plus.svg")).width(19).height(19))
-                            .on_release(Message::ToggleShowChatAdd),
+                        mouse_area(
+                            svg(utils::get_image_dir().join("users-round.svg"))
+                                .width(19)
+                                .height(19)
+                        )
+                        .on_release(Message::ToggleShowChatMembers),
+                        mouse_area(
+                            svg(utils::get_image_dir().join("user-round-plus.svg"))
+                                .width(19)
+                                .height(19)
+                        )
+                        .on_release(Message::ToggleShowChatAdd),
                     ]
                     .spacing(14)
                 )

@@ -28,7 +28,7 @@ use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
-    event, keyboard, window, Color, Element, Event, Point, Size, Subscription, Task, Theme,
+    event, keyboard, window, Color, Element, Event, Font, Point, Size, Subscription, Task, Theme,
 };
 use pages::app;
 use pages::page_chat::chat;
@@ -2422,6 +2422,7 @@ pub fn main() -> iced::Result {
         })
         .subscription(Counter::subscription)
         .theme(Counter::theme)
-        .font(include_bytes!("../resources/Twemoji-15.1.0.ttf").as_slice()) // Increases startup time with about 100 ms...
+        .font(include_bytes!("../resources/OpenSans-Regular-COLR.ttf").as_slice()) // Increases startup time with about 100 ms...
+        .default_font(Font::with_name("Open Sans Twemoji"))
         .run_with(Counter::new)
 }
