@@ -1,8 +1,10 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
+use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition};
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
+use crate::types::EmojiPickerAction;
 use crate::utils;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -255,7 +257,18 @@ pub fn c_chat_message<'a>(
                         left: 5.0,
                     }),
             )
-            .on_release(Message::ToggleEmojiPicker((0.0, 0.0))),
+            .on_release(Message::ToggleEmojiPicker(
+                Some(EmojiPickerPosition {
+                    alignment: EmojiPickerAlignment::Top,
+                    padding: Padding {
+                        top: 0.0,
+                        right: 0.0,
+                        bottom: 0.0,
+                        left: 0.0,
+                    },
+                }),
+                EmojiPickerAction::Reaction,
+            )),
         );
 
         contents_column = contents_column.push(reactions_row);
@@ -295,8 +308,20 @@ pub fn c_chat_message<'a>(
                                 message.im_display_name.clone(),
                                 message.id.clone(),
                             )),
-                            mouse_area(container(text("+").size(20)))
-                                .on_release(Message::ToggleEmojiPicker((0.0, 0.0)))
+                            mouse_area(container(text("+").size(20))).on_release(
+                                Message::ToggleEmojiPicker(
+                                    Some(EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::Top,
+                                        padding: Padding {
+                                            top: 0.0,
+                                            right: 0.0,
+                                            bottom: 0.0,
+                                            left: 0.0,
+                                        },
+                                    }),
+                                    EmojiPickerAction::Reaction
+                                )
+                            )
                         ]
                         .align_y(Alignment::Center)
                         .spacing(8)
@@ -312,8 +337,20 @@ pub fn c_chat_message<'a>(
                                 message.im_display_name.clone(),
                                 message.id.clone(),
                             )),
-                            mouse_area(container(text("+").size(20)))
-                                .on_release(Message::ToggleEmojiPicker((0.0, 0.0)))
+                            mouse_area(container(text("+").size(20))).on_release(
+                                Message::ToggleEmojiPicker(
+                                    Some(EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::Top,
+                                        padding: Padding {
+                                            top: 0.0,
+                                            right: 0.0,
+                                            bottom: 0.0,
+                                            left: 0.0,
+                                        },
+                                    }),
+                                    EmojiPickerAction::Reaction
+                                )
+                            )
                         ]
                         .align_y(Alignment::Center)
                         .spacing(8)

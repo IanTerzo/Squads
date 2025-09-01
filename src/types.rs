@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::components::emoji_picker::EmojiPickerPosition;
+
 #[derive(Debug, Clone)]
 pub enum MessageAreaAction {
     Bold,
@@ -12,6 +14,19 @@ pub enum MessageAreaAction {
     Image,
     List,
     OrderedList,
+}
+
+#[derive(Debug, Clone)]
+pub struct EmojiPickerInfo {
+    pub action: EmojiPickerAction,
+    pub pos: Option<EmojiPickerPosition>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum EmojiPickerAction {
+    Send,
+    Reaction,
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

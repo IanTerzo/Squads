@@ -57,7 +57,7 @@ use websockets::{
 };
 
 use crate::api::{add_member, is_read, start_thread, ChatMember, Conversation};
-use crate::components::emoji_picker::{self, c_emoji_picker};
+use crate::components::emoji_picker::{self, c_emoji_picker, EmojiPickerPosition};
 use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -128,8 +128,7 @@ struct Counter {
     subject_input_value: String,
     expanded_image: Option<(String, String)>,
     add_users_checked: HashMap<String, bool>, // Where string is the user id
-    show_emoji_picker: bool,
-    emoji_picker_pos: (f32, f32),
+    emoji_picker_toggle: EmojiPickerInfo,
 
     // Teams requested data
     me: Profile,
@@ -204,8 +203,8 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
-    ToggleEmojiPicker((f32, f32)),
-    EmojiPickerPicked(String),
+    ToggleEmojiPicker(Option<EmojiPickerPosition>, EmojiPickerAction),
+    EmojiPickerPicked(String, String),
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -451,8 +450,6 @@ impl Counter {
             window_height: WINDOW_HEIGHT,
             access_tokens: access_tokens.clone(),
             users: user_profiles,
-            show_emoji_picker: false,
-            emoji_picker_pos: (0.0, 0.0),
             me: profile,
             teams: teams.clone(),
             chats: chats.clone(),
@@ -461,6 +458,10 @@ impl Counter {
             chat_conversations: HashMap::new(),
             activities: Vec::new(),
             shift_held_down: false,
+            emoji_picker_toggle: EmojiPickerInfo {
+                action: EmojiPickerAction::None,
+                pos: None,
+            },
         };
         (
             counter_self,
@@ -584,12 +585,12 @@ impl Counter {
                     ),
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else if self.show_emoji_picker {
-                        Some(c_emoji_picker(
-                            &self.theme,
-                            &self.emoji_picker_pos,
-                            &self.emoji_map,
-                        ))
+                    } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                        if let Some(ref pos) = self.emoji_picker_toggle.pos {
+                            Some(c_emoji_picker(&self.theme, pos, &self.emoji_map))
+                        } else {
+                            None // Should never happen
+                        }
                     } else {
                         None
                     },
@@ -2053,14 +2054,40 @@ impl Counter {
                 self.add_users_checked.insert(id, !checked);
                 Task::none()
             }
-            Message::ToggleEmojiPicker(pos) => {
-                self.show_emoji_picker = !self.show_emoji_picker;
-                self.emoji_picker_pos = pos;
+            Message::ToggleEmojiPicker(pos, action) => {
+                if self.emoji_picker_toggle.action == EmojiPickerAction::None {
+                    self.emoji_picker_toggle = EmojiPickerInfo {
+                        action: action,
+                        pos: pos,
+                    };
+                } else {
+                    self.emoji_picker_toggle = EmojiPickerInfo {
+                        action: EmojiPickerAction::None,
+                        pos: None,
+                    };
+                }
+
                 Task::none()
             }
-            Message::EmojiPickerPicked(emoji_id) => {
-                println!("{}", emoji_id);
-                Task::none()
+            Message::EmojiPickerPicked(emoji_id, emoji_unicode) => {
+                match self.emoji_picker_toggle.action {
+                    EmojiPickerAction::Send => {
+                        let content = match self.page.view {
+                            View::Team => &mut self.team_message_area_content,
+                            View::Chat => &mut self.chat_message_area_content,
+                            _ => return Task::none(),
+                        };
+
+                        content_send(content, &emoji_unicode);
+
+                        Task::none()
+                    }
+                    EmojiPickerAction::Reaction => {
+                        println!("{}", emoji_id);
+                        Task::none()
+                    }
+                    _ => return Task::none(),
+                }
             }
 
             // Websockets
