@@ -100,7 +100,12 @@ pub fn c_message<'a>(
                     if let Some(subject) = &properties.subject {
                         let trimmed_subject = subject.trim_start();
                         if trimmed_subject != "" {
-                            message_column = message_column.push(text(trimmed_subject.to_string()));
+                            message_column = message_column.push(
+                                text(trimmed_subject.to_string()).font(font::Font {
+                                    weight: font::Weight::Bold,
+                                    ..Default::default()
+                                }),
+                            );
                         }
                     }
                 }
@@ -109,7 +114,12 @@ pub fn c_message<'a>(
                 if let Some(subject) = &properties.subject {
                     let trimmed_subject = subject.trim_start();
                     if trimmed_subject != "" {
-                        message_column = message_column.push(text(trimmed_subject.to_string()));
+                        message_column = message_column.push(
+                            text(trimmed_subject.to_string()).font(font::Font {
+                                weight: font::Weight::Bold,
+                                ..Default::default()
+                            }),
+                        );
                     }
                 }
             }
@@ -117,7 +127,11 @@ pub fn c_message<'a>(
             let trimmed_subject = subject.trim_start();
             // Edgecase
             if trimmed_subject != "" {
-                message_column = message_column.push(text(trimmed_subject.to_string()));
+                message_column =
+                    message_column.push(text(trimmed_subject.to_string()).font(font::Font {
+                        weight: font::Weight::Bold,
+                        ..Default::default()
+                    }));
             }
         }
     }
