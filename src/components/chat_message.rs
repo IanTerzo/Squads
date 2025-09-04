@@ -4,7 +4,7 @@ use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition}
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
-use crate::types::EmojiPickerAction;
+use crate::types::{EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -258,15 +258,7 @@ pub fn c_chat_message<'a>(
                     }),
             )
             .on_release(Message::ToggleEmojiPicker(
-                Some(EmojiPickerPosition {
-                    alignment: EmojiPickerAlignment::Top,
-                    padding: Padding {
-                        top: 0.0,
-                        right: 0.0,
-                        bottom: 0.0,
-                        left: 0.0,
-                    },
-                }),
+                Some(EmojiPickerLocation::ReactionAdd),
                 EmojiPickerAction::Reaction,
             )),
         );
@@ -310,15 +302,7 @@ pub fn c_chat_message<'a>(
                             )),
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
-                                    Some(EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::Top,
-                                        padding: Padding {
-                                            top: 0.0,
-                                            right: 0.0,
-                                            bottom: 0.0,
-                                            left: 0.0,
-                                        },
-                                    }),
+                                    Some(EmojiPickerLocation::ReactionContext),
                                     EmojiPickerAction::Reaction
                                 )
                             )
@@ -339,15 +323,7 @@ pub fn c_chat_message<'a>(
                             )),
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
-                                    Some(EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::Top,
-                                        padding: Padding {
-                                            top: 0.0,
-                                            right: 0.0,
-                                            bottom: 0.0,
-                                            left: 0.0,
-                                        },
-                                    }),
+                                    Some(EmojiPickerLocation::ReactionContext),
                                     EmojiPickerAction::Reaction
                                 )
                             )

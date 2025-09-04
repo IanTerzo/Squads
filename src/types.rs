@@ -19,7 +19,7 @@ pub enum MessageAreaAction {
 #[derive(Debug, Clone)]
 pub struct EmojiPickerInfo {
     pub action: EmojiPickerAction,
-    pub pos: Option<EmojiPickerPosition>,
+    pub location: Option<EmojiPickerLocation>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -27,6 +27,13 @@ pub enum EmojiPickerAction {
     Send,
     Reaction,
     None,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum EmojiPickerLocation {
+    OverMessageArea,
+    ReactionContext,
+    ReactionAdd,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

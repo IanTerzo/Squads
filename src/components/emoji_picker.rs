@@ -5,12 +5,14 @@ use crate::types::EmojiPickerAction;
 use crate::widgets::gif::{self, Gif};
 use crate::Message;
 use iced::widget::{column, container, image, mouse_area, row, scrollable, text, text_input};
-use iced::{Color, Element, Font, Length, Padding};
+use iced::{Border, Color, Element, Font, Length, Padding};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EmojiPickerAlignment {
-    Top,
-    Bottom,
+    TopRight,
+    TopLeft,
+    BottomRight,
+    BottomLeft,
 }
 
 #[derive(Debug, Clone)]
@@ -21,7 +23,7 @@ pub struct EmojiPickerPosition {
 
 pub fn c_emoji_picker<'a>(
     theme: &'a Theme,
-    pos: &EmojiPickerPosition,
+    pos: EmojiPickerPosition,
     emoji_map: &'a HashMap<String, String>,
 ) -> Element<'a, Message> {
     let mut emojies_column = column![];
@@ -39,18 +41,39 @@ pub fn c_emoji_picker<'a>(
             emoji_row = row![];
         }
     }
-    let emoji_scrollable = scrollable(emojies_column).height(400);
+    let emoji_scrollable = scrollable(emojies_column)
+        .height(400)
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(theme.features.scrollbar_width)
+                .spacing(theme.features.scrollable_spacing)
+                .scroller_width(theme.features.scrollbar_width),
+        ))
+        .style(|_, _| theme.stylesheet.scrollable);
 
-    let categories = scrollable(column![text("a"), text("a"), text("a")]);
+    let categories = scrollable(column![text("a"), text("a"), text("a")])
+        .direction(scrollable::Direction::Vertical(
+            scrollable::Scrollbar::new()
+                .width(theme.features.scrollbar_width)
+                .spacing(theme.features.scrollable_spacing)
+                .scroller_width(theme.features.scrollbar_width),
+        ))
+        .style(|_, _| theme.stylesheet.scrollable);
 
     let mut picker_screen = container(
         container(column![
-            text_input("Find your emoji...", ""),
+            text_input("Find your emoji...", "").style(|_, _| theme.stylesheet.input),
             row![categories, emoji_scrollable]
         ])
         .width(364)
+        .padding(2)
         .style(|_| container::Style {
-            background: Some(theme.colors.secondary1.into()),
+            background: Some(theme.colors.primary2.into()),
+            border: Border {
+                color: theme.colors.secondary1,
+                width: 1.0,
+                radius: 8.0.into(),
+            },
             ..Default::default()
         }),
     )
@@ -58,8 +81,16 @@ pub fn c_emoji_picker<'a>(
     .height(Length::Fill)
     .padding(pos.padding);
 
-    if pos.alignment == EmojiPickerAlignment::Bottom {
-        picker_screen = picker_screen.align_bottom(Length::Fill);
+    match pos.alignment {
+        EmojiPickerAlignment::TopLeft => {}
+        EmojiPickerAlignment::BottomLeft => {
+            picker_screen = picker_screen.align_bottom(Length::Fill)
+        }
+        EmojiPickerAlignment::TopRight => picker_screen = picker_screen.align_right(Length::Fill),
+        EmojiPickerAlignment::BottomRight => {
+            picker_screen = picker_screen.align_bottom(Length::Fill);
+            picker_screen = picker_screen.align_right(Length::Fill)
+        }
     }
 
     mouse_area(picker_screen)

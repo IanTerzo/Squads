@@ -219,7 +219,7 @@ pub fn home<'a>(
                     .scroller_width(theme.features.scrollbar_width),
             ))
             .anchor_bottom()
-            .style(|_, _| theme.stylesheet.chat_scrollable),
+            .style(|_, _| theme.stylesheet.scrollable),
     )
     .padding(Padding {
         top: 8.0,

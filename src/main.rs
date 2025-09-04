@@ -28,7 +28,8 @@ use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
-    event, keyboard, window, Color, Element, Event, Font, Point, Size, Subscription, Task, Theme,
+    event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Point, Size,
+    Subscription, Task, Theme,
 };
 use pages::app;
 use pages::page_chat::chat;
@@ -57,7 +58,9 @@ use websockets::{
 };
 
 use crate::api::{add_member, is_read, start_thread, ChatMember, Conversation};
-use crate::components::emoji_picker::{self, c_emoji_picker, EmojiPickerPosition};
+use crate::components::emoji_picker::{
+    self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
+};
 use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -106,11 +109,14 @@ struct Counter {
     emoji_map: HashMap<String, String>,
     window_width: f32,
     window_height: f32,
+    mouse_position: (f32, f32),
+    last_mouse_position: (f32, f32),
     shift_held_down: bool,
     scrollbar_scroll: u64,
     scrollbar_percentage_scroll: f32,
     should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
+    emoji_picker_hide_options: Option<String>,
 
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
@@ -203,7 +209,7 @@ pub enum Message {
     ToggleShowChatMembers,
     ToggleShowChatAdd,
     ToggleUserCheckbox(bool, String),
-    ToggleEmojiPicker(Option<EmojiPickerPosition>, EmojiPickerAction),
+    ToggleEmojiPicker(Option<EmojiPickerLocation>, EmojiPickerAction),
     EmojiPickerPicked(String, String),
 
     // Websockets
@@ -448,6 +454,8 @@ impl Counter {
             subject_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
+            mouse_position: (0.0, 0.0),
+            last_mouse_position: (0.0, 0.0),
             access_tokens: access_tokens.clone(),
             users: user_profiles,
             me: profile,
@@ -460,8 +468,9 @@ impl Counter {
             shift_held_down: false,
             emoji_picker_toggle: EmojiPickerInfo {
                 action: EmojiPickerAction::None,
-                pos: None,
+                location: None,
             },
+            emoji_picker_hide_options: None,
         };
         (
             counter_self,
@@ -586,8 +595,46 @@ impl Counter {
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
                     } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
-                        if let Some(ref pos) = self.emoji_picker_toggle.pos {
-                            Some(c_emoji_picker(&self.theme, pos, &self.emoji_map))
+                        if let Some(ref location) = self.emoji_picker_toggle.location {
+                            Some(c_emoji_picker(
+                                &self.theme,
+                                match location {
+                                    EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::BottomLeft,
+                                        padding: Padding {
+                                            top: 0.0,
+                                            right: 0.0,
+                                            bottom: 150.0,
+                                            left: 260.0,
+                                        },
+                                    },
+                                    EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::TopRight,
+                                        padding: Padding {
+                                            top: if self.last_mouse_position.1 - 30.0
+                                                < self.window_height - 450.0
+                                            {
+                                                self.last_mouse_position.1 - 30.0
+                                            } else {
+                                                self.window_height - 450.0
+                                            },
+                                            right: 84.0,
+                                            bottom: 0.0,
+                                            left: 0.0,
+                                        },
+                                    },
+                                    EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::TopRight,
+                                        padding: Padding {
+                                            top: 0.0,
+                                            right: 0.0,
+                                            bottom: 0.0,
+                                            left: 0.0,
+                                        },
+                                    },
+                                },
+                                &self.emoji_map,
+                            ))
                         } else {
                             None // Should never happen
                         }
@@ -704,6 +751,9 @@ impl Counter {
                         } else {
                             new_height
                         };
+                    }
+                    Event::Mouse(mouse::Event::CursorMoved { position }) => {
+                        self.mouse_position = (position.x, position.y)
                     }
                     _ => {}
                 }
@@ -1235,11 +1285,22 @@ impl Counter {
                 Task::none()
             }
             Message::ShowChatMessageOptions(chat_id) => {
-                self.chat_message_options.insert(chat_id, true);
+                // Do not show the hover options if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.chat_message_options.insert(chat_id, true);
+                }
                 Task::none()
             }
             Message::StopShowChatMessageOptions(chat_id) => {
-                self.chat_message_options.insert(chat_id, false);
+                // Do not hide the options for the current shown option if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.chat_message_options.insert(chat_id, false);
+                } else {
+                    // This ensures that the options menu is hidding after leaving the reaction menu
+                    if self.emoji_picker_hide_options.is_none() {
+                        self.emoji_picker_hide_options = Some(chat_id)
+                    }
+                }
                 Task::none()
             }
             Message::HistoryBack => {
@@ -2054,19 +2115,25 @@ impl Counter {
                 self.add_users_checked.insert(id, !checked);
                 Task::none()
             }
-            Message::ToggleEmojiPicker(pos, action) => {
+            Message::ToggleEmojiPicker(location, action) => {
                 if self.emoji_picker_toggle.action == EmojiPickerAction::None {
                     self.emoji_picker_toggle = EmojiPickerInfo {
                         action: action,
-                        pos: pos,
+                        location: location,
                     };
                 } else {
                     self.emoji_picker_toggle = EmojiPickerInfo {
                         action: EmojiPickerAction::None,
-                        pos: None,
+                        location: location,
                     };
-                }
 
+                    // In case the emoji picker was opened from a message options tab. Yes, it's a bit of a hotfix
+                    if let Some(chat_id) = &self.emoji_picker_hide_options {
+                        self.chat_message_options.insert(chat_id.clone(), false);
+                        self.emoji_picker_hide_options = None
+                    }
+                }
+                self.last_mouse_position = self.mouse_position;
                 Task::none()
             }
             Message::EmojiPickerPicked(emoji_id, emoji_unicode) => {
