@@ -624,12 +624,18 @@ impl Counter {
                                         },
                                     },
                                     EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::TopRight,
+                                        alignment: EmojiPickerAlignment::TopLeft,
                                         padding: Padding {
-                                            top: 0.0,
+                                            top: if self.last_mouse_position.1 - 30.0
+                                                < self.window_height - 450.0
+                                            {
+                                                self.last_mouse_position.1 - 30.0
+                                            } else {
+                                                self.window_height - 450.0
+                                            },
                                             right: 0.0,
                                             bottom: 0.0,
-                                            left: 0.0,
+                                            left: 365.0,
                                         },
                                     },
                                 },
