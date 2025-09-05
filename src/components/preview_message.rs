@@ -53,7 +53,7 @@ pub fn c_preview_message<'a>(
     message_info = message_info.push(text(date).size(14).color(theme.colors.demo_text));
     message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
 
-    message_column = message_column.push(message_info);
+    message_column = message_column.push(message_info.wrap());
 
     // TODO truncate everything
     if activity.activity_type == "mention" {

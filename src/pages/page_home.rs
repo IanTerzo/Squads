@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use crate::api;
-use crate::api::Conversation;
 use crate::api::Profile;
 use crate::api::Team;
 use crate::components::conversation::c_conversation;
@@ -69,7 +68,7 @@ pub fn home<'a>(
             MouseArea::new(
                 container(
                     row![
-                        container(team_picture).padding(padding::left(10)),
+                        container(team_picture).padding(padding::left(11)),
                         text(truncate_name(team.display_name.clone(), 16)),
                     ]
                     .spacing(10)

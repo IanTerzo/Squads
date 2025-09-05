@@ -82,7 +82,7 @@ pub fn c_message<'a>(
         message_info = message_info.push(text(time).size(14).color(theme.colors.demo_text));
     }
 
-    message_column = message_column.push(message_info);
+    message_column = message_column.push(message_info.wrap());
 
     // Message subject
 

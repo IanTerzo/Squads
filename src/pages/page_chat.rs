@@ -145,6 +145,10 @@ pub fn chat<'a>(
     message_area_height: &f32,
     page_body: &'a ChatBody,
 ) -> Element<'a, Message> {
+    let mut page = row![].spacing(theme.features.page_row_spacing);
+
+    // Side panel
+
     let mut chats_column = if *page_body == ChatBody::Start {
         column![container(
             row![
@@ -189,17 +193,10 @@ pub fn chat<'a>(
 
         let mut chat_items = row![].align_y(Alignment::Center);
 
-        if let Some(is_read) = chat.is_read {
-            if !is_read {
-                chat_items = chat_items.push(
-                    container(circle(2.5, theme.colors.notification)).padding(Padding {
-                        top: 0.0,
-                        right: 3.0,
-                        bottom: 0.0,
-                        left: 3.0,
-                    }),
-                )
-            }
+        if !chat.is_read.unwrap_or(true) {
+            chat_items = chat_items.push(circle(2.5, theme.colors.notification))
+        } else {
+            chat_items = chat_items.push(Space::new(5, 0))
         }
 
         let picture = get_chat_picture(&chat, &me.id, &users);
@@ -214,10 +211,17 @@ pub fn chat<'a>(
                     .mri,
             );
 
-            chat_items =
-                chat_items.push(c_picture_and_status(theme, picture, presence, (28.0, 28.0)));
+            chat_items = chat_items.push(
+                container(c_picture_and_status(theme, picture, presence, (28.0, 28.0)))
+                    .padding(padding::right(4)),
+            );
         } else {
-            chat_items = chat_items.push(container(picture).padding(6));
+            chat_items = chat_items.push(container(picture).padding(Padding {
+                left: 6.0,
+                right: 10.0,
+                top: 6.0,
+                bottom: 6.0,
+            }));
         }
 
         let mut chat_info_column = column![text(truncate_name(chat_title, 20))];
@@ -309,59 +313,22 @@ pub fn chat<'a>(
         })
     ];
 
-    let mut side_panel = container(column![chat_options, chats_scrollable].width(230))
+    let side_panel = container(column![chat_options, chats_scrollable].width(230))
         .style(|_| container::Style {
             background: Some(theme.colors.primary1.into()),
             ..Default::default()
         })
         .height(Length::Fill);
 
-    let mut page = row![side_panel].spacing(theme.features.page_row_spacing);
+    page = page.push(side_panel);
+
+    // Chat page body
 
     if let Some(current_chat) = current_chat {
-        let mut message_column = column![].spacing(10).padding(Padding {
-            left: 8.0,
-            right: 8.0,
-            top: 0.0,
-            bottom: 0.0,
-        });
-
-        if let Some(conversation) = conversation {
-            let ordered_conversation: Vec<_> = conversation.iter().rev().cloned().collect();
-
-            for message in ordered_conversation {
-                if let Some(message_element) = c_chat_message(
-                    theme,
-                    message,
-                    chat_message_options,
-                    emoji_map,
-                    users,
-                    me,
-                    user_presences,
-                ) {
-                    message_column = message_column.push(message_element);
-                }
-            }
-        } else {
-            if current_chat.chat_type.clone().unwrap_or("any".to_string()) == "draft" {
-                message_column = message_column.push(
-                    container(
-                        text("Type a message below to start your conversation.")
-                            .color(theme.colors.demo_text),
-                    )
-                    .width(Length::Fill)
-                    .padding(Padding {
-                        left: 8.0,
-                        top: 6.0,
-                        right: 0.0,
-                        bottom: 0.0,
-                    }),
-                );
-            }
-        }
-
         let title = truncate_name(get_chat_title(&current_chat, &me.id, &users), 52);
         let picture = get_chat_picture(&current_chat, &me.id, &users);
+
+        // Chat page title
 
         let title_row = if *page_body != ChatBody::Start {
             row![
@@ -434,91 +401,72 @@ pub fn chat<'a>(
             })
         ];
 
-        let mut members_column = column![]
-            .spacing(theme.features.list_spacing)
-            .padding(Padding {
-                left: 8.0,
-                right: 6.0,
-                top: 6.0,
-                bottom: 6.0,
-            });
-
-        for member in &current_chat.members {
-            let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
-
-            let identifier = member_id.replace(":", "");
-
-            let user = users.get(member_id);
-
-            let mut message_row = row![].width(Length::Fill).align_y(Alignment::Center);
-
-            let display_name = if let Some(user) = user {
-                user.display_name
-                    .clone()
-                    .unwrap_or("Unknown User".to_string())
-            } else {
-                "Unknown User".to_string()
-            };
-
-            // The Teams api *might still work when the username is wrong
-            let user_picture = c_cached_image(
-                identifier.clone(),
-                Message::FetchUserImage(
-                    identifier,
-                    member_id.to_string(),
-                    display_name.to_string(),
-                ),
-                28.0,
-                28.0,
-            );
-
-            let presence = user_presences.get(&member.mri);
-
-            message_row = message_row.push(c_picture_and_status(
-                theme,
-                user_picture,
-                presence,
-                (28.0, 28.0),
-            ));
-            message_row = message_row.push(text(display_name));
-
-            members_column = members_column.push(
-                container(message_row)
-                    .style(|_| container::Style {
-                        background: Some(theme.colors.primary1.into()),
-                        border: border::rounded(4),
-                        ..Default::default()
-                    })
-                    .padding(Padding {
-                        top: 6.0,
-                        right: 3.0,
-                        bottom: 6.0,
-                        left: 3.0,
-                    }),
-            );
-        }
+        // Page body content
 
         let body =
             match page_body {
-                ChatBody::Messages => container(
-                    scrollable(message_column)
-                        .direction(scrollable::Direction::Vertical(
-                            scrollable::Scrollbar::new()
-                                .width(theme.features.scrollbar_width)
-                                .spacing(theme.features.scrollable_spacing)
-                                .scroller_width(theme.features.scrollbar_width),
-                        ))
-                        .style(|_, _| theme.stylesheet.scrollable)
-                        .id(Id::new("conversation_column"))
-                        .on_scroll(Message::OnScroll),
-                )
-                .padding(Padding {
-                    top: 8.0,
-                    right: 3.0,
-                    left: 0.0,
-                    bottom: 0.0,
-                })
-                .height(Length::Fill),
+                ChatBody::Messages => {
+                    let mut message_column = column![].spacing(10).padding(Padding {
+                        left: 8.0,
+                        right: 8.0,
+                        top: 0.0,
+                        bottom: 0.0,
+                    });
+
+                    if let Some(conversation) = conversation {
+                        let ordered_conversation: Vec<_> =
+                            conversation.iter().rev().cloned().collect();
+
+                        for message in ordered_conversation {
+                            if let Some(message_element) = c_chat_message(
+                                theme,
+                                message,
+                                chat_message_options,
+                                emoji_map,
+                                users,
+                                me,
+                                user_presences,
+                            ) {
+                                message_column = message_column.push(message_element);
+                            }
+                        }
+                    } else {
+                        if current_chat.chat_type.clone().unwrap_or("any".to_string()) == "draft" {
+                            message_column = message_column.push(
+                                container(
+                                    text("Type a message below to start your conversation.")
+                                        .color(theme.colors.demo_text),
+                                )
+                                .width(Length::Fill)
+                                .padding(Padding {
+                                    left: 8.0,
+                                    top: 6.0,
+                                    right: 0.0,
+                                    bottom: 0.0,
+                                }),
+                            );
+                        }
+                    }
+                    container(
+                        scrollable(message_column)
+                            .direction(scrollable::Direction::Vertical(
+                                scrollable::Scrollbar::new()
+                                    .width(theme.features.scrollbar_width)
+                                    .spacing(theme.features.scrollable_spacing)
+                                    .scroller_width(theme.features.scrollbar_width),
+                            ))
+                            .style(|_, _| theme.stylesheet.scrollable)
+                            .id(Id::new("conversation_column"))
+                            .on_scroll(Message::OnScroll),
+                    )
+                    .padding(Padding {
+                        top: 8.0,
+                        right: 3.0,
+                        left: 0.0,
+                        bottom: 0.0,
+                    })
+                    .height(Length::Fill)
+                }
                 ChatBody::Add | ChatBody::Start => {
                     let mut user_column =
                         column![]
@@ -709,20 +657,88 @@ pub fn chat<'a>(
                     .padding(padding::right(3))
                     .height(Length::Fill)
                 }
-                ChatBody::Members => container(
-                    scrollable(members_column)
-                        .direction(scrollable::Direction::Vertical(
-                            scrollable::Scrollbar::new()
-                                .width(theme.features.scrollbar_width)
-                                .spacing(theme.features.scrollable_spacing)
-                                .scroller_width(theme.features.scrollbar_width),
-                        ))
-                        .style(|_, _| theme.stylesheet.scrollable)
-                        .id(Id::new("members_column")),
-                )
-                .padding(padding::right(3))
-                .height(Length::Fill),
+                ChatBody::Members => {
+                    let mut members_column = column![]
+                        .spacing(theme.features.list_spacing)
+                        .padding(Padding {
+                            left: 8.0,
+                            right: 6.0,
+                            top: 6.0,
+                            bottom: 6.0,
+                        });
+
+                    for member in &current_chat.members {
+                        let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
+
+                        let identifier = member_id.replace(":", "");
+
+                        let user = users.get(member_id);
+
+                        let mut message_row = row![].width(Length::Fill).align_y(Alignment::Center);
+
+                        let display_name = if let Some(user) = user {
+                            user.display_name
+                                .clone()
+                                .unwrap_or("Unknown User".to_string())
+                        } else {
+                            "Unknown User".to_string()
+                        };
+
+                        // The Teams api *might still work when the username is wrong
+                        let user_picture = c_cached_image(
+                            identifier.clone(),
+                            Message::FetchUserImage(
+                                identifier,
+                                member_id.to_string(),
+                                display_name.to_string(),
+                            ),
+                            28.0,
+                            28.0,
+                        );
+
+                        let presence = user_presences.get(&member.mri);
+
+                        message_row = message_row.push(c_picture_and_status(
+                            theme,
+                            user_picture,
+                            presence,
+                            (28.0, 28.0),
+                        ));
+                        message_row = message_row.push(text(display_name));
+
+                        members_column = members_column.push(
+                            container(message_row)
+                                .style(|_| container::Style {
+                                    background: Some(theme.colors.primary1.into()),
+                                    border: border::rounded(4),
+                                    ..Default::default()
+                                })
+                                .padding(Padding {
+                                    top: 6.0,
+                                    right: 3.0,
+                                    bottom: 6.0,
+                                    left: 3.0,
+                                }),
+                        );
+                    }
+
+                    container(
+                        scrollable(members_column)
+                            .direction(scrollable::Direction::Vertical(
+                                scrollable::Scrollbar::new()
+                                    .width(theme.features.scrollbar_width)
+                                    .spacing(theme.features.scrollable_spacing)
+                                    .scroller_width(theme.features.scrollbar_width),
+                            ))
+                            .style(|_, _| theme.stylesheet.scrollable)
+                            .id(Id::new("members_column")),
+                    )
+                    .padding(padding::right(3))
+                    .height(Length::Fill)
+                }
             };
+
+        // Put together page content
 
         let mut content_page = column![];
 
