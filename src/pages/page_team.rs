@@ -124,7 +124,7 @@ pub fn team<'a>(
         column![
             name_row,
             sidetabs,
-            container(Space::new(214, 1)).style(|_| container::Style {
+            container(Space::new(210, 1)).style(|_| container::Style {
                 background: Some(theme.colors.primary3.into()),
                 ..Default::default()
             }),
@@ -167,7 +167,7 @@ pub fn team<'a>(
                     })
                     .padding(Padding::from([0, 8]))
                     .center_y(45)
-                    .width(220),
+                    .width(216),
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
             .on_release(Message::OpenTeam(team.id.clone(), channel.id)),
