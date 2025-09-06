@@ -715,6 +715,48 @@ pub async fn conversations(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
+pub async fn emotions(
+    token: &AccessToken,
+    thread_id: &str,
+    message_id: &str,
+    body: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let url = format!(
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=emotions",
+        thread_id,
+        message_id
+    );
+
+    if LOG_REQUESTS {
+        println!("Log: PUT {}", url);
+    }
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token)?,
+    );
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.put(url).body(body).headers(headers).send().await?;
+
+    if res.status().is_success() {
+        Ok(())
+    } else {
+        let status = res.status();
+        let body = res.text().await?;
+        let error_message = format!("Status code: {}, Response body: {}", status, body);
+        Err(error_message.into())
+    }
+}
+
+// Api: Emea v1
+// Scope: https://ic3.teams.office.com/.default
 pub async fn consumption_horizon(
     token: &AccessToken,
     thread_id: String,

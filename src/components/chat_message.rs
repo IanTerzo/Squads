@@ -259,7 +259,7 @@ pub fn c_chat_message<'a>(
             )
             .on_release(Message::ToggleEmojiPicker(
                 Some(EmojiPickerLocation::ReactionAdd),
-                EmojiPickerAction::Reaction,
+                EmojiPickerAction::Reaction(message.id.clone().unwrap()),
             )),
         );
 
@@ -303,7 +303,7 @@ pub fn c_chat_message<'a>(
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
                                     Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction
+                                    EmojiPickerAction::Reaction(message.id.clone().unwrap())
                                 )
                             )
                         ]
@@ -324,7 +324,7 @@ pub fn c_chat_message<'a>(
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
                                     Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction
+                                    EmojiPickerAction::Reaction(message.id.clone().unwrap())
                                 )
                             )
                         ]

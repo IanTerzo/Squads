@@ -25,7 +25,7 @@ pub struct EmojiPickerInfo {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum EmojiPickerAction {
     Send,
-    Reaction,
+    Reaction(String),
     None,
 }
 
