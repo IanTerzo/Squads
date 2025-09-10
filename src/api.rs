@@ -715,7 +715,7 @@ pub async fn conversations(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub async fn deleteEmotions(
+pub async fn delete_emotions(
     token: &AccessToken,
     thread_id: &str,
     message_id: &str,
@@ -762,7 +762,7 @@ pub async fn deleteEmotions(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub async fn putEmotions(
+pub async fn put_emotions(
     token: &AccessToken,
     thread_id: &str,
     message_id: &str,
@@ -804,14 +804,15 @@ pub async fn putEmotions(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub async fn consumption_horizon(
+pub async fn is_read(
     token: &AccessToken,
     thread_id: String,
+    message_id: String,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/properties?name=consumptionhorizon",
-        thread_id
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=isread",
+        thread_id, message_id
     );
 
     if LOG_REQUESTS {
@@ -844,15 +845,14 @@ pub async fn consumption_horizon(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub async fn is_read(
+pub async fn consumption_horizon(
     token: &AccessToken,
     thread_id: String,
-    message_id: String,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=isread",
-        thread_id, message_id
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/properties?name=consumptionhorizon",
+        thread_id
     );
 
     if LOG_REQUESTS {

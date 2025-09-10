@@ -59,7 +59,7 @@ use websockets::{
 };
 
 use crate::api::{
-    add_member, deleteEmotions, is_read, putEmotions, start_thread, ChatMember, Conversation,
+    add_member, delete_emotions, is_read, put_emotions, start_thread, ChatMember, Conversation,
     Emotion,
 };
 use crate::components::emoji_picker::{
@@ -2195,7 +2195,7 @@ impl Counter {
                                 )
                                 .await;
 
-                                putEmotions(&access_token, &thread_id, &message_id, body)
+                                put_emotions(&access_token, &thread_id, &message_id, body)
                                     .await
                                     .unwrap();
                             },
@@ -2241,7 +2241,7 @@ impl Counter {
                             )
                             .await;
 
-                            deleteEmotions(&access_token, &thread_id, &message_id, body)
+                            delete_emotions(&access_token, &thread_id, &message_id, body)
                                 .await
                                 .unwrap();
                         },
@@ -2257,7 +2257,7 @@ impl Counter {
                             )
                             .await;
 
-                            putEmotions(&access_token, &thread_id, &message_id, body)
+                            put_emotions(&access_token, &thread_id, &message_id, body)
                                 .await
                                 .unwrap();
                         },
