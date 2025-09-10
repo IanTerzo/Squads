@@ -2,7 +2,7 @@ pub use crate::api_types::*; // expose the type
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
-use reqwest::{Client, StatusCode};
+use reqwest::{Client, Method, StatusCode};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -715,20 +715,21 @@ pub async fn conversations(
 
 // Api: Emea v1
 // Scope: https://ic3.teams.office.com/.default
-pub async fn delete_emotions(
+pub async fn message_property(
     token: &AccessToken,
+    method: Method,
+    property_name: &str,
     thread_id: &str,
     message_id: &str,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=emotions",
-        thread_id,
-        message_id
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name={}",
+        thread_id, message_id, property_name
     );
 
     if LOG_REQUESTS {
-        println!("Log: DELETE {}", url);
+        println!("Log: {} {}", method.as_str(), url);
     }
 
     let access_token = format!("Bearer {}", token.value);
@@ -744,94 +745,11 @@ pub async fn delete_emotions(
         .build()?;
 
     let res = client
-        .delete(url)
+        .request(method, url)
         .body(body)
         .headers(headers)
         .send()
         .await?;
-
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        let status = res.status();
-        let body = res.text().await?;
-        let error_message = format!("Status code: {}, Response body: {}", status, body);
-        Err(error_message.into())
-    }
-}
-
-// Api: Emea v1
-// Scope: https://ic3.teams.office.com/.default
-pub async fn put_emotions(
-    token: &AccessToken,
-    thread_id: &str,
-    message_id: &str,
-    body: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=emotions",
-        thread_id,
-        message_id
-    );
-
-    if LOG_REQUESTS {
-        println!("Log: PUT {}", url);
-    }
-
-    let access_token = format!("Bearer {}", token.value);
-
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token)?,
-    );
-
-    let client = Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?;
-
-    let res = client.put(url).body(body).headers(headers).send().await?;
-
-    if res.status().is_success() {
-        Ok(())
-    } else {
-        let status = res.status();
-        let body = res.text().await?;
-        let error_message = format!("Status code: {}, Response body: {}", status, body);
-        Err(error_message.into())
-    }
-}
-
-// Api: Emea v1
-// Scope: https://ic3.teams.office.com/.default
-pub async fn is_read(
-    token: &AccessToken,
-    thread_id: String,
-    message_id: String,
-    body: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}/properties?name=isread",
-        thread_id, message_id
-    );
-
-    if LOG_REQUESTS {
-        println!("Log: PUT {}", url);
-    }
-
-    let access_token = format!("Bearer {}", token.value);
-
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        HeaderName::from_static("authorization"),
-        HeaderValue::from_str(&access_token)?,
-    );
-
-    let client = Client::builder()
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?;
-
-    let res = client.put(url).body(body).headers(headers).send().await?;
 
     if res.status().is_success() {
         Ok(())

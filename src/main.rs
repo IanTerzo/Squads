@@ -39,7 +39,7 @@ use pages::page_team::team;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use regex::Regex;
-use reqwest::Client;
+use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::f64::consts::E;
@@ -59,8 +59,7 @@ use websockets::{
 };
 
 use crate::api::{
-    add_member, delete_emotions, is_read, put_emotions, start_thread, ChatMember, Conversation,
-    Emotion,
+    add_member, is_read, message_property, start_thread, ChatMember, Conversation, Emotion,
 };
 use crate::components::emoji_picker::{
     self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
@@ -1479,10 +1478,12 @@ impl Counter {
                                     &tenant,
                                 )
                                 .await;
-                                is_read(
+                                message_property(
                                     &access_token,
-                                    "48:notifications".to_string(),
-                                    message_activity_id.to_string(),
+                                    Method::PUT,
+                                    "isread",
+                                    "48:notifications",
+                                    &message_activity_id,
                                     "{\"isread\":\"true\"}".to_string(),
                                 )
                                 .await
@@ -2195,9 +2196,16 @@ impl Counter {
                                 )
                                 .await;
 
-                                put_emotions(&access_token, &thread_id, &message_id, body)
-                                    .await
-                                    .unwrap();
+                                message_property(
+                                    &access_token,
+                                    Method::PUT,
+                                    "emotions",
+                                    &thread_id,
+                                    &message_id,
+                                    body,
+                                )
+                                .await
+                                .unwrap();
                             },
                             Message::DoNothing,
                         )
@@ -2241,9 +2249,16 @@ impl Counter {
                             )
                             .await;
 
-                            delete_emotions(&access_token, &thread_id, &message_id, body)
-                                .await
-                                .unwrap();
+                            message_property(
+                                &access_token,
+                                Method::DELETE,
+                                "emotions",
+                                &thread_id,
+                                &message_id,
+                                body,
+                            )
+                            .await
+                            .unwrap();
                         },
                         Message::DoNothing,
                     )
@@ -2257,9 +2272,16 @@ impl Counter {
                             )
                             .await;
 
-                            put_emotions(&access_token, &thread_id, &message_id, body)
-                                .await
-                                .unwrap();
+                            message_property(
+                                &access_token,
+                                Method::PUT,
+                                "emotions",
+                                &thread_id,
+                                &message_id,
+                                body,
+                            )
+                            .await
+                            .unwrap();
                         },
                         Message::DoNothing,
                     )
