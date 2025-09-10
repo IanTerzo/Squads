@@ -42,6 +42,7 @@ use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::f64::consts::E;
 use std::hash::Hash;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -57,7 +58,10 @@ use websockets::{
     WebsocketResponse,
 };
 
-use crate::api::{add_member, emotions, is_read, start_thread, ChatMember, Conversation};
+use crate::api::{
+    add_member, deleteEmotions, is_read, putEmotions, start_thread, ChatMember, Conversation,
+    Emotion,
+};
 use crate::components::emoji_picker::{
     self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
 };
@@ -211,6 +215,7 @@ pub enum Message {
     ToggleUserCheckbox(bool, String),
     ToggleEmojiPicker(Option<EmojiPickerLocation>, EmojiPickerAction),
     EmojiPickerPicked(String, String),
+    EmotionClicked(String, Emotion),
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -2146,7 +2151,14 @@ impl Counter {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                match &self.emoji_picker_toggle.action {
+                let action = self.emoji_picker_toggle.action.clone();
+
+                self.emoji_picker_toggle = EmojiPickerInfo {
+                    action: EmojiPickerAction::None,
+                    location: None,
+                };
+
+                match action {
                     EmojiPickerAction::Send => {
                         let content = match self.page.view {
                             View::Team => &mut self.team_message_area_content,
@@ -2183,7 +2195,7 @@ impl Counter {
                                 )
                                 .await;
 
-                                emotions(&access_token, &thread_id, &message_id, body)
+                                putEmotions(&access_token, &thread_id, &message_id, body)
                                     .await
                                     .unwrap();
                             },
@@ -2191,6 +2203,66 @@ impl Counter {
                         )
                     }
                     _ => return Task::none(),
+                }
+            }
+            Message::EmotionClicked(message_id, emotion) => {
+                let mut self_has_reacted = false;
+                for reactor in &emotion.users {
+                    if let Some(reactor_id) = reactor.mri.split(":").nth(2) {
+                        if reactor_id == self.me.id {
+                            self_has_reacted = true;
+                        }
+                    }
+                }
+
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
+                let time = get_epoch_ms();
+
+                let body = format!(
+                    "{{\"emotions\":{{\"key\":\"{}\",\"value\":{}}}}}",
+                    emotion.key, time
+                );
+
+                let thread_id = match self.page.view {
+                    View::Team => self.page.current_team_id.clone().unwrap(),
+                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                    _ => return Task::none(),
+                };
+
+                if self_has_reacted {
+                    Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            deleteEmotions(&access_token, &thread_id, &message_id, body)
+                                .await
+                                .unwrap();
+                        },
+                        Message::DoNothing,
+                    )
+                } else {
+                    Task::perform(
+                        async move {
+                            let access_token = get_or_gen_token(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default".to_string(),
+                                &tenant,
+                            )
+                            .await;
+
+                            putEmotions(&access_token, &thread_id, &message_id, body)
+                                .await
+                                .unwrap();
+                        },
+                        Message::DoNothing,
+                    )
                 }
             }
 

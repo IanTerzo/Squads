@@ -221,7 +221,7 @@ pub fn c_chat_message<'a>(
                         }
                     }
 
-                    let reaction_container =
+                    let reaction_container = mouse_area(
                         container(row![reaction_text, text(reacters)].spacing(4))
                             .style(move |_| {
                                 if self_has_reacted {
@@ -236,7 +236,12 @@ pub fn c_chat_message<'a>(
                                 bottom: 3.0,
                                 left: 5.0,
                             })
-                            .align_y(Alignment::Center);
+                            .align_y(Alignment::Center),
+                    )
+                    .on_release(Message::EmotionClicked(
+                        message.id.clone().unwrap(),
+                        reaction.clone(),
+                    ));
                     reactions_row = reactions_row.push(reaction_container);
 
                     are_reactions = true;
@@ -263,7 +268,7 @@ pub fn c_chat_message<'a>(
             )),
         );
 
-        contents_column = contents_column.push(reactions_row);
+        contents_column = contents_column.push(reactions_row.wrap());
     }
 
     message_row = message_row.push(container(contents_column).width(Length::Fill));
