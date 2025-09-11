@@ -59,7 +59,7 @@ use websockets::{
 };
 
 use crate::api::{
-    add_member, is_read, message_property, start_thread, ChatMember, Conversation, Emotion,
+    add_member, message_property, start_thread, ChatMember, Conversation, Emotion,
 };
 use crate::components::emoji_picker::{
     self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
