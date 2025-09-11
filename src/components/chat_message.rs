@@ -2,7 +2,7 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition};
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::parsing::{parse_card_html, parse_message_html};
+use crate::parsing::{parse_card_html, parse_message_html,get_html_preview};
 use crate::style;
 use crate::types::{EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
@@ -301,9 +301,29 @@ pub fn c_chat_message<'a>(
                                     .height(21)
                             )
                             .on_release(Message::Reply(
-                                message.content,
+                                message.content.clone(),
                                 message.im_display_name.clone(),
                                 message.id.clone(),
+                            )),
+                            mouse_area(
+                                svg(utils::get_image_dir().join("copy.svg"))
+                                    .width(17)
+                                    .height(17)
+                            )
+                            .on_release(Message::CopyText(
+                                if let Some(content) = message.content.clone() {
+                                    if let Some(message_type) = message.message_type.clone() {
+                                        if message_type == "RichText/Html" {
+                                            get_html_preview(&content)
+                                        } else {
+                                            content
+                                        }
+                                    } else {
+                                        content
+                                    }
+                                } else {
+                                    "".to_string()
+                                }
                             )),
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
@@ -322,9 +342,29 @@ pub fn c_chat_message<'a>(
                                     .height(21)
                             )
                             .on_release(Message::Reply(
-                                message.content,
+                                message.content.clone(),
                                 message.im_display_name.clone(),
                                 message.id.clone(),
+                            )),
+                            mouse_area(
+                                svg(utils::get_image_dir().join("copy.svg"))
+                                    .width(17)
+                                    .height(17)
+                            )
+                            .on_release(Message::CopyText(
+                                if let Some(content) = message.content.clone() {
+                                    if let Some(message_type) = message.message_type.clone() {
+                                        if message_type == "RichText/Html" {
+                                            get_html_preview(&content)
+                                        } else {
+                                            content
+                                        }
+                                    } else {
+                                        content
+                                    }
+                                } else {
+                                    "".to_string()
+                                }
                             )),
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(

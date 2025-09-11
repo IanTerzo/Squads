@@ -31,6 +31,7 @@ use iced::{
     event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Point, Size,
     Subscription, Task, Theme,
 };
+use iced::clipboard;
 use pages::app;
 use pages::page_chat::chat;
 use pages::page_home::home;
@@ -184,6 +185,7 @@ pub enum Message {
     AllowPostIsTyping(()),
     ToggleNewChatMenu,
     Reply(Option<String>, Option<String>, Option<String>),
+    CopyText(String),
     // Teams requests
     GotActivities(Vec<api::Message>),
     GotUsers(HashMap<String, Profile>, Profile),
@@ -1396,6 +1398,9 @@ impl Counter {
                 };
 
                 Task::none()
+            }
+            Message::CopyText(text) => {
+                clipboard::write(text)
             }
 
             // Teams requests
