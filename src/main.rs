@@ -23,6 +23,7 @@ use api::{
 };
 use auth::{get_or_gen_skype_token, get_or_gen_token};
 use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
+use iced::clipboard;
 use iced::keyboard::key::Named;
 use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
@@ -31,7 +32,6 @@ use iced::{
     event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Point, Size,
     Subscription, Task, Theme,
 };
-use iced::clipboard;
 use pages::app;
 use pages::page_chat::chat;
 use pages::page_home::home;
@@ -59,9 +59,7 @@ use websockets::{
     WebsocketResponse,
 };
 
-use crate::api::{
-    add_member, message_property, start_thread, ChatMember, Conversation, Emotion,
-};
+use crate::api::{add_member, message_property, start_thread, ChatMember, Conversation, Emotion};
 use crate::components::emoji_picker::{
     self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
 };
@@ -641,7 +639,13 @@ impl Counter {
                                             },
                                             right: 0.0,
                                             bottom: 0.0,
-                                            left: 365.0,
+                                            left: if self.last_mouse_position.0
+                                                < self.window_width - 400.0
+                                            {
+                                                self.last_mouse_position.0 + 30.0
+                                            } else {
+                                                self.last_mouse_position.0 - 395.0
+                                            },
                                         },
                                     },
                                 },
@@ -1399,9 +1403,7 @@ impl Counter {
 
                 Task::none()
             }
-            Message::CopyText(text) => {
-                clipboard::write(text)
-            }
+            Message::CopyText(text) => clipboard::write(text),
 
             // Teams requests
             Message::GotActivities(activities) => {
