@@ -6,7 +6,6 @@ use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
 use iced::task::Handle;
 use iced::widget::text_input::{self, focus};
-use itertools::Itertools;
 use parsing::parse_message_markdown;
 mod auth;
 mod pages;
@@ -29,8 +28,8 @@ use iced::keyboard::Key;
 use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
-    event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Point, Size,
-    Subscription, Task, Theme,
+    event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Size, Subscription, Task,
+    Theme,
 };
 use pages::app;
 use pages::page_chat::chat;
@@ -43,12 +42,10 @@ use regex::Regex;
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::f64::consts::E;
-use std::hash::Hash;
 use std::sync::{Arc, RwLock};
+use std::thread;
 use std::time::Duration;
 use std::{collections::HashMap, fs};
-use std::{env, fmt::format, thread};
 use style::global_theme;
 use tokio::time::sleep;
 use types::*;
@@ -59,10 +56,10 @@ use websockets::{
     WebsocketResponse,
 };
 
-use crate::api::{add_member, message_property, start_thread, ChatMember, Conversation, Emotion};
-use crate::components::emoji_picker::{
-    self, c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition,
+use crate::api::{
+    add_member, message_property, start_thread, ChatMember, Conversation, Emotion, EmotionUser,
 };
+use crate::components::emoji_picker::{c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition};
 use crate::parsing::get_html_preview;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -2194,6 +2191,27 @@ impl Counter {
 
                         let message_id = message_id.clone();
 
+                        if let Some(message) = self
+                            .chat_conversations
+                            .get_mut(&thread_id)
+                            .unwrap()
+                            .iter_mut()
+                            .find(|message| message.id.as_ref().unwrap() == &message_id)
+                        {
+                            if let Some(properties) = message.properties.as_mut() {
+                                if let Some(emotions) = properties.emotions.as_mut() {
+                                    emotions.push(Emotion {
+                                        key: emoji_id,
+                                        users: vec![EmotionUser {
+                                            mri: format!("8:orgid:{}", self.me.id.clone()),
+                                            time: time as u64,
+                                            value: "".to_string(),
+                                        }],
+                                    });
+                                }
+                            }
+                        };
+
                         Task::perform(
                             async move {
                                 let access_token = get_or_gen_token(
@@ -2247,6 +2265,36 @@ impl Counter {
                 };
 
                 if self_has_reacted {
+                    if let Some(message) = self
+                        .chat_conversations
+                        .get_mut(&thread_id)
+                        .unwrap()
+                        .iter_mut()
+                        .find(|message| message.id.as_ref().unwrap() == &message_id)
+                    {
+                        if let Some(properties) = message.properties.as_mut() {
+                            if let Some(emotions) = properties.emotions.as_mut() {
+                                if let Some(pos) = emotions
+                                    .iter()
+                                    .position(|message_emotion| message_emotion.key == emotion.key)
+                                {
+                                    if emotions.len() == 0 {
+                                        emotions.remove(pos);
+                                    } else {
+                                        if let Some(user_pos) =
+                                            emotions[pos].users.iter().position(|emotion_user| {
+                                                emotion_user.mri
+                                                    == format!("8:orgid:{}", self.me.id)
+                                            })
+                                        {
+                                            emotions[pos].users.remove(user_pos);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+
                     Task::perform(
                         async move {
                             let access_token = get_or_gen_token(
@@ -2270,6 +2318,28 @@ impl Counter {
                         Message::DoNothing,
                     )
                 } else {
+                    if let Some(message) = self
+                        .chat_conversations
+                        .get_mut(&thread_id)
+                        .unwrap()
+                        .iter_mut()
+                        .find(|message| message.id.as_ref().unwrap() == &message_id)
+                    {
+                        if let Some(properties) = message.properties.as_mut() {
+                            if let Some(emotions) = properties.emotions.as_mut() {
+                                if let Some(emotion) = emotions
+                                    .iter_mut()
+                                    .find(|message_emotion| message_emotion.key == emotion.key)
+                                {
+                                    emotion.users.push(EmotionUser {
+                                        mri: format!("8:orgid:{}", self.me.id.clone()),
+                                        time: time as u64,
+                                        value: "".to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    };
                     Task::perform(
                         async move {
                             let access_token = get_or_gen_token(
