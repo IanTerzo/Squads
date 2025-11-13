@@ -2,7 +2,7 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition};
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::parsing::{parse_card_html, parse_message_html,get_html_preview};
+use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
 use crate::style;
 use crate::types::{EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
@@ -20,6 +20,7 @@ const LOG_THREAD_ACTIVITY: bool = false;
 pub fn c_chat_message<'a>(
     theme: &'a style::Theme,
     message: crate::api::Message,
+    chat_thread_id: &String,
     chat_message_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
@@ -264,7 +265,7 @@ pub fn c_chat_message<'a>(
             )
             .on_release(Message::ToggleEmojiPicker(
                 Some(EmojiPickerLocation::ReactionAdd),
-                EmojiPickerAction::Reaction(message.id.clone().unwrap()),
+                EmojiPickerAction::Reaction(message.id.clone().unwrap(), chat_thread_id.clone()),
             )),
         );
 
@@ -328,7 +329,10 @@ pub fn c_chat_message<'a>(
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
                                     Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction(message.id.clone().unwrap())
+                                    EmojiPickerAction::Reaction(
+                                        message.id.clone().unwrap(),
+                                        chat_thread_id.clone()
+                                    )
                                 )
                             )
                         ]
@@ -369,7 +373,10 @@ pub fn c_chat_message<'a>(
                             mouse_area(container(text("+").size(20))).on_release(
                                 Message::ToggleEmojiPicker(
                                     Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction(message.id.clone().unwrap())
+                                    EmojiPickerAction::Reaction(
+                                        message.id.clone().unwrap(),
+                                        chat_thread_id.clone()
+                                    )
                                 )
                             )
                         ]

@@ -25,6 +25,7 @@ pub fn home<'a>(
     expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>,
     emoji_map: &'a HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
     window_width: f32,
     search_teams_input_value: String,
@@ -159,11 +160,13 @@ pub fn home<'a>(
                     if conversation.1.len() > 0 {
                         let message = c_conversation(
                             theme,
-                            conversation.1.iter().rev().cloned().collect(), // Can be optimized
+                            conversation.1.iter().rev().cloned().collect(), // Can be optimized,
+                            thread_id.clone(),
                             message_activity_id.clone(),
                             false,
                             emoji_map,
                             users,
+                            me,
                             user_presences,
                         );
                         if let Some(message) = message {

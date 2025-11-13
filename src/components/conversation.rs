@@ -12,17 +12,26 @@ use crate::components::message::c_message;
 pub fn c_conversation<'a>(
     theme: &'a style::Theme,
     messages: Vec<api::Message>,
+    source_thread_id: String,
     conversation_id: String,
     show_replies: bool,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
 ) -> Option<Element<'a, Message>> {
     let mut message_chain = column![].spacing(20);
 
     let first_message = messages.get(0).unwrap().clone();
-    if let Some(message_element) = c_message(theme, first_message, emoji_map, users, user_presences)
-    {
+    if let Some(message_element) = c_message(
+        theme,
+        &source_thread_id,
+        first_message,
+        emoji_map,
+        users,
+        me,
+        user_presences,
+    ) {
         message_chain = message_chain.push(message_element);
     } else {
         return None;
@@ -45,9 +54,15 @@ pub fn c_conversation<'a>(
 
     if show_replies && messages.len() > 1 {
         for message in messages.iter().skip(1).cloned() {
-            if let Some(message_element) =
-                c_message(theme, message, emoji_map, users, user_presences)
-            {
+            if let Some(message_element) = c_message(
+                theme,
+                &source_thread_id,
+                message,
+                emoji_map,
+                users,
+                me,
+                user_presences,
+            ) {
                 message_chain = message_chain.push(message_element);
             }
         }

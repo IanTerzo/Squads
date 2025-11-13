@@ -421,6 +421,7 @@ pub fn chat<'a>(
                             if let Some(message_element) = c_chat_message(
                                 theme,
                                 message,
+                                &current_chat.id,
                                 chat_message_options,
                                 emoji_map,
                                 users,

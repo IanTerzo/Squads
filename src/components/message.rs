@@ -2,10 +2,10 @@ use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
+use crate::types::{EmojiPickerAction, EmojiPickerLocation};
 use crate::websockets::Presence;
 use crate::Message;
 use crate::{style, utils};
-use iced::overlay::menu::{Menu, State};
 use iced::widget::{column, container, mouse_area, row, svg, text};
 use iced::{border, font, Alignment, Element, Font, Padding};
 use std::collections::HashMap;
@@ -14,9 +14,11 @@ const LOG_THREAD_ACTIVITY: bool = false;
 
 pub fn c_message<'a>(
     theme: &'a style::Theme,
+    source_thread_id: &String,
     message: crate::api::Message,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
@@ -203,6 +205,7 @@ pub fn c_message<'a>(
                     if reacters == 0 {
                         continue;
                     }
+
                     let mut reaction_text = text("(?)");
 
                     let reaction_val = emoji_map.get(&reaction.key);
@@ -210,30 +213,55 @@ pub fn c_message<'a>(
                         reaction_text = text(reaction_unicode.clone());
                     }
 
-                    let reaction_container =
+                    let mut self_has_reacted = false;
+                    for reactor in &reaction.users {
+                        if let Some(reactor_id) = reactor.mri.split(":").nth(2) {
+                            if reactor_id == me.id {
+                                self_has_reacted = true
+                            }
+                        }
+                    }
+
+                    let reaction_container = mouse_area(
                         container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(|_| theme.stylesheet.primary_button)
+                            .style(move |_| {
+                                if self_has_reacted {
+                                    theme.stylesheet.accent_button
+                                } else {
+                                    theme.stylesheet.primary_button
+                                }
+                            })
                             .padding(Padding {
                                 top: 3.0,
                                 right: 3.0,
                                 bottom: 3.0,
                                 left: 5.0,
                             })
-                            .align_y(Alignment::Center);
+                            .align_y(Alignment::Center),
+                    )
+                    .on_release(Message::EmotionClicked(
+                        message.id.clone().unwrap(),
+                        reaction.clone(),
+                    ));
                     reactions_row = reactions_row.push(reaction_container);
                 }
             }
         }
 
-        let add_reaction_container =
+        let add_reaction_container = mouse_area(
             container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
                 .style(|_| theme.stylesheet.primary_button)
                 .padding(3)
-                .align_y(Alignment::Center);
+                .align_y(Alignment::Center),
+        )
+        .on_release(Message::ToggleEmojiPicker(
+            Some(EmojiPickerLocation::ReactionAdd),
+            EmojiPickerAction::Reaction(message.id.clone().unwrap(), source_thread_id.clone()),
+        ));
 
         reactions_row = reactions_row.push(add_reaction_container);
 
-        message_column = message_column.push(reactions_row);
+        message_column = message_column.push(reactions_row.wrap());
     }
 
     // Files

@@ -19,6 +19,7 @@ pub fn team<'a>(
     reply_options: &HashMap<String, bool>,
     emoji_map: &HashMap<String, String>,
     users: &HashMap<String, Profile>,
+    me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
     subject_input_content: &String,
     message_area_content: &'a Content,
@@ -44,10 +45,12 @@ pub fn team<'a>(
             let conversaton_element = c_conversation(
                 theme,
                 conversation.messages.iter().rev().cloned().collect(),
+                page_channel.id.clone(),
                 conversation.id,
                 show_replies,
                 emoji_map,
                 users,
+                me,
                 user_presences,
             );
 

@@ -176,9 +176,12 @@ pub fn c_message_area<'a>(
                         Some(EmojiPickerLocation::OverMessageArea),
                         EmojiPickerAction::Send
                     )),
-                    svg(utils::get_image_dir().join("upload.svg"))
-                        .width(20)
-                        .height(20),
+                    mouse_area(
+                        svg(utils::get_image_dir().join("upload.svg"))
+                            .width(20)
+                            .height(20)
+                    )
+                    .on_release(Message::UploadFile),
                 ]
                 .spacing(8),
                 container(

@@ -40,8 +40,10 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use regex::Regex;
 use reqwest::{Client, Method};
+use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::env::home_dir;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -212,6 +214,7 @@ pub enum Message {
     ToggleEmojiPicker(Option<EmojiPickerLocation>, EmojiPickerAction),
     EmojiPickerPicked(String, String),
     EmotionClicked(String, Emotion),
+    UploadFile,
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -500,6 +503,7 @@ impl Counter {
                     self.activity_expanded_conversations.clone(),
                     &self.emoji_map,
                     &self.users,
+                    &self.me,
                     &self.user_presences,
                     self.window_width,
                     self.search_teams_input_value.clone(),
@@ -543,6 +547,7 @@ impl Counter {
                         &reply_options,
                         &self.emoji_map,
                         &self.users,
+                        &self.me,
                         &self.user_presences,
                         &self.subject_input_value,
                         &self.team_message_area_content,
@@ -550,6 +555,62 @@ impl Counter {
                     ),
                     if let Some(expanded_image) = self.expanded_image.clone() {
                         Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                    } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                        if let Some(ref location) = self.emoji_picker_toggle.location {
+                            Some(c_emoji_picker(
+                                &self.theme,
+                                match location {
+                                    EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::BottomLeft,
+                                        padding: Padding {
+                                            top: 0.0,
+                                            right: 0.0,
+                                            bottom: 150.0,
+                                            left: 260.0,
+                                        },
+                                    },
+                                    EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::TopRight,
+                                        padding: Padding {
+                                            top: if self.last_mouse_position.1 - 30.0
+                                                < self.window_height - 450.0
+                                            {
+                                                self.last_mouse_position.1 - 30.0
+                                            } else {
+                                                self.window_height - 450.0
+                                            },
+                                            right: 84.0,
+                                            bottom: 0.0,
+                                            left: 0.0,
+                                        },
+                                    },
+                                    EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
+                                        alignment: EmojiPickerAlignment::TopLeft,
+                                        padding: Padding {
+                                            top: if self.last_mouse_position.1 - 30.0
+                                                < self.window_height - 450.0
+                                            {
+                                                self.last_mouse_position.1 - 30.0
+                                            } else {
+                                                self.window_height - 450.0
+                                            },
+                                            right: 0.0,
+                                            bottom: 0.0,
+                                            left: if self.last_mouse_position.0
+                                                < self.window_width - 400.0
+                                            {
+                                                self.last_mouse_position.0 + 30.0
+                                            } else {
+                                                self.last_mouse_position.0 - 395.0
+                                            },
+                                        },
+                                    },
+                                },
+                                &self.emoji_map,
+                            ))
+                        } else {
+                            None // Should never happen
+                        }
                     } else {
                         None
                     },
@@ -2175,7 +2236,7 @@ impl Counter {
 
                         Task::none()
                     }
-                    EmojiPickerAction::Reaction(message_id) => {
+                    EmojiPickerAction::Reaction(message_id, thread_id) => {
                         let time = get_epoch_ms();
 
                         let body = format!(
@@ -2183,21 +2244,27 @@ impl Counter {
                             emoji_id, time
                         );
 
-                        let thread_id = match self.page.view {
-                            View::Team => self.page.current_team_id.clone().unwrap(),
-                            View::Chat => self.page.current_chat_id.clone().unwrap(),
-                            _ => return Task::none(),
-                        };
-
                         let message_id = message_id.clone();
 
-                        if let Some(message) = self
-                            .chat_conversations
-                            .get_mut(&thread_id)
-                            .unwrap()
-                            .iter_mut()
-                            .find(|message| message.id.as_ref().unwrap() == &message_id)
-                        {
+                        if let Some(message) = if thread_id.ends_with("@thread.tacv2") {
+                            self.team_conversations
+                                .get_mut(&thread_id)
+                                .unwrap()
+                                .reply_chains
+                                .iter_mut()
+                                .find_map(|conversation| {
+                                    conversation
+                                        .messages
+                                        .iter_mut()
+                                        .find(|message| message.id.as_ref().unwrap() == &message_id)
+                                })
+                        } else {
+                            self.chat_conversations
+                                .get_mut(&thread_id)
+                                .unwrap()
+                                .iter_mut()
+                                .find(|message| message.id.as_ref().unwrap() == &message_id)
+                        } {
                             if let Some(properties) = message.properties.as_mut() {
                                 if let Some(emotions) = properties.emotions.as_mut() {
                                     emotions.push(Emotion {
@@ -2265,13 +2332,23 @@ impl Counter {
                 };
 
                 if self_has_reacted {
-                    if let Some(message) = self
-                        .chat_conversations
-                        .get_mut(&thread_id)
-                        .unwrap()
-                        .iter_mut()
-                        .find(|message| message.id.as_ref().unwrap() == &message_id)
-                    {
+                    if let Some(message) = if self.page.view == View::Chat {
+                        self.chat_conversations
+                            .get_mut(&thread_id)
+                            .unwrap()
+                            .iter_mut()
+                            .find(|message| message.id.as_ref().unwrap() == &message_id)
+                    } else {
+                        self.team_conversations
+                            .get_mut(&thread_id)
+                            .and_then(|thread| {
+                                thread.reply_chains.iter_mut().find_map(|conversation| {
+                                    conversation.messages.iter_mut().find(|message| {
+                                        message.id.as_ref().is_some_and(|id| id == &message_id)
+                                    })
+                                })
+                            })
+                    } {
                         if let Some(properties) = message.properties.as_mut() {
                             if let Some(emotions) = properties.emotions.as_mut() {
                                 if let Some(pos) = emotions
@@ -2318,13 +2395,23 @@ impl Counter {
                         Message::DoNothing,
                     )
                 } else {
-                    if let Some(message) = self
-                        .chat_conversations
-                        .get_mut(&thread_id)
-                        .unwrap()
-                        .iter_mut()
-                        .find(|message| message.id.as_ref().unwrap() == &message_id)
-                    {
+                    if let Some(message) = if self.page.view == View::Chat {
+                        self.chat_conversations
+                            .get_mut(&thread_id)
+                            .unwrap()
+                            .iter_mut()
+                            .find(|message| message.id.as_ref().unwrap() == &message_id)
+                    } else {
+                        self.team_conversations
+                            .get_mut(&thread_id)
+                            .and_then(|thread| {
+                                thread.reply_chains.iter_mut().find_map(|conversation| {
+                                    conversation.messages.iter_mut().find(|message| {
+                                        message.id.as_ref().is_some_and(|id| id == &message_id)
+                                    })
+                                })
+                            })
+                    } {
                         if let Some(properties) = message.properties.as_mut() {
                             if let Some(emotions) = properties.emotions.as_mut() {
                                 if let Some(emotion) = emotions
@@ -2364,6 +2451,18 @@ impl Counter {
                     )
                 }
             }
+            Message::UploadFile => Task::perform(
+                async {
+                    let file = AsyncFileDialog::new()
+                        .set_directory(home_dir().unwrap_or("/".into()))
+                        .pick_file()
+                        .await;
+
+                    let data = file.unwrap().read().await;
+                    println!("{:#?}", data)
+                },
+                Message::DoNothing,
+            ),
 
             // Websockets
             Message::WSConnected(info) => {
