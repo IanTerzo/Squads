@@ -1993,7 +1993,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
                             &tenant,
                         )
                         .await;
