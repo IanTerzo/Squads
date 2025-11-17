@@ -3,8 +3,10 @@ use std::collections::HashMap;
 use crate::style::Theme;
 use crate::types::EmojiPickerAction;
 use crate::widgets::gif::{self, Gif};
-use crate::Message;
-use iced::widget::{column, container, image, mouse_area, row, scrollable, text, text_input};
+use crate::{utils, Message};
+use iced::widget::{
+    column, container, image, mouse_area, row, scrollable, svg, text, text_input, Space,
+};
 use iced::{Border, Color, Element, Font, Length, Padding};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -26,46 +28,89 @@ pub fn c_emoji_picker<'a>(
     pos: EmojiPickerPosition,
     emoji_map: &'a HashMap<String, String>,
 ) -> Element<'a, Message> {
-    let mut emojies_column = column![];
     let mut emoji_row = row![];
     for (i, (_emoji_id, emoji)) in emoji_map.iter().enumerate() {
         emoji_row = emoji_row.push(
-            mouse_area(container(container(text(emoji).size(28)).width(36).height(36)).padding(2))
+            mouse_area(container(container(text(emoji).size(34)).width(38).height(38)).padding(2))
                 .on_release(Message::EmojiPickerPicked(
                     _emoji_id.to_string(),
                     emoji.clone(),
                 )),
         );
-        if (i + 1) % 9 == 0 {
-            emojies_column = emojies_column.push(emoji_row);
-            emoji_row = row![];
-        }
     }
-    let emoji_scrollable = scrollable(emojies_column)
-        .height(400)
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(theme.features.scrollbar_width)
-                .spacing(theme.features.scrollable_spacing)
-                .scroller_width(theme.features.scrollbar_width),
-        ))
-        .style(|_, _| theme.stylesheet.scrollable);
+    let emoji_scrollable = container(
+        scrollable(column![text("People"), emoji_row.wrap()])
+            .height(400)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(theme.features.scrollbar_width)
+                    .spacing(theme.features.scrollable_spacing)
+                    .scroller_width(theme.features.scrollbar_width),
+            ))
+            .width(420)
+            .style(|_, _| theme.stylesheet.scrollable),
+    )
+    .padding(5);
 
-    let categories = scrollable(column![text("a"), text("a"), text("a")])
-        .direction(scrollable::Direction::Vertical(
-            scrollable::Scrollbar::new()
-                .width(theme.features.scrollbar_width)
-                .spacing(theme.features.scrollable_spacing)
-                .scroller_width(theme.features.scrollbar_width),
-        ))
-        .style(|_, _| theme.stylesheet.scrollable);
+    let categories = container(
+        column![
+            svg(utils::get_image_dir().join("clock.svg"))
+                .width(24)
+                .height(24),
+            mouse_area(
+                svg(utils::get_image_dir().join("smile.svg"))
+                    .width(24)
+                    .height(24)
+            ),
+            svg(utils::get_image_dir().join("leaf.svg"))
+                .width(24)
+                .height(24),
+            svg(utils::get_image_dir().join("pizza.svg"))
+                .width(24)
+                .height(24),
+            svg(utils::get_image_dir().join("gamepad-2.svg"))
+                .width(24)
+                .height(24),
+            svg(utils::get_image_dir().join("bike.svg"))
+                .width(24)
+                .height(24),
+            svg(utils::get_image_dir().join("lamp.svg"))
+                .width(24)
+                .height(24),
+            svg(utils::get_image_dir().join("heart.svg"))
+                .width(24)
+                .height(24),
+        ]
+        .height(Length::Fill)
+        .spacing(8),
+    )
+    .padding(Padding {
+        top: 5.0,
+        right: 9.0,
+        left: 9.0,
+        bottom: 6.0,
+    })
+    .style(|_| container::Style {
+        background: Some(theme.colors.primary1.into()),
+
+        ..Default::default()
+    });
+
+    let top_part =
+        container(text_input("Find your emoji...", "").style(|_, _| theme.stylesheet.input))
+            .padding(12);
 
     let mut picker_screen = container(
         container(column![
-            text_input("Find your emoji...", "").style(|_, _| theme.stylesheet.input),
+            top_part,
+            container(Space::new(Length::Fill, 1)).style(|_| container::Style {
+                background: Some(theme.colors.primary3.into()),
+                ..Default::default()
+            }),
             row![categories, emoji_scrollable]
         ])
-        .width(364)
+        .width(440)
+        .height(400)
         .padding(2)
         .style(|_| container::Style {
             background: Some(theme.colors.primary2.into()),
