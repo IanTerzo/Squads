@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::style::Theme;
-use crate::types::EmojiPickerAction;
+use crate::types::{Emoji, EmojiPickerAction};
 use crate::widgets::gif::{self, Gif};
 use crate::{utils, Message};
 use iced::widget::{
@@ -26,16 +26,23 @@ pub struct EmojiPickerPosition {
 pub fn c_emoji_picker<'a>(
     theme: &'a Theme,
     pos: EmojiPickerPosition,
-    emoji_map: &'a HashMap<String, String>,
+    emoji_map: &'a HashMap<String, Emoji>,
 ) -> Element<'a, Message> {
     let mut emoji_row = row![];
     for (i, (_emoji_id, emoji)) in emoji_map.iter().enumerate() {
         emoji_row = emoji_row.push(
-            mouse_area(container(container(text(emoji).size(34)).width(38).height(38)).padding(2))
-                .on_release(Message::EmojiPickerPicked(
-                    _emoji_id.to_string(),
-                    emoji.clone(),
-                )),
+            mouse_area(
+                container(
+                    container(text(emoji.unicode.clone()).size(34))
+                        .width(38)
+                        .height(38),
+                )
+                .padding(2),
+            )
+            .on_release(Message::EmojiPickerPicked(
+                _emoji_id.to_string(),
+                emoji.unicode.clone(),
+            )),
         );
     }
     let emoji_scrollable = container(

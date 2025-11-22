@@ -4,7 +4,7 @@ use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition}
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
 use crate::style;
-use crate::types::{EmojiPickerAction, EmojiPickerLocation};
+use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -22,7 +22,7 @@ pub fn c_chat_message<'a>(
     message: crate::api::Message,
     chat_thread_id: &String,
     chat_message_options: &HashMap<String, bool>,
-    emoji_map: &HashMap<String, String>,
+    emoji_map: &HashMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
@@ -209,8 +209,8 @@ pub fn c_chat_message<'a>(
                     let mut reaction_text = text("(?)");
 
                     let reaction_val = emoji_map.get(&reaction.key);
-                    if let Some(reaction_unicode) = reaction_val {
-                        reaction_text = text(reaction_unicode.clone());
+                    if let Some(reaction_val) = reaction_val {
+                        reaction_text = text(reaction_val.unicode.clone());
                     }
 
                     let mut self_has_reacted = false;

@@ -1,8 +1,7 @@
+
 # Squads
 Squads aims to be a minimalist alternative to the official Microsoft Teams client.
 Because of major api differences in Teams, Squads only works with accounts that are part of an organization, such as school or work accounts.
-
-⚠️ Still in early development: expect things to be broken and the code unfinished ⚠️
 
 ## Run
 ```
@@ -56,6 +55,7 @@ of the repository.
 
 - Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
 - Squads uses icons from [Lucide](https://lucide.dev/). Lucide is licensed under the ISC license.
+- Squads uses emoji keywords from [Emojilib](https://lucide.dev/). Emojilib is licensed under the MIT license.
 - The ferris icon used is made by [Karen Rustad Tölva](https://rustacean.net/). (No license)
 
 ## Acknowledgments

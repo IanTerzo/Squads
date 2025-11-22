@@ -107,7 +107,7 @@ struct Counter {
     history: Vec<Page>,
     history_index: usize,
     theme: style::Theme,
-    emoji_map: HashMap<String, String>,
+    emoji_map: HashMap<String, Emoji>,
     window_width: f32,
     window_height: f32,
     mouse_position: (f32, f32),
@@ -393,7 +393,7 @@ impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content =
             fs::read_to_string(utils::get_resource_dir().join("emojis.json")).unwrap();
-        let emojis: HashMap<String, String> = serde_json::from_str(&file_content).unwrap();
+        let emojis: HashMap<String, Emoji> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {

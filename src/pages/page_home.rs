@@ -5,6 +5,7 @@ use crate::api::Profile;
 use crate::api::Team;
 use crate::components::conversation::c_conversation;
 use crate::style;
+use crate::types::Emoji;
 use crate::websockets::Presence;
 use crate::Message;
 
@@ -23,7 +24,7 @@ pub fn home<'a>(
     teams: &Vec<Team>,
     activities: &Vec<crate::api::Message>,
     expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>,
-    emoji_map: &'a HashMap<String, String>,
+    emoji_map: &'a HashMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

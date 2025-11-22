@@ -37,6 +37,13 @@ pub enum EmojiPickerLocation {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct Emoji {
+    pub unicode: String,
+    pub category: String,
+    pub keywords: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TeamsMessage<'a> {
     pub id: &'a str,

@@ -5,6 +5,7 @@ use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
+use crate::types::Emoji;
 use crate::utils::{self, truncate_name};
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
@@ -135,7 +136,7 @@ pub fn chat<'a>(
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
-    emoji_map: &'a HashMap<String, String>,
+    emoji_map: &'a HashMap<String, Emoji>,
     users: &'a HashMap<String, Profile>,
     user_presences: &'a HashMap<String, Presence>,
     me: &'a Profile,

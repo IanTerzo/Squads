@@ -1,6 +1,7 @@
 use crate::api::{Channel, Profile, Team, TeamConversations};
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
 use crate::style;
+use crate::types::Emoji;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::Message;
@@ -17,7 +18,7 @@ pub fn team<'a>(
     page_channel: &Channel,
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
-    emoji_map: &HashMap<String, String>,
+    emoji_map: &HashMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

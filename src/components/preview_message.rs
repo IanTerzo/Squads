@@ -5,6 +5,7 @@ use iced::{border, Alignment, Element, Font};
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
+use crate::types::Emoji;
 use crate::utils::truncate_name;
 use crate::Message;
 
@@ -12,7 +13,7 @@ pub fn c_preview_message<'a>(
     theme: &'a style::Theme,
     activity: crate::api::Activity,
     window_width: f32,
-    emoji_map: &HashMap<String, String>,
+    emoji_map: &HashMap<String, Emoji>,
 ) -> Element<'a, Message> {
     let mut message_column = column![].spacing(20);
 
@@ -76,7 +77,7 @@ pub fn c_preview_message<'a>(
 
         let mut reaction_unicode = "(?)";
         if let Some(reaction_value) = emoji_map.get(&activity.activity_subtype.unwrap()) {
-            reaction_unicode = reaction_value;
+            reaction_unicode = &reaction_value.unicode;
         }
 
         message_column = message_column.push(
