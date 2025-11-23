@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use crate::components::emoji_picker::EmojiPickerPosition;
-
 #[derive(Debug, Clone)]
 pub enum MessageAreaAction {
     Bold,

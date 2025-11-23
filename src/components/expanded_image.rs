@@ -1,7 +1,7 @@
-use crate::widgets::gif::{self, Gif};
+use crate::widgets::gif::Gif;
 use crate::Message;
 use directories::ProjectDirs;
-use iced::widget::{container, image, mouse_area, text};
+use iced::widget::{container, image, mouse_area};
 use iced::{Color, Element, Length};
 
 pub fn c_expanded_image<'a>(identifier: String, image_type: String) -> Element<'a, Message> {

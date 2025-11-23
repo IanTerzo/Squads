@@ -1,7 +1,5 @@
-use std::collections::HashMap;
-
 use iced::widget::{column, container, row, text};
-use iced::{border, Alignment, Element, Font};
+use iced::{border, Alignment, Element};
 use indexmap::IndexMap;
 
 use crate::components::cached_image::c_cached_image;

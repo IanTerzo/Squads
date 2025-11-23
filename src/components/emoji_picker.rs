@@ -1,14 +1,9 @@
-use std::collections::HashMap;
-
 use crate::style::Theme;
 use crate::types::{Emoji, EmojiPickerAction};
-use crate::widgets::gif::{self, Gif};
 use crate::{utils, Message};
 use iced::widget::scrollable::Id;
-use iced::widget::{
-    column, container, image, mouse_area, row, scrollable, svg, text, text_input, Space,
-};
-use iced::{Border, Color, Element, Font, Length, Padding};
+use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, text_input, Space};
+use iced::{Border, Element, Length, Padding};
 use indexmap::IndexMap;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

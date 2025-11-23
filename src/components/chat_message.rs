@@ -1,19 +1,15 @@
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
-use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition};
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
 use crate::style;
 use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
 use crate::websockets::Presence;
-use crate::widgets::circle::circle;
 use crate::Message;
-use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 use indexmap::IndexMap;
-use itertools::Itertools;
 use std::collections::HashMap;
 
 const LOG_THREAD_ACTIVITY: bool = false;

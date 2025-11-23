@@ -15,10 +15,10 @@ use crate::{style, ChatBody};
 use iced::task::Handle;
 use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{checkbox, column, container, mouse_area, row, stack, svg, text_input, Space};
+use iced::widget::{checkbox, column, container, mouse_area, row, svg, text_input, Space};
 use iced::widget::{scrollable, text};
 use iced::Alignment::Center;
-use iced::{border, padding, Alignment, Color, Element, Font, Length, Padding};
+use iced::{border, padding, Alignment, Color, Element, Length, Padding};
 use indexmap::IndexMap;
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {

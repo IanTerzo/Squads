@@ -7,7 +7,6 @@ use crate::components::navbar::c_navbar;
 
 use crate::style;
 use crate::Message;
-use iced::overlay;
 use iced::widget::stack;
 use iced::widget::{column, container};
 use iced::Element;

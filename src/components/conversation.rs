@@ -8,7 +8,7 @@ use crate::Message;
 use crate::{api, style};
 use std::collections::HashMap;
 
-use crate::api::{Conversation, Profile};
+use crate::api::Profile;
 use crate::components::message::c_message;
 
 pub fn c_conversation<'a>(

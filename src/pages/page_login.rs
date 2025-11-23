@@ -1,6 +1,6 @@
 use crate::Message;
-use iced::widget::{column, container, rich_text, span, text, text_input};
-use iced::{border, Alignment, Element, Length};
+use iced::widget::{column, container, rich_text, span, text_input};
+use iced::{Alignment, Element, Length};
 
 pub fn login<'a>(theme: &'a crate::style::Theme, code: &'a Option<String>) -> Element<'a, Message> {
     let code = code.as_deref().unwrap_or("...");

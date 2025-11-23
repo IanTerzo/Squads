@@ -1,17 +1,15 @@
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-
 use async_tungstenite::tokio::ConnectStream;
 use async_tungstenite::{tungstenite, WebSocketStream};
-use base64::read;
 use futures::sink::SinkExt;
 use futures::stream::{Stream, StreamExt};
 use iced::futures;
-use iced::futures::stream::{SplitSink, SplitStream};
+use iced::futures::stream::SplitStream;
 use iced::stream;
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use urlencoding::encode;
 
 use crate::api::{self, AccessToken};

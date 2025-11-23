@@ -1,12 +1,12 @@
 use iced::{
     widget::{
         container, stack,
-        svg::{self, Handle, Svg},
+        svg::{Handle, Svg},
     },
-    Element, Padding,
+    Element,
 };
 
-use crate::{style::Theme, websockets::Presence, widgets::circle::circle, Message};
+use crate::{style::Theme, websockets::Presence, Message};
 
 fn svg_availible<'a>(theme: &Theme) -> Element<'a, Message> {
     let [r, g, b, a] = theme.colors.status_available.into_rgba8();

@@ -1,10 +1,7 @@
 use crate::api::Profile;
-use crate::components::cached_image::c_cached_image;
-use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::websockets::Presence;
-use crate::widgets::circle::circle;
 use crate::Message;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text, Space};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
