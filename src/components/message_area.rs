@@ -4,7 +4,6 @@ use iced::widget::{
 };
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 
-use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition};
 use crate::types::{EmojiPickerAction, EmojiPickerLocation, MessageAreaAction};
 use crate::Message;
 use crate::{style, utils};
@@ -172,7 +171,7 @@ pub fn c_message_area<'a>(
                             .width(20)
                             .height(20)
                     )
-                    .on_release(Message::ToggleEmojiPicker(
+                    .on_press(Message::ToggleEmojiPicker(
                         Some(EmojiPickerLocation::OverMessageArea),
                         EmojiPickerAction::Send
                     )),
@@ -181,7 +180,7 @@ pub fn c_message_area<'a>(
                             .width(20)
                             .height(20)
                     )
-                    .on_release(Message::UploadFile),
+                    .on_press(Message::UploadFile),
                 ]
                 .spacing(8),
                 container(

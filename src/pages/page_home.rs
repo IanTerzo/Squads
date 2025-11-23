@@ -15,6 +15,7 @@ use iced::widget::{column, container, row, scrollable, text, text_input, Column,
 use iced::Length;
 use iced::Padding;
 use iced::{padding, Alignment, Element};
+use indexmap::IndexMap;
 
 use crate::components::{cached_image::c_cached_image, preview_message::c_preview_message};
 use crate::utils::truncate_name;
@@ -24,7 +25,7 @@ pub fn home<'a>(
     teams: &Vec<Team>,
     activities: &Vec<crate::api::Message>,
     expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>,
-    emoji_map: &'a HashMap<String, Emoji>,
+    emoji_map: &'a IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

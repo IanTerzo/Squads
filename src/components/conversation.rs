@@ -1,5 +1,6 @@
 use iced::widget::{column, container, mouse_area, text};
 use iced::Element;
+use indexmap::IndexMap;
 
 use crate::types::Emoji;
 use crate::websockets::Presence;
@@ -16,7 +17,7 @@ pub fn c_conversation<'a>(
     source_thread_id: String,
     conversation_id: String,
     show_replies: bool,
-    emoji_map: &HashMap<String, Emoji>,
+    emoji_map: &IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

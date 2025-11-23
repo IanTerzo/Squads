@@ -12,6 +12,7 @@ use crate::Message;
 use iced::widget::shader::wgpu::hal::auxil::db::mesa;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text};
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
+use indexmap::IndexMap;
 use itertools::Itertools;
 use std::collections::HashMap;
 
@@ -22,7 +23,7 @@ pub fn c_chat_message<'a>(
     message: crate::api::Message,
     chat_thread_id: &String,
     chat_message_options: &HashMap<String, bool>,
-    emoji_map: &HashMap<String, Emoji>,
+    emoji_map: &IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

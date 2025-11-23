@@ -19,6 +19,7 @@ use iced::widget::{checkbox, column, container, mouse_area, row, stack, svg, tex
 use iced::widget::{scrollable, text};
 use iced::Alignment::Center;
 use iced::{border, padding, Alignment, Color, Element, Font, Length, Padding};
+use indexmap::IndexMap;
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
     if let Some(chat_title) = &chat.title {
@@ -136,7 +137,7 @@ pub fn chat<'a>(
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
-    emoji_map: &'a HashMap<String, Emoji>,
+    emoji_map: &'a IndexMap<String, Emoji>,
     users: &'a HashMap<String, Profile>,
     user_presences: &'a HashMap<String, Presence>,
     me: &'a Profile,

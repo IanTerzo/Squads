@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use iced::widget::{column, container, row, text};
 use iced::{border, Alignment, Element, Font};
+use indexmap::IndexMap;
 
 use crate::components::cached_image::c_cached_image;
 use crate::style;
@@ -13,7 +14,7 @@ pub fn c_preview_message<'a>(
     theme: &'a style::Theme,
     activity: crate::api::Activity,
     window_width: f32,
-    emoji_map: &HashMap<String, Emoji>,
+    emoji_map: &IndexMap<String, Emoji>,
 ) -> Element<'a, Message> {
     let mut message_column = column![].spacing(20);
 

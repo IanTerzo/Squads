@@ -21,6 +21,7 @@ bytes = "1.10.0"
 directories = "6.0.0"
 iced = {version = "0.13.1", features = ["image", "svg", "advanced", "debug", "tokio"] }
 image = "0.25.6"
+indexmap = { version = "2.12.1", features = ["serde"] }
 itertools = "0.14.0"
 markdown-it = "0.6.1"
 rand = "0.9.0"
@@ -29,7 +30,7 @@ reqwest = {version = "0.12.12", features = ["blocking", "json"]}
 rfd = "0.15.4"
 rustls = "0.23.25"
 scraper = "0.22.0"
-serde = { version = "1.0.218", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.139"
 tokio = "1.44.2"
 unicode-segmentation = "1.12.0"

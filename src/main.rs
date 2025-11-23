@@ -6,6 +6,7 @@ use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
 use iced::task::Handle;
 use iced::widget::text_input::{self, focus};
+use indexmap::IndexMap;
 use parsing::parse_message_markdown;
 mod auth;
 mod pages;
@@ -107,7 +108,7 @@ struct Counter {
     history: Vec<Page>,
     history_index: usize,
     theme: style::Theme,
-    emoji_map: HashMap<String, Emoji>,
+    emoji_map: IndexMap<String, Emoji>,
     window_width: f32,
     window_height: f32,
     mouse_position: (f32, f32),
@@ -128,6 +129,7 @@ struct Counter {
     search_teams_input_value: String,
     search_chats_input_value: String,
     search_users_input_value: String,
+    search_emojis_input_value: String,
     team_message_area_content: Content,
     team_message_area_height: f32,
     chat_message_area_content: Content,
@@ -178,15 +180,19 @@ pub enum Message {
     SearchTeamsContentChanged(String),
     SearchChatsContentChanged(String),
     SearchUsersContentChanged(String),
+    SearchEmojisContentChanged(String),
     SubjectInputContentChanged(String),
     AllowPostIsTyping(()),
     ToggleNewChatMenu,
     Reply(Option<String>, Option<String>, Option<String>),
     CopyText(String),
+    EmojiPickerScrollTo(f32),
+
     // Teams requests
     GotActivities(Vec<api::Message>),
     GotUsers(HashMap<String, Profile>, Profile),
     GotUserDetails(Vec<Team>, Vec<Chat>),
+
     // UI initiated
     ToggleExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
@@ -393,7 +399,7 @@ impl Counter {
     fn new() -> (Self, Task<Message>) {
         let file_content =
             fs::read_to_string(utils::get_resource_dir().join("emojis.json")).unwrap();
-        let emojis: HashMap<String, Emoji> = serde_json::from_str(&file_content).unwrap();
+        let emojis: IndexMap<String, Emoji> = serde_json::from_str(&file_content).unwrap();
 
         let access_tokens = Arc::new(RwLock::new(HashMap::new()));
         if let Some(cached) = get_cache::<HashMap<String, AccessToken>>("access_tokens.json") {
@@ -455,6 +461,7 @@ impl Counter {
             search_teams_input_value: "".to_string(),
             search_chats_input_value: "".to_string(),
             search_users_input_value: "".to_string(),
+            search_emojis_input_value: "".to_string(),
             subject_input_value: "".to_string(),
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
@@ -606,6 +613,7 @@ impl Counter {
                                         },
                                     },
                                 },
+                                self.search_emojis_input_value.clone(),
                                 &self.emoji_map,
                             ))
                         } else {
@@ -707,6 +715,7 @@ impl Counter {
                                         },
                                     },
                                 },
+                                self.search_emojis_input_value.clone(),
                                 &self.emoji_map,
                             ))
                         } else {
@@ -1411,6 +1420,10 @@ impl Counter {
                 self.search_users_input_value = content;
                 Task::none()
             }
+            Message::SearchEmojisContentChanged(content) => {
+                self.search_emojis_input_value = content;
+                Task::none()
+            }
             Message::SubjectInputContentChanged(content) => {
                 self.subject_input_value = content;
                 Task::none()
@@ -1462,6 +1475,10 @@ impl Counter {
                 Task::none()
             }
             Message::CopyText(text) => clipboard::write(text),
+            Message::EmojiPickerScrollTo(height) => snap_to(
+                Id::new("emoji_column"),
+                RelativeOffset { x: 0.0, y: height },
+            ),
 
             // Teams requests
             Message::GotActivities(activities) => {

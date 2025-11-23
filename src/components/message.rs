@@ -8,6 +8,7 @@ use crate::Message;
 use crate::{style, utils};
 use iced::widget::{column, container, mouse_area, row, svg, text};
 use iced::{border, font, Alignment, Element, Font, Padding};
+use indexmap::IndexMap;
 use std::collections::HashMap;
 
 const LOG_THREAD_ACTIVITY: bool = false;
@@ -16,7 +17,7 @@ pub fn c_message<'a>(
     theme: &'a style::Theme,
     source_thread_id: &String,
     message: crate::api::Message,
-    emoji_map: &HashMap<String, Emoji>,
+    emoji_map: &IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,

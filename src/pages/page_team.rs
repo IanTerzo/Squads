@@ -10,6 +10,7 @@ use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
 use iced::{font, padding, ContentFit, Element, Length, Padding};
+use indexmap::IndexMap;
 use std::collections::HashMap;
 
 pub fn team<'a>(
@@ -18,7 +19,7 @@ pub fn team<'a>(
     page_channel: &Channel,
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
-    emoji_map: &HashMap<String, Emoji>,
+    emoji_map: &IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
