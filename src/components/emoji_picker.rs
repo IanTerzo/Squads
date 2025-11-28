@@ -46,7 +46,7 @@ pub fn c_emoji_picker<'a>(
                     )
                     .padding(2),
                 )
-                .on_press(Message::EmojiPickerPicked(
+                .on_release(Message::EmojiPickerPicked(
                     _emoji_id.to_string(),
                     emoji.unicode.clone(),
                 ));
@@ -97,7 +97,7 @@ pub fn c_emoji_picker<'a>(
                         )
                         .padding(2),
                     )
-                    .on_press(Message::EmojiPickerPicked(
+                    .on_release(Message::EmojiPickerPicked(
                         _emoji_id.to_string(),
                         emoji.unicode.clone(),
                     ));
@@ -127,55 +127,55 @@ pub fn c_emoji_picker<'a>(
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.0)),
+            .on_release(Message::EmojiPickerScrollTo(0.0)),
             mouse_area(
                 svg(utils::get_image_dir().join("smile.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.0)),
+            .on_release(Message::EmojiPickerScrollTo(0.0)),
             mouse_area(
                 svg(utils::get_image_dir().join("user-round.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.1261)),
+            .on_release(Message::EmojiPickerScrollTo(0.1261)),
             mouse_area(
                 svg(utils::get_image_dir().join("leaf.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.342)),
+            .on_release(Message::EmojiPickerScrollTo(0.342)),
             mouse_area(
                 svg(utils::get_image_dir().join("pizza.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.45)),
+            .on_release(Message::EmojiPickerScrollTo(0.45)),
             mouse_area(
                 svg(utils::get_image_dir().join("gamepad-2.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.53)),
+            .on_release(Message::EmojiPickerScrollTo(0.53)),
             mouse_area(
                 svg(utils::get_image_dir().join("bike.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.59)),
+            .on_release(Message::EmojiPickerScrollTo(0.59)),
             mouse_area(
                 svg(utils::get_image_dir().join("lamp.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.734)),
+            .on_release(Message::EmojiPickerScrollTo(0.734)),
             mouse_area(
                 svg(utils::get_image_dir().join("heart.svg"))
                     .width(24)
                     .height(24)
             )
-            .on_press(Message::EmojiPickerScrollTo(0.9)),
+            .on_release(Message::EmojiPickerScrollTo(0.9)),
         ]
         .height(Length::Fill)
         .spacing(8),
@@ -238,6 +238,6 @@ pub fn c_emoji_picker<'a>(
     }
 
     mouse_area(picker_screen)
-        .on_press(Message::ToggleEmojiPicker(None, EmojiPickerAction::None))
+        .on_release(Message::ToggleEmojiPicker(None, EmojiPickerAction::None))
         .into()
 }

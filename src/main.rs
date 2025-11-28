@@ -498,12 +498,10 @@ impl Counter {
 
     fn view(&self) -> Element<Message> {
         //println!("view called");
-
-        match self.page.view {
-            View::Login => login(&self.theme, &self.device_user_code),
-            View::Homepage => app(
-                &self.theme,
-                home(
+        app(
+            &self.theme,
+            match self.page.view {
+                View::Homepage => home(
                     &self.theme,
                     &self.teams,
                     &self.activities,
@@ -515,37 +513,30 @@ impl Counter {
                     self.window_width,
                     self.search_teams_input_value.clone(),
                 ),
-                if let Some(expanded_image) = self.expanded_image.clone() {
-                    Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                } else {
-                    None
-                },
-            ),
-            View::Team => {
-                let current_team_id = self.page.current_team_id.as_ref().unwrap();
+                View::Login => login(&self.theme, &self.device_user_code),
+                View::Team => {
+                    let current_team_id = self.page.current_team_id.as_ref().unwrap();
 
-                let mut current_team = self
-                    .teams
-                    .iter()
-                    .find(|team| &team.id == current_team_id)
-                    .unwrap()
-                    .clone();
+                    let mut current_team = self
+                        .teams
+                        .iter()
+                        .find(|team| &team.id == current_team_id)
+                        .unwrap()
+                        .clone();
 
-                let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
+                    let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
 
-                let current_channel = current_team
-                    .channels
-                    .iter()
-                    .find(|channel| &channel.id == current_channel_id)
-                    .unwrap()
-                    .clone();
+                    let current_channel = current_team
+                        .channels
+                        .iter()
+                        .find(|channel| &channel.id == current_channel_id)
+                        .unwrap()
+                        .clone();
 
-                let reply_options = &self.reply_options;
+                    let reply_options = &self.reply_options;
 
-                let conversation = self.team_conversations.get(current_channel_id);
+                    let conversation = self.team_conversations.get(current_channel_id);
 
-                app(
-                    &self.theme,
                     team(
                         &self.theme,
                         &mut current_team,
@@ -559,91 +550,26 @@ impl Counter {
                         &self.subject_input_value,
                         &self.team_message_area_content,
                         &self.team_message_area_height,
-                    ),
-                    if let Some(expanded_image) = self.expanded_image.clone() {
-                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
-                        if let Some(ref location) = self.emoji_picker_toggle.location {
-                            Some(c_emoji_picker(
-                                &self.theme,
-                                match location {
-                                    EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::BottomLeft,
-                                        padding: Padding {
-                                            top: 0.0,
-                                            right: 0.0,
-                                            bottom: 150.0,
-                                            left: 260.0,
-                                        },
-                                    },
-                                    EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::TopRight,
-                                        padding: Padding {
-                                            top: if self.last_mouse_position.1 - 30.0
-                                                < self.window_height - 450.0
-                                            {
-                                                self.last_mouse_position.1 - 30.0
-                                            } else {
-                                                self.window_height - 450.0
-                                            },
-                                            right: 84.0,
-                                            bottom: 0.0,
-                                            left: 0.0,
-                                        },
-                                    },
-                                    EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::TopLeft,
-                                        padding: Padding {
-                                            top: if self.last_mouse_position.1 - 30.0
-                                                < self.window_height - 450.0
-                                            {
-                                                self.last_mouse_position.1 - 30.0
-                                            } else {
-                                                self.window_height - 450.0
-                                            },
-                                            right: 0.0,
-                                            bottom: 0.0,
-                                            left: if self.last_mouse_position.0
-                                                < self.window_width - 400.0
-                                            {
-                                                self.last_mouse_position.0 + 30.0
-                                            } else {
-                                                self.last_mouse_position.0 - 395.0
-                                            },
-                                        },
-                                    },
-                                },
-                                self.search_emojis_input_value.clone(),
-                                &self.emoji_map,
-                            ))
-                        } else {
-                            None // Should never happen
-                        }
+                    )
+                }
+                View::Chat => {
+                    let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id {
+                        Some(
+                            self.chats
+                                .iter()
+                                .find(|chat| &chat.id == current_chat_id)
+                                .unwrap(),
+                        )
                     } else {
                         None
-                    },
-                )
-            }
-            View::Chat => {
-                let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id {
-                    Some(
-                        self.chats
-                            .iter()
-                            .find(|chat| &chat.id == current_chat_id)
-                            .unwrap(),
-                    )
-                } else {
-                    None
-                };
+                    };
 
-                let conversation = if let Some(current_chat_id) = &self.page.current_chat_id {
-                    self.chat_conversations.get(current_chat_id)
-                } else {
-                    None
-                };
+                    let conversation = if let Some(current_chat_id) = &self.page.current_chat_id {
+                        self.chat_conversations.get(current_chat_id)
+                    } else {
+                        None
+                    };
 
-                app(
-                    &self.theme,
                     chat(
                         &self.theme,
                         current_chat,
@@ -661,72 +587,71 @@ impl Counter {
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
                         &self.page.chat_body,
-                    ),
-                    if let Some(expanded_image) = self.expanded_image.clone() {
-                        Some(c_expanded_image(expanded_image.0, expanded_image.1))
-                    } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
-                        if let Some(ref location) = self.emoji_picker_toggle.location {
-                            Some(c_emoji_picker(
-                                &self.theme,
-                                match location {
-                                    EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::BottomLeft,
-                                        padding: Padding {
-                                            top: 0.0,
-                                            right: 0.0,
-                                            bottom: 150.0,
-                                            left: 260.0,
-                                        },
+                    )
+                }
+            },
+            if let Some(expanded_image) = self.expanded_image.clone() {
+                Some(c_expanded_image(expanded_image.0, expanded_image.1))
+            } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                if let Some(ref location) = self.emoji_picker_toggle.location {
+                    Some(c_emoji_picker(
+                        &self.theme,
+                        match location {
+                            EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
+                                alignment: EmojiPickerAlignment::BottomLeft,
+                                padding: Padding {
+                                    top: 0.0,
+                                    right: 0.0,
+                                    bottom: 150.0,
+                                    left: 260.0,
+                                },
+                            },
+                            EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
+                                alignment: EmojiPickerAlignment::TopRight,
+                                padding: Padding {
+                                    top: if self.last_mouse_position.1 - 30.0
+                                        < self.window_height - 450.0
+                                    {
+                                        self.last_mouse_position.1 - 30.0
+                                    } else {
+                                        self.window_height - 450.0
                                     },
-                                    EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::TopRight,
-                                        padding: Padding {
-                                            top: if self.last_mouse_position.1 - 30.0
-                                                < self.window_height - 450.0
-                                            {
-                                                self.last_mouse_position.1 - 30.0
-                                            } else {
-                                                self.window_height - 450.0
-                                            },
-                                            right: 84.0,
-                                            bottom: 0.0,
-                                            left: 0.0,
-                                        },
+                                    right: 84.0,
+                                    bottom: 0.0,
+                                    left: 0.0,
+                                },
+                            },
+                            EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
+                                alignment: EmojiPickerAlignment::TopLeft,
+                                padding: Padding {
+                                    top: if self.last_mouse_position.1 - 30.0
+                                        < self.window_height - 450.0
+                                    {
+                                        self.last_mouse_position.1 - 30.0
+                                    } else {
+                                        self.window_height - 450.0
                                     },
-                                    EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
-                                        alignment: EmojiPickerAlignment::TopLeft,
-                                        padding: Padding {
-                                            top: if self.last_mouse_position.1 - 30.0
-                                                < self.window_height - 450.0
-                                            {
-                                                self.last_mouse_position.1 - 30.0
-                                            } else {
-                                                self.window_height - 450.0
-                                            },
-                                            right: 0.0,
-                                            bottom: 0.0,
-                                            left: if self.last_mouse_position.0
-                                                < self.window_width - 400.0
-                                            {
-                                                self.last_mouse_position.0 + 30.0
-                                            } else {
-                                                self.last_mouse_position.0 - 395.0
-                                            },
-                                        },
+                                    right: 0.0,
+                                    bottom: 0.0,
+                                    left: if self.last_mouse_position.0 < self.window_width - 400.0
+                                    {
+                                        self.last_mouse_position.0 + 30.0
+                                    } else {
+                                        self.last_mouse_position.0 - 395.0
                                     },
                                 },
-                                self.search_emojis_input_value.clone(),
-                                &self.emoji_map,
-                            ))
-                        } else {
-                            None // Should never happen
-                        }
-                    } else {
-                        None
-                    },
-                )
-            }
-        }
+                            },
+                        },
+                        self.search_emojis_input_value.clone(),
+                        &self.emoji_map,
+                    ))
+                } else {
+                    None // Should never happen
+                }
+            } else {
+                None
+            },
+        )
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {

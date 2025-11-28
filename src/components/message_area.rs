@@ -171,7 +171,7 @@ pub fn c_message_area<'a>(
                             .width(20)
                             .height(20)
                     )
-                    .on_press(Message::ToggleEmojiPicker(
+                    .on_release(Message::ToggleEmojiPicker(
                         Some(EmojiPickerLocation::OverMessageArea),
                         EmojiPickerAction::Send
                     )),
@@ -180,7 +180,7 @@ pub fn c_message_area<'a>(
                             .width(20)
                             .height(20)
                     )
-                    .on_press(Message::UploadFile),
+                    .on_release(Message::UploadFile),
                 ]
                 .spacing(8),
                 container(
