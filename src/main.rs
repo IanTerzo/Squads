@@ -775,7 +775,14 @@ impl Counter {
             Message::KeyPressed(key) => {
                 match key {
                     Key::Named(Named::Escape) => {
-                        self.expanded_image = None;
+                        if self.expanded_image.is_some() {
+                            self.expanded_image = None;
+                        } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                            self.emoji_picker_toggle = EmojiPickerInfo {
+                                action: EmojiPickerAction::None,
+                                location: None,
+                            };
+                        }
                     }
                     _ => {}
                 }
