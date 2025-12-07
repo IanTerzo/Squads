@@ -3,15 +3,16 @@ use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::widgets::circle::circle;
 use crate::Message;
-use base64::decode;
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine as _;
 use directories::ProjectDirs;
 use iced::border;
 use iced::mouse;
 use iced::padding;
 use iced::widget::mouse_area;
-use iced::widget::{
-    column, container, rich_text, row, text, text::Span, Column, Container, Row, Space,
-};
+use iced::widget::space;
+use iced::widget::span;
+use iced::widget::{column, container, rich_text, row, text, Column, Container, Row};
 use iced::Alignment;
 use iced::Color;
 use iced::{font, Element, Font};
@@ -33,7 +34,7 @@ use xxhash_rust::xxh3::xxh3_64;
 pub struct BlockQuote(String);
 
 impl NodeValue for BlockQuote {
-    fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
+    fn render(&self, _node: &Node, fmt: &mut dyn Renderer) {
         fmt.open("blockquote", &(vec![]));
         fmt.text(&self.0);
         fmt.close("blockquote");
@@ -133,7 +134,7 @@ pub struct NewlineParser;
 
 // This defines how your custom node should be rendered.
 impl NodeValue for NewlineParser {
-    fn render(&self, node: &Node, fmt: &mut dyn Renderer) {
+    fn render(&self, _node: &Node, fmt: &mut dyn Renderer) {
         fmt.self_close("br", &(vec![] as Vec<(&str, String)>));
     }
 }
@@ -292,13 +293,13 @@ fn transform_html<'a>(
             }
             // Special cases
             else if element_name == "br" {
-                dynamic_container = dynamic_container.push(Space::new(10000, 0).into());
+                dynamic_container = dynamic_container.push(space().width(10000).into());
             } else if element_name == "img" {
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Emoji" {
                         if let Some(alt) = child_element.attr("alt") {
                             dynamic_container = dynamic_container
-                                .push(rich_text![Span::new(alt.to_string())].into());
+                                .push(rich_text![span::<(), Font>(alt.to_string())].into());
                         }
                     } else if itemtype == "http://schema.skype.com/AMSImage" {
                         // most consistent way to get the image id
@@ -324,7 +325,7 @@ fn transform_html<'a>(
                                 image_width = width as f32;
                                 image_height = height as f32;
                             }
-                            Err(e) => {
+                            Err(_e) => {
                                 if let Some(width) = child_element.attr("width") {
                                     let width = width.parse().unwrap();
                                     image_width = width;
@@ -361,6 +362,7 @@ fn transform_html<'a>(
                             Message::AuthorizeImage(image_url, identifier.clone()),
                             image_width,
                             image_height,
+                            8.0,
                         ))
                         .on_release(Message::ExpandImage(identifier, "jpeg".to_string()))
                         .interaction(mouse::Interaction::Pointer);
@@ -478,8 +480,8 @@ fn transform_html<'a>(
                 for li in child_element.select(&Selector::parse("li").unwrap()) {
                     ul_list = ul_list.push(
                         row![
-                            Space::new(1, 1),
-                            circle(3.0, Color::new(1.0, 1.0, 1.0, 1.0)),
+                            space().width(1).height(1),
+                            circle(3.0, Color::from_rgba(1.0, 1.0, 1.0, 1.0)),
                             transform_html(theme, li, cascading_properties.clone()).into_element()
                         ]
                         .spacing(10)
@@ -496,7 +498,7 @@ fn transform_html<'a>(
                 {
                     ol_list = ol_list.push(
                         row![
-                            Space::new(10, 1),
+                            space().width(10).height(1),
                             text!("{}. ", i + 1),
                             transform_html(theme, li, cascading_properties.clone()).into_element()
                         ]
@@ -566,13 +568,12 @@ fn transform_html<'a>(
 
                 // Use a different font for emojis
                 for char in word.chars() {
-                    let mut text_span = Span::new(char.to_string());
+                    let mut text_span = span::<(), Font>(char.to_string());
                     text_span = text_span
                         .font(font_text)
                         .color(color)
                         .underline(underline)
                         .strikethrough(strikethrough);
-
                     spans.push(text_span);
                 }
 
@@ -648,7 +649,8 @@ pub fn parse_card_html<'a>(content: String) -> Result<Element<'a, Message>, Stri
 
     if let Some(swift_element) = document.select(&selector).next() {
         let b64_value = swift_element.value().attr("b64").unwrap();
-        let decoded_bytes = decode(b64_value).unwrap();
+
+        let decoded_bytes = STANDARD.decode(b64_value).unwrap();
         let decoded_string = std::str::from_utf8(&decoded_bytes).unwrap();
         //let parsed: MediaCard = serde_json::from_str(decoded_string).unwrap();
         //println!("{parsed:#?}");

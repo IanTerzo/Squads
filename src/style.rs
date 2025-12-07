@@ -1,7 +1,13 @@
+use std::str::FromStr;
+
 use iced::{
     border,
-    widget::{container, scrollable, text_editor, text_input},
-    Border, Color,
+    widget::{
+        container,
+        scrollable::{self, AutoScroll},
+        text_editor, text_input,
+    },
+    Border, Color, Shadow,
 };
 
 #[derive(Debug)]
@@ -48,10 +54,10 @@ pub struct Colors {
 
 #[derive(Debug)]
 pub struct Features {
-    pub scrollable_spacing: u16,
-    pub page_row_spacing: u16,
-    pub list_spacing: u16,
-    pub scrollbar_width: u16,
+    pub scrollable_spacing: f32,
+    pub page_row_spacing: f32,
+    pub list_spacing: f32,
+    pub scrollbar_width: f32,
 }
 
 #[derive(Debug)]
@@ -65,31 +71,31 @@ pub fn squads_dark() -> Theme {
     let colors = Colors {
         not_set: Color::from_rgb(1.0, 0.0, 0.0), // To be used as a palceholder for colors that are not yet choosen
         text: Color::WHITE,
-        text_link: Color::parse("#6d74f4").expect("Color is invalid."),
-        demo_text: Color::parse("#c1c1c1").expect("Color is invalid."),
-        background: Color::parse("#1c1d22").expect("Color is invalid."),
-        text_selection: Color::parse("#8e8b94").expect("Color is invalid."),
+        text_link: Color::from_str("#6d74f4").expect("Color is invalid."),
+        demo_text: Color::from_str("#c1c1c1").expect("Color is invalid."),
+        background: Color::from_str("#1c1d22").expect("Color is invalid."),
+        text_selection: Color::from_str("#8e8b94").expect("Color is invalid."),
         accent: Color::WHITE,
         emotion_background: Color::from_rgba(0.427, 0.4, 0.8, 0.15),
         emotion_border: Color::from_rgba(0.427, 0.4, 0.8, 0.34),
-        primary1: Color::parse("#13171a").expect("Color is invalid."),
-        primary1_selected: Color::parse("#283034").expect("Color is invalid."),
-        primary2: Color::parse("#1c1d22").expect("Color is invalid."),
-        primary2_highlight: Color::parse("#22282c").expect("Color is invalid."),
-        primary3: Color::parse("#303137").expect("Color is invalid."),
-        secondary1: Color::parse("#303137").expect("Color is invalid."),
+        primary1: Color::from_str("#13171a").expect("Color is invalid."),
+        primary1_selected: Color::from_str("#283034").expect("Color is invalid."),
+        primary2: Color::from_str("#1c1d22").expect("Color is invalid."),
+        primary2_highlight: Color::from_str("#22282c").expect("Color is invalid."),
+        primary3: Color::from_str("#303137").expect("Color is invalid."),
+        secondary1: Color::from_str("#303137").expect("Color is invalid."),
         notification: Color::WHITE,
-        status_available: Color::parse("#4db255").expect("Color is invalid."),
-        status_offline: Color::parse("#696c65").expect("Color is invalid."),
-        status_busy: Color::parse("#a92622").expect("Color is invalid."),
-        status_away: Color::parse("#ed9612").expect("Color is invalid."),
+        status_available: Color::from_str("#4db255").expect("Color is invalid."),
+        status_offline: Color::from_str("#696c65").expect("Color is invalid."),
+        status_busy: Color::from_str("#a92622").expect("Color is invalid."),
+        status_away: Color::from_str("#ed9612").expect("Color is invalid."),
     };
 
     let features = Features {
-        scrollable_spacing: 0,
-        page_row_spacing: 0,
-        list_spacing: 4,
-        scrollbar_width: 4,
+        scrollable_spacing: 0.0,
+        page_row_spacing: 0.0,
+        list_spacing: 4.0,
+        scrollbar_width: 4.0,
     };
 
     let stylesheet = Stylesheet {
@@ -115,7 +121,7 @@ pub fn squads_dark() -> Theme {
                 background: Some(colors.primary1.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
-                    color: colors.accent,
+                    background: colors.accent.into(),
                     border: border::rounded(10),
                 },
             },
@@ -123,11 +129,19 @@ pub fn squads_dark() -> Theme {
                 background: Some(colors.primary1.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
-                    color: colors.not_set,
+                    background: colors.not_set.into(),
                     border: border::rounded(10),
                 },
             },
             gap: Some(colors.not_set.into()),
+            auto_scroll: AutoScroll {
+                background: colors.primary1.into(),
+                icon: colors.not_set,
+                border: border::rounded(10),
+                shadow: Shadow {
+                    ..Default::default()
+                },
+            },
         },
         scrollable: scrollable::Style {
             container: container::Style {
@@ -139,7 +153,7 @@ pub fn squads_dark() -> Theme {
                 background: Some(colors.primary1.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
-                    color: colors.accent,
+                    background: colors.accent.into(),
                     border: border::rounded(10),
                 },
             },
@@ -147,11 +161,19 @@ pub fn squads_dark() -> Theme {
                 background: Some(colors.primary1.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
-                    color: colors.not_set,
+                    background: colors.not_set.into(),
                     border: border::rounded(10),
                 },
             },
             gap: Some(colors.not_set.into()),
+            auto_scroll: AutoScroll {
+                background: colors.primary1.into(),
+                icon: colors.not_set,
+                border: border::rounded(10),
+                shadow: Shadow {
+                    ..Default::default()
+                },
+            },
         },
         list_tab: container::Style {
             background: Some(colors.primary1.into()),
@@ -180,7 +202,6 @@ pub fn squads_dark() -> Theme {
         message_area: text_editor::Style {
             background: colors.primary1.into(),
             border: border::rounded(4),
-            icon: colors.not_set,
             placeholder: colors.demo_text,
             value: colors.text,
             selection: colors.text_selection,

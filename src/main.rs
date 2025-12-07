@@ -5,7 +5,8 @@ mod parsing;
 use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
 use iced::task::Handle;
-use iced::widget::text_input::{self, focus};
+use iced::widget::operation::{focus, snap_to};
+use iced::widget::Id;
 use indexmap::IndexMap;
 use parsing::parse_message_markdown;
 mod auth;
@@ -26,7 +27,7 @@ use components::{cached_image::save_cached_image, expanded_image::c_expanded_ima
 use iced::clipboard;
 use iced::keyboard::key::Named;
 use iced::keyboard::Key;
-use iced::widget::scrollable::{snap_to, Id, RelativeOffset, Viewport};
+use iced::widget::scrollable::{RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
     event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Size, Subscription, Task,
@@ -64,6 +65,7 @@ use crate::api::{
 };
 use crate::components::emoji_picker::{c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition};
 use crate::parsing::get_html_preview;
+use crate::websockets::{websocket_builder, WebsocketData};
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -156,10 +158,8 @@ pub enum Message {
     PollDeviceCode,
     Authorized(AccessToken),
 
-    // App actions
+    // App events
     EventOccurred(Event),
-    ToggleShift(bool),
-    KeyPressed(Key),
 
     // UI interactions
     MessageAreaEdit(text_editor::Action),
@@ -413,7 +413,6 @@ impl Counter {
 
         // If the user doesn't have a refresh token, prompt them to the login page.
         let has_refresh_token = access_tokens.read().unwrap().get("refresh_token").is_some();
-
         let tenant = "organizations".to_string();
 
         let first_chat = chats.get(0).map(|chat| chat.id.clone());
@@ -500,6 +499,9 @@ impl Counter {
         //println!("view called");
         app(
             &self.theme,
+            &self.teams,
+            &self.me,
+            &self.user_presences,
             match self.page.view {
                 View::Homepage => home(
                     &self.theme,
@@ -763,29 +765,41 @@ impl Counter {
                     Event::Mouse(mouse::Event::CursorMoved { position }) => {
                         self.mouse_position = (position.x, position.y)
                     }
+                    Event::Keyboard(keyboard::Event::KeyPressed {
+                        key,
+                        modified_key: _,
+                        physical_key: _,
+                        location: _,
+                        modifiers: _,
+                        text: _,
+                        repeat: _,
+                    }) => match key {
+                        Key::Named(Named::Escape) => {
+                            if self.expanded_image.is_some() {
+                                self.expanded_image = None;
+                            } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                                self.emoji_picker_toggle = EmojiPickerInfo {
+                                    action: EmojiPickerAction::None,
+                                    location: None,
+                                };
+                            }
+                        }
+                        Key::Named(Named::Shift) => self.shift_held_down = true,
+                        _ => {}
+                    },
+                    Event::Keyboard(keyboard::Event::KeyReleased {
+                        key,
+                        modified_key: _,
+                        physical_key: _,
+                        location: _,
+                        modifiers: _,
+                    }) => match key {
+                        Key::Named(Named::Shift) => self.shift_held_down = false,
+                        _ => {}
+                    },
                     _ => {}
                 }
 
-                Task::none()
-            }
-            Message::ToggleShift(value) => {
-                self.shift_held_down = value;
-                Task::none()
-            }
-            Message::KeyPressed(key) => {
-                match key {
-                    Key::Named(Named::Escape) => {
-                        if self.expanded_image.is_some() {
-                            self.expanded_image = None;
-                        } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
-                            self.emoji_picker_toggle = EmojiPickerInfo {
-                                action: EmojiPickerAction::None,
-                                location: None,
-                            };
-                        }
-                    }
-                    _ => {}
-                }
                 Task::none()
             }
 
@@ -813,7 +827,7 @@ impl Counter {
                 };
 
                 let message_area_text = message_area_content.text();
-                let cursor_line_index = message_area_content.cursor_position().0;
+                let cursor_line_index = message_area_content.cursor().position.line;
                 let current_line = message_area_text.lines().nth(cursor_line_index);
                 match action {
                     Action::Edit(Edit::Enter) => {
@@ -1160,7 +1174,6 @@ impl Counter {
                 self.history.push(page);
                 self.history_index += 1;
                 self.history.truncate(self.history_index + 1);
-
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenTeam(team_id, channel_id) => {
@@ -1369,7 +1382,7 @@ impl Counter {
                     Task::none()
                 } else {
                     self.page.chat_body = ChatBody::Start;
-                    focus(text_input::Id::new("search_users_input"))
+                    focus(Id::new("search_users_input"))
                 }
             }
             Message::Reply(message_content, display_name, message_id) => {
@@ -2123,7 +2136,7 @@ impl Counter {
                 if self.page.chat_body != ChatBody::Add {
                     self.page.chat_body = ChatBody::Add;
                     Task::batch(vec![
-                        focus(text_input::Id::new("search_users_input")),
+                        focus(Id::new("search_users_input")),
                         snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 }),
                     ])
                 } else {
@@ -2717,32 +2730,22 @@ impl Counter {
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        let mut subscriptions = vec![
-            event::listen().map(Message::EventOccurred),
-            keyboard::on_key_press(|key, _modifiers| Some(Message::KeyPressed(key))),
-            keyboard::on_key_press(|key, _modifiers| match key {
-                Key::Named(Named::Shift) => Some(Message::ToggleShift(true)),
-                _ => None,
-            }),
-            keyboard::on_key_release(|key, _modifiers| match key {
-                Key::Named(Named::Shift) => Some(Message::ToggleShift(false)),
-                _ => None,
-            }),
-        ];
+        let mut subscriptions = vec![event::listen().map(Message::EventOccurred)];
+
+        let data = WebsocketData {
+            access_tokens: self.access_tokens.clone(),
+            tenant: self.tenant.clone(),
+        };
 
         if self.is_authorized {
-            subscriptions.push(
-                Subscription::run_with_id(
-                    "websockets",
-                    connect(self.access_tokens.clone(), self.tenant.clone()),
-                )
-                .map(|response_type| match response_type {
+            subscriptions.push(Subscription::run_with(data, websocket_builder).map(
+                |response_type| match response_type {
                     WebsocketResponse::Connected(info) => Message::WSConnected(info),
                     WebsocketResponse::Message(value) => Message::GotWSMessage(value),
                     WebsocketResponse::Presences(value) => Message::GotWSPresences(value),
                     WebsocketResponse::Other(value) => Message::DoNothing(()),
-                }),
-            )
+                },
+            ))
         }
 
         Subscription::batch(subscriptions)
@@ -2752,10 +2755,36 @@ impl Counter {
     fn theme(&self) -> Theme {
         let custom_palette = iced::theme::palette::Palette {
             background: self.theme.colors.background,
-            text: Color::new(1.0, 0.0, 0.0, 1.0),
-            primary: Color::new(1.0, 0.0, 0.0, 1.0),
-            success: Color::new(1.0, 0.0, 0.0, 1.0),
-            danger: Color::new(1.0, 0.0, 0.0, 1.0),
+            text: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+            primary: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+            success: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+            danger: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
+            warning: Color {
+                r: 1.0,
+                g: 0.0,
+                b: 0.0,
+                a: 0.0,
+            },
         };
 
         Theme::custom("Squads Dark".to_string(), custom_palette)
@@ -2763,7 +2792,7 @@ impl Counter {
 }
 
 pub fn main() -> iced::Result {
-    iced::application("Squads", Counter::update, Counter::view)
+    iced::application(Counter::new, Counter::update, Counter::view)
         .window_size(Size {
             width: WINDOW_WIDTH,
             height: WINDOW_HEIGHT,
@@ -2772,5 +2801,6 @@ pub fn main() -> iced::Result {
         .theme(Counter::theme)
         .font(include_bytes!("../resources/OpenSans-Regular-COLR.ttf").as_slice()) // Increases startup time with about 100 ms...
         .default_font(Font::with_name("Open Sans Twemoji"))
-        .run_with(Counter::new)
+        .title("Squads")
+        .run()
 }

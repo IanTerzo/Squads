@@ -1,8 +1,8 @@
+use crate::components::horizontal_line::c_horizontal_line;
 use crate::style::Theme;
 use crate::types::{Emoji, EmojiPickerAction};
 use crate::{utils, Message};
-use iced::widget::scrollable::Id;
-use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, text_input, Space};
+use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, text_input, Id};
 use iced::{Border, Element, Length, Padding};
 use indexmap::IndexMap;
 
@@ -202,10 +202,7 @@ pub fn c_emoji_picker<'a>(
     let mut picker_screen = container(
         container(column![
             top_part,
-            container(Space::new(Length::Fill, 1)).style(|_| container::Style {
-                background: Some(theme.colors.primary3.into()),
-                ..Default::default()
-            }),
+            c_horizontal_line(theme, Length::Fill),
             row![categories, emoji_scrollable]
         ])
         .width(440)

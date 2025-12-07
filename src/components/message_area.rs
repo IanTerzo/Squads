@@ -1,9 +1,10 @@
 use iced::widget::text_editor::Content;
 use iced::widget::{
-    column, container, mouse_area, rich_text, row, span, svg, text, text_editor, text_input, Space,
+    column, container, mouse_area, rich_text, row, span, svg, text, text_editor, text_input,
 };
 use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
 
+use crate::components::horizontal_line::c_horizontal_line;
 use crate::types::{EmojiPickerAction, EmojiPickerLocation, MessageAreaAction};
 use crate::Message;
 use crate::{style, utils};
@@ -33,7 +34,7 @@ pub fn c_message_area<'a>(
                         row![
                             row![
                                 mouse_area(
-                                    rich_text![span("B").font(Font {
+                                    rich_text![span::<(), Font>("B").font(Font {
                                         weight: font::Weight::Bold,
                                         ..Default::default()
                                     })]
@@ -41,21 +42,25 @@ pub fn c_message_area<'a>(
                                 )
                                 .on_release(Message::MessageAreaAction(MessageAreaAction::Bold)),
                                 mouse_area(
-                                    rich_text![span("I").font(Font {
+                                    rich_text![span::<(), Font>("I").font(Font {
                                         style: font::Style::Italic,
                                         ..Default::default()
                                     })]
                                     .size(20)
                                 )
                                 .on_release(Message::MessageAreaAction(MessageAreaAction::Italic)),
-                                mouse_area(rich_text![span("U").underline(true)].size(20))
-                                    .on_release(Message::MessageAreaAction(
-                                        MessageAreaAction::Underline
-                                    )),
-                                mouse_area(rich_text![span("S").strikethrough(true)].size(20))
-                                    .on_release(Message::MessageAreaAction(
-                                        MessageAreaAction::Striketrough
-                                    )),
+                                mouse_area(
+                                    rich_text![span::<(), Font>("U").underline(true)].size(20)
+                                )
+                                .on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::Underline)
+                                ),
+                                mouse_area(
+                                    rich_text![span::<(), Font>("S").strikethrough(true)].size(20)
+                                )
+                                .on_release(
+                                    Message::MessageAreaAction(MessageAreaAction::Striketrough)
+                                ),
                             ]
                             .spacing(8),
                             row![
@@ -142,13 +147,7 @@ pub fn c_message_area<'a>(
                             },)
                     )
                     .padding(2),
-                    container(
-                        container(Space::new(Length::Fill, 1)).style(|_| container::Style {
-                            background: Some(theme.colors.primary3.into()),
-                            ..Default::default()
-                        })
-                    )
-                    .padding(Padding {
+                    container(c_horizontal_line(&theme, Length::Fill)).padding(Padding {
                         left: 6.0,
                         right: 6.0,
                         top: 0.0,

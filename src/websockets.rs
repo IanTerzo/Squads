@@ -3,12 +3,13 @@ use async_tungstenite::{tungstenite, WebSocketStream};
 use futures::sink::SinkExt;
 use futures::stream::{Stream, StreamExt};
 use iced::futures;
-use iced::futures::stream::SplitStream;
+use iced::futures::stream::{BoxStream, SplitStream};
 use iced::stream;
 use reqwest::{header::HeaderMap, Client};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
 use urlencoding::encode;
 
@@ -106,7 +107,7 @@ struct TrouterConnectionInfo {
 pub async fn websockets_subscription(
     token: &AccessToken,
     endpoint: &str,
-    surl: &str,
+    _surl: &str,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(
@@ -361,92 +362,127 @@ async fn begin_websockets(skype_token: &str, endpoint: &str) -> (String, String)
     )
 }
 
+#[derive(Clone)]
+pub struct WebsocketData {
+    pub access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
+    pub tenant: String,
+}
+
+impl Hash for WebsocketData {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        // only tenant contributes to subscription identity
+        self.tenant.hash(state);
+    }
+}
+impl PartialEq for WebsocketData {
+    fn eq(&self, other: &Self) -> bool {
+        self.tenant == other.tenant
+    }
+}
+impl Eq for WebsocketData {}
+
+pub fn websocket_builder(data: &WebsocketData) -> BoxStream<'static, WebsocketResponse> {
+    connect_boxed(data.access_tokens.clone(), data.tenant.clone())
+}
+
+fn connect_boxed(
+    access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
+    tenant: String,
+) -> BoxStream<'static, WebsocketResponse> {
+    connect(access_tokens, tenant).boxed()
+}
+
 pub fn connect(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     tenant: String,
 ) -> impl Stream<Item = WebsocketResponse> {
-    stream::channel(100, |mut output| async move {
-        let mut state = State::Disconnected;
-        loop {
-            match &mut state {
-                State::Disconnected => {
-                    let access_token = get_or_gen_token(
-                        access_tokens.clone(),
-                        "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
-                        &tenant,
-                    )
-                    .await;
-                    let skype_token =
-                        get_or_gen_skype_token(access_tokens.clone(), access_token).await;
+    stream::channel(
+        100,
+        |mut output: futures::channel::mpsc::Sender<WebsocketResponse>| async move {
+            let mut state = State::Disconnected;
+            loop {
+                match &mut state {
+                    State::Disconnected => {
+                        let access_token = get_or_gen_token(
+                            access_tokens.clone(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            &tenant,
+                        )
+                        .await;
+                        let skype_token =
+                            get_or_gen_skype_token(access_tokens.clone(), access_token).await;
 
-                    let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29";
+                        let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29";
 
-                    let (url, surl) = begin_websockets(&skype_token.value, endpoint).await;
-                    match async_tungstenite::tokio::connect_async(url).await {
-                        Ok((websocket, _)) => {
-                            let (mut write, read) = websocket.split();
+                        let (url, surl) = begin_websockets(&skype_token.value, endpoint).await;
+                        match async_tungstenite::tokio::connect_async(url).await {
+                            Ok((websocket, _)) => {
+                                let (mut write, read) = websocket.split();
 
-                            let _ = output
-                                .send(WebsocketResponse::Connected(ConnectionInfo {
-                                    endpoint: endpoint.to_string(),
-                                    surl,
-                                }))
-                                .await;
+                                let _ = output
+                                    .send(WebsocketResponse::Connected(ConnectionInfo {
+                                        endpoint: endpoint.to_string(),
+                                        surl,
+                                    }))
+                                    .await;
 
-                            // Ping every 40 seconds to keep the connection alive
-                            tokio::spawn(async move {
-                                loop {
-                                    tokio::time::sleep(tokio::time::Duration::from_secs(40)).await;
-                                    if let Err(e) =
-                                        write.send(tungstenite::Message::Text("ping".into())).await
-                                    {
-                                        eprintln!("Failed to send ping: {}", e);
-                                        break;
+                                // Ping every 40 seconds to keep the connection alive
+                                tokio::spawn(async move {
+                                    loop {
+                                        tokio::time::sleep(tokio::time::Duration::from_secs(40))
+                                            .await;
+                                        if let Err(e) = write
+                                            .send(tungstenite::Message::Text("ping".into()))
+                                            .await
+                                        {
+                                            eprintln!("Failed to send ping: {}", e);
+                                            break;
+                                        }
                                     }
-                                }
-                            });
+                                });
 
-                            state = State::Connected(read);
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to connect: {}", e);
-                            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                                state = State::Connected(read);
+                            }
+                            Err(e) => {
+                                eprintln!("Failed to connect: {}", e);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            }
                         }
                     }
-                }
-                State::Connected(read) => {
-                    let mut fused_websocket = read.by_ref().fuse();
+                    State::Connected(read) => {
+                        let mut fused_websocket = read.by_ref().fuse();
 
-                    futures::select! {
-                        received = fused_websocket.select_next_some() => {
-                            match received {
-                                Ok(tungstenite::Message::Text(message)) => {
-                                    if let Some(json_content) = message.as_str().find('{').map(|i| &message[i..]) {
-                                        if let Ok(wrapper) = serde_json::from_str::<WebsocketResponseWrapper>(json_content) {
-                                            let json_body = wrapper.body;
+                        futures::select! {
+                            received = fused_websocket.select_next_some() => {
+                                match received {
+                                    Ok(tungstenite::Message::Text(message)) => {
+                                        if let Some(json_content) = message.as_str().find('{').map(|i| &message[i..]) {
+                                            if let Ok(wrapper) = serde_json::from_str::<WebsocketResponseWrapper>(json_content) {
+                                                let json_body = wrapper.body;
 
-                                            if let Ok(message_t) = serde_json::from_str(&json_body) {
-                                                let _ = output.send(WebsocketResponse::Message(message_t)).await;
-                                            }
-                                            else if let Ok(presences) = serde_json::from_str(&json_body) {
-                                                let _ = output.send(WebsocketResponse::Presences(presences)).await;
-                                            }
-                                            else {
-                                                let _ = output.send(WebsocketResponse::Other(message.to_string())).await;
+                                                if let Ok(message_t) = serde_json::from_str(&json_body) {
+                                                    let _ = output.send(WebsocketResponse::Message(message_t)).await;
+                                                }
+                                                else if let Ok(presences) = serde_json::from_str(&json_body) {
+                                                    let _ = output.send(WebsocketResponse::Presences(presences)).await;
+                                                }
+                                                else {
+                                                    let _ = output.send(WebsocketResponse::Other(message.to_string())).await;
+                                                }
                                             }
                                         }
                                     }
+                                    Err(_) => {
+                                        eprintln!("Websocket connection failed.");
+                                        state = State::Disconnected;
+                                    }
+                                    Ok(_) => continue,
                                 }
-                                Err(_) => {
-                                    eprintln!("Websocket connection failed.");
-                                    state = State::Disconnected;
-                                }
-                                Ok(_) => continue,
                             }
                         }
                     }
                 }
             }
-        }
-    })
+        },
+    )
 }

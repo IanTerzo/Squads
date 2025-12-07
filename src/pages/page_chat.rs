@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use crate::api::{self, Chat, Profile};
+use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
@@ -13,9 +15,8 @@ use crate::Message;
 use crate::{style, ChatBody};
 
 use iced::task::Handle;
-use iced::widget::scrollable::Id;
 use iced::widget::text_editor::Content;
-use iced::widget::{checkbox, column, container, mouse_area, row, svg, text_input, Space};
+use iced::widget::{checkbox, column, container, mouse_area, row, space, svg, text_input, Id};
 use iced::widget::{scrollable, text};
 use iced::Alignment::Center;
 use iced::{border, padding, Alignment, Color, Element, Length, Padding};
@@ -77,6 +78,7 @@ fn get_chat_picture<'a>(
             Message::AuthorizeImage(url.to_string(), identifier),
             28.0,
             28.0,
+            4.0,
         )
     } else {
         let member_profiles: Vec<_> = chat
@@ -110,12 +112,13 @@ fn get_chat_picture<'a>(
                 Message::FetchMergedProfilePicture(identifier, member_profiles),
                 28.0,
                 28.0,
+                4.0,
             )
         } else {
-            container(container(Space::new(0, 0)))
+            container(container(space()))
                 .style(|_| container::Style {
                     background: Some(
-                        Color::parse("#b8b4b4")
+                        Color::from_str("#b8b4b4")
                             .expect("Background color is invalid.")
                             .into(),
                     ),
@@ -198,7 +201,7 @@ pub fn chat<'a>(
         if !chat.is_read.unwrap_or(true) {
             chat_items = chat_items.push(circle(2.5, theme.colors.notification))
         } else {
-            chat_items = chat_items.push(Space::new(5, 0))
+            chat_items = chat_items.push(space().width(5))
         }
 
         let picture = get_chat_picture(&chat, &me.id, &users);
@@ -305,11 +308,8 @@ pub fn chat<'a>(
             background: Some(theme.colors.primary1.into()),
             ..Default::default()
         }),
-        container(Space::new(Length::Fill, 1)).style(|_| container::Style {
-            background: Some(theme.colors.primary3.into()),
-            ..Default::default()
-        }),
-        container(Space::new(Length::Fill, 2)).style(|_| container::Style {
+        c_horizontal_line(theme, Length::Fill),
+        container(space().width(Length::Fill).height(2)).style(|_| container::Style {
             background: Some(theme.colors.primary1.into()),
             ..Default::default()
         })
@@ -334,14 +334,14 @@ pub fn chat<'a>(
 
         let title_row = if *page_body != ChatBody::Start {
             row![
-                Space::with_width(2), // Silly...
+                space().width(2),
                 picture,
-                Space::with_width(15),
+                space().width(15),
                 text(title),
                 if let Some(is_one_on_one) = current_chat.is_one_on_one {
                     if !is_one_on_one {
                         row![
-                            Space::with_width(8),
+                            space().width(8),
                             svg(utils::get_image_dir().join("pencil.svg"))
                                 .width(17)
                                 .height(17),
@@ -379,17 +379,14 @@ pub fn chat<'a>(
             })
             .align_y(Alignment::Center)
         } else {
-            row![
-                Space::with_width(2), // Silly...
-                text("Start chat"),
-            ]
-            .padding(Padding {
-                top: 10.0,
-                right: 30.0,
-                bottom: 10.0,
-                left: 14.0,
-            })
-            .align_y(Alignment::Center)
+            row![space().width(2), text("Start chat"),]
+                .padding(Padding {
+                    top: 10.0,
+                    right: 30.0,
+                    bottom: 10.0,
+                    left: 14.0,
+                })
+                .align_y(Alignment::Center)
         };
 
         let title_row_container = column![
@@ -397,10 +394,7 @@ pub fn chat<'a>(
                 background: Some(theme.colors.primary2.into()),
                 ..Default::default()
             }),
-            container(Space::new(Length::Fill, 1)).style(|_| container::Style {
-                background: Some(theme.colors.primary3.into()),
-                ..Default::default()
-            })
+            c_horizontal_line(theme, Length::Fill),
         ];
 
         // Page body content
@@ -521,7 +515,7 @@ pub fn chat<'a>(
                                     .clone()
                                     .unwrap_or("Unknown User".to_string())
                             ),
-                            container(checkbox("", is_checked).style(|_, _| checkbox::Style {
+                            container(checkbox(is_checked).style(|_, _| checkbox::Style {
                                 background: theme.colors.primary3.into(),
                                 border: border::rounded(2),
                                 icon_color: theme.colors.text,
@@ -697,6 +691,7 @@ pub fn chat<'a>(
                             ),
                             28.0,
                             28.0,
+                            4.0,
                         );
 
                         let presence = user_presences.get(&member.mri);
@@ -783,10 +778,10 @@ pub fn chat<'a>(
                     .height(25),
                 );
             } else {
-                content_page = content_page.push(Space::new(0, 25))
+                content_page = content_page.push(space().height(25))
             }
         } else {
-            content_page = content_page.push(Space::new(0, 25))
+            content_page = content_page.push(space().height(25))
         }
 
         let message_area = container(c_message_area(

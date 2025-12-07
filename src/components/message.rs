@@ -52,6 +52,7 @@ pub fn c_message<'a>(
                         Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
                         31.0,
                         31.0,
+                        4.0,
                     );
 
                     let presence = user_presences.get(&user_id);
@@ -141,11 +142,11 @@ pub fn c_message<'a>(
 
     // Cards
 
-    if let Some(properties) = &message.properties {
-        if let Some(cards) = &properties.cards {
-            for card in cards {}
-        }
-    }
+    //if let Some(properties) = &message.properties {
+    //if let Some(cards) = &properties.cards {
+    //for card in cards {}
+    //}
+    //}
 
     // Message content
 

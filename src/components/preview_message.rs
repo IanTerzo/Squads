@@ -34,6 +34,7 @@ pub fn c_preview_message<'a>(
             Message::FetchUserImage(identifier, user_id, display_name.clone()),
             31.0,
             31.0,
+            4.0,
         );
 
         message_info = message_info.push(user_picture);

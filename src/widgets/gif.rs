@@ -1,20 +1,15 @@
-//! Display a GIF in your user interface
 use iced::advanced::image::{self, FilterMethod, Handle};
 use iced::advanced::mouse::Cursor;
 use iced::advanced::widget::{tree, Tree};
 use iced::advanced::{layout, renderer, Clipboard, Layout, Shell, Widget};
 use iced::widget::image::layout;
-use iced::{
-    event, window, ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector,
-};
+use iced::{window, ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector};
 use image_rs::codecs::gif;
 use image_rs::{AnimationDecoder, Frame, Frames};
 use std::fs;
 use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-/// The frames of a decoded gif
-
 struct State<'a> {
     index: usize,
     frames: Frames<'a>,
@@ -26,16 +21,18 @@ struct Current {
     frame: Frame,
     started: Instant,
 }
-/// A frame that displays a GIF while keeping aspect ratio
+
 #[derive(Debug)]
 pub struct Gif {
     path: PathBuf,
     width: Length,
     height: Length,
+    region: Option<Rectangle<u32>>,
     content_fit: ContentFit,
     filter_method: FilterMethod,
     rotation: Rotation,
     opacity: f32,
+    expand: bool,
 }
 
 impl<'a> Gif {
@@ -45,10 +42,12 @@ impl<'a> Gif {
             path: path,
             width: Length::Shrink,
             height: Length::Shrink,
+            region: Some(Rectangle::default()),
             content_fit: ContentFit::default(),
             filter_method: FilterMethod::default(),
             rotation: Rotation::default(),
             opacity: 1.0,
+            expand: false,
         }
     }
 
@@ -125,7 +124,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
@@ -142,22 +141,24 @@ where
             &handle,
             self.width,
             self.height,
+            self.region,
             self.content_fit,
             self.rotation,
+            self.expand,
         )
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: Event,
+        event: &Event,
         _layout: Layout<'_>,
-        _cursor: Cursor,
+        _cursor: iced::advanced::mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let state = tree.state.downcast_mut::<State>();
 
         if let Event::Window(window::Event::RedrawRequested(now)) = event {
@@ -181,14 +182,12 @@ where
                     started: Instant::now(),
                 };
 
-                shell.request_redraw(window::RedrawRequest::At(now + delay));
+                shell.request_redraw_at(window::RedrawRequest::At(*now + delay));
             } else {
                 let remaining = delay - elapsed;
-                shell.request_redraw(window::RedrawRequest::At(now + remaining));
+                shell.request_redraw_at(window::RedrawRequest::At(*now + remaining));
             }
         }
-
-        event::Status::Ignored
     }
 
     fn draw(
@@ -211,7 +210,6 @@ where
             let (width, height) = frame.buffer().dimensions();
             let handle = image::Handle::from_rgba(width, height, frame.into_buffer().into_vec());
 
-            let Size { width, height } = renderer.measure_image(&handle); // Redundant ?
             let image_size = Size::new(width as f32, height as f32);
             let rotated_size = self.rotation.apply(image_size);
 
@@ -246,7 +244,9 @@ where
                         rotation: self.rotation.radians(),
                         opacity: self.opacity,
                         snap: true,
+                        border_radius: 0.into(),
                     },
+                    drawing_bounds,
                     drawing_bounds,
                 );
             };

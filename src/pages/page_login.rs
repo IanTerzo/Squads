@@ -1,12 +1,12 @@
 use crate::Message;
 use iced::widget::{column, container, rich_text, span, text_input};
-use iced::{Alignment, Element, Length};
+use iced::{Alignment, Element, Font, Length};
 
 pub fn login<'a>(theme: &'a crate::style::Theme, code: &'a Option<String>) -> Element<'a, Message> {
     let code = code.as_deref().unwrap_or("...");
     column![
         container(rich_text![
-            span("Head over to "),
+            span::<Message, Font>("Head over to "),
             span("aka.ms/devicelogin")
                 .underline(true)
                 .link(Message::LinkClicked(

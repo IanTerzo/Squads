@@ -65,6 +65,7 @@ pub fn c_chat_message<'a>(
                     Message::FetchUserImage(identifier, user_id.clone(), display_name.clone()),
                     31.0,
                     31.0,
+                    4.0,
                 );
 
                 message_row = message_row.push(c_picture_and_status(

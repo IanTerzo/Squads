@@ -2,8 +2,9 @@ use crate::widgets::{gif::Gif, viewport::ViewportHandler};
 use crate::Message;
 use bytes::Bytes;
 use directories::ProjectDirs;
-use iced::widget::{container, image, Space};
+use iced::widget::{container, image, space};
 use iced::{Color, ContentFit, Element};
+use std::str::FromStr;
 use std::{
     fs::{create_dir_all, File},
     io::Write,
@@ -31,14 +32,14 @@ pub fn c_cached_image<'a>(
     on_enter_unique: Message,
     image_width: f32,
     image_height: f32,
+    border_radius: f32,
 ) -> Element<'a, Message> {
     let mut team_picture = container(
-        ViewportHandler::new(Space::new(0, 0))
-            .on_enter_unique(identifier.clone(), on_enter_unique.clone()),
+        ViewportHandler::new(space()).on_enter_unique(identifier.clone(), on_enter_unique.clone()),
     )
     .style(|_| container::Style {
         background: Some(
-            Color::parse("#b8b4b4")
+            Color::from_str("#b8b4b4")
                 .expect("Background color is invalid.")
                 .into(),
         ),
@@ -59,7 +60,8 @@ pub fn c_cached_image<'a>(
                 image(image_path)
                     .content_fit(ContentFit::Fill)
                     .width(image_width)
-                    .height(image_height),
+                    .height(image_height)
+                    .border_radius(border_radius),
             )
             .on_enter_unique(identifier, on_enter_unique),
         )
@@ -75,12 +77,11 @@ pub fn c_cached_gif<'a>(
     image_height: f32,
 ) -> Element<'a, Message> {
     let mut team_picture = container(
-        ViewportHandler::new(Space::new(0, 0))
-            .on_enter_unique(identifier.clone(), on_enter_unique.clone()),
+        ViewportHandler::new(space()).on_enter_unique(identifier.clone(), on_enter_unique.clone()),
     )
     .style(|_| container::Style {
         background: Some(
-            Color::parse("#b8b4b4")
+            Color::from_str("#b8b4b4")
                 .expect("Background color is invalid.")
                 .into(),
         ),

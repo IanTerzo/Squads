@@ -1,7 +1,7 @@
 use iced::advanced::layout::{self, Layout};
 use iced::advanced::renderer;
 use iced::advanced::widget::{self, tree, Tree, Widget};
-use iced::{event, mouse, Element, Length, Rectangle, Size};
+use iced::{Element, Length, Rectangle, Size};
 use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
@@ -63,13 +63,12 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         tree: &mut Tree,
         renderer: &Renderer,
         limits: &layout::Limits,
     ) -> layout::Node {
-        let child = self.content.as_widget().layout(tree, renderer, limits);
-
+        let child = self.content.as_widget_mut().layout(tree, renderer, limits);
         layout::Node::container(child, 0.into())
     }
 
@@ -98,18 +97,17 @@ where
             viewport,
         );
     }
-
-    fn on_event(
+    fn update(
         &mut self,
-        tree: &mut widget::Tree,
-        event: iced::Event,
+        _tree: &mut Tree,
+        _event: &iced::Event,
         layout: Layout<'_>,
-        cursor: mouse::Cursor,
-        renderer: &Renderer,
-        clipboard: &mut dyn iced::advanced::Clipboard,
+        _cursor: iced::advanced::mouse::Cursor,
+        _renderer: &Renderer,
+        _clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
         viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let relative_layout_position = layout.position().y;
         let viewport_top = viewport.y + viewport.height;
 
@@ -123,18 +121,6 @@ where
                 identifiers.insert(identfier, true);
             }
         }
-
-        let content_layout = layout.children().next().unwrap();
-        self.content.as_widget_mut().on_event(
-            tree,
-            event,
-            content_layout,
-            cursor,
-            renderer,
-            clipboard,
-            shell,
-            viewport,
-        )
     }
 }
 

@@ -1,4 +1,5 @@
 use crate::api::{Channel, Profile, Team, TeamConversations};
+use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
 use crate::style;
 use crate::types::Emoji;
@@ -6,12 +7,13 @@ use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::Message;
 use directories::ProjectDirs;
-use iced::widget::scrollable::Id;
+use iced::alignment::Vertical;
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, image, row, scrollable, text, Column, MouseArea, Space};
+use iced::widget::{column, container, image, row, scrollable, space, text, Column, Id, MouseArea};
 use iced::{font, padding, ContentFit, Element, Length, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::fmt::Alignment;
 
 pub fn team<'a>(
     theme: &'a style::Theme,
@@ -92,7 +94,7 @@ pub fn team<'a>(
         bottom: 6.0,
     });
 
-    let content_page = column![conversation_scrollbar, Space::new(0, 7), message_area].spacing(7);
+    let content_page = column![conversation_scrollbar, space().height(7), message_area].spacing(7);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -123,29 +125,20 @@ pub fn team<'a>(
     ]
     .spacing(10);
 
-    let sidetabs = column![text!("Class Notebook"), text!("Assignments")].spacing(8);
+    let sidetabs = column![text!("Files")].spacing(8);
 
-    let team_info = container(
-        column![
-            name_row,
-            sidetabs,
-            container(Space::new(210, 1)).style(|_| container::Style {
-                background: Some(theme.colors.primary3.into()),
+    let team_info =
+        container(column![name_row, sidetabs, c_horizontal_line(theme, 210.into())].spacing(18))
+            .padding(Padding {
+                top: 11.0,
+                left: 10.0,
+                bottom: 14.0,
+                right: 0.0,
+            })
+            .style(|_| container::Style {
+                background: Some(theme.colors.primary1.into()),
                 ..Default::default()
-            }),
-        ]
-        .spacing(18),
-    )
-    .padding(Padding {
-        top: 11.0,
-        left: 10.0,
-        bottom: 14.0,
-        right: 0.0,
-    })
-    .style(|_| container::Style {
-        background: Some(theme.colors.primary1.into()),
-        ..Default::default()
-    });
+            });
 
     let mut channels_coloumn: Column<Message> = column![]
         .spacing(theme.features.list_spacing)
@@ -156,7 +149,7 @@ pub fn team<'a>(
             bottom: 6.0,
         });
 
-    let channels_sorted = team.channels.sort_by_key(|item| item.id != team.id);
+    team.channels.sort_by_key(|item| item.id != team.id);
     for channel in team.channels.clone() {
         let page_channel_cloned = page_channel.clone();
         let channel_cloned = channel.clone();
@@ -171,7 +164,8 @@ pub fn team<'a>(
                         }
                     })
                     .padding(Padding::from([0, 8]))
-                    .center_y(45)
+                    .align_y(Vertical::Center)
+                    .height(40)
                     .width(216),
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))

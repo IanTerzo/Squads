@@ -1,0 +1,132 @@
+use std::collections::HashMap;
+
+use iced::widget::{column, container, mouse_area, scrollable, svg, MouseArea};
+use iced::{border, Alignment, Element, Length, Padding};
+
+use crate::api::{Profile, Team};
+use crate::components::cached_image::c_cached_image;
+use crate::components::horizontal_line::c_horizontal_line;
+use crate::components::picture_and_status::c_picture_and_status;
+use crate::websockets::Presence;
+use crate::Message;
+use crate::{style, utils};
+
+pub fn c_sidebar<'a>(
+    theme: &'a style::Theme,
+    teams: &Vec<Team>,
+    me: &Profile,
+    user_presences: &'a HashMap<String, Presence>,
+) -> Element<'a, Message> {
+    let mut teams_column = column![].spacing(14).padding(Padding {
+        right: 8.0,
+        left: 8.0,
+        top: 6.0,
+        bottom: 6.0,
+    });
+
+    for team in teams {
+        let team_picture = MouseArea::new(c_cached_image(
+            team.picture_e_tag
+                .clone()
+                .unwrap_or(team.display_name.clone()),
+            Message::FetchTeamImage(
+                team.picture_e_tag
+                    .clone()
+                    .unwrap_or(team.display_name.clone()),
+                team.picture_e_tag.clone().unwrap_or("".to_string()),
+                team.team_site_information.group_id.clone(),
+                team.display_name.clone(),
+            ),
+            36.0,
+            36.0,
+            4.0,
+        ))
+        .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
+        .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()));
+
+        teams_column = teams_column.push(team_picture);
+    }
+
+    let team_scrollbar = container(
+        scrollable(teams_column)
+            .direction(scrollable::Direction::Vertical(
+                scrollable::Scrollbar::new()
+                    .width(0)
+                    .spacing(0)
+                    .scroller_width(0),
+            ))
+            .style(|_, _| theme.stylesheet.side_scrollable),
+    )
+    .height(Length::Fill);
+
+    let identifier = me.id.clone().replace(":", "");
+
+    let user_picture = c_cached_image(
+        identifier.clone(),
+        Message::FetchUserImage(
+            identifier,
+            me.id.clone(),
+            me.display_name.as_ref().unwrap().clone(),
+        ),
+        28.0,
+        28.0,
+        4.0,
+    );
+    let presence = user_presences.get(&me.id);
+    let user_icon = c_picture_and_status(theme, user_picture, presence, (28.0, 28.0));
+
+    container(
+        container(
+            column![
+                container(
+                    mouse_area(
+                        svg(utils::get_image_dir().join("message-square.svg"))
+                            .width(26)
+                            .height(26),
+                    )
+                    .on_enter(Message::PrefetchCurrentChat)
+                    .on_release(Message::OpenCurrentChat)
+                )
+                .padding(Padding {
+                    top: 4.0,
+                    bottom: 4.0,
+                    left: 0.0,
+                    right: 0.0
+                }),
+                container(
+                    mouse_area(
+                        svg(utils::get_image_dir().join("bell.svg"))
+                            .width(26)
+                            .height(26),
+                    )
+                    .on_enter(Message::PrefetchCurrentChat)
+                    .on_release(Message::OpenCurrentChat)
+                )
+                .padding(Padding {
+                    top: 4.0,
+                    bottom: 4.0,
+                    left: 0.0,
+                    right: 0.0
+                }),
+                c_horizontal_line(&theme, 34.into()),
+                team_scrollbar,
+                c_horizontal_line(&theme, 34.into()),
+                container(user_icon).padding(Padding {
+                    top: 4.0,
+                    bottom: 4.0,
+                    left: 0.0,
+                    right: 0.0
+                }),
+            ]
+            .spacing(4)
+            .align_x(Alignment::Center),
+        )
+        .style(|_| container::Style {
+            background: Some(theme.colors.primary1.into()),
+            border: border::rounded(8),
+            ..Default::default()
+        }),
+    )
+    .padding(6.0)
+    .into()
+}
