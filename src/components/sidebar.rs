@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
+use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{column, container, mouse_area, row, scrollable, svg, MouseArea};
-use iced::{border, Alignment, Element, Length, Padding};
+use iced::{border, Alignment, Border, Element, Length, Padding};
 
 use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
@@ -9,12 +10,13 @@ use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
-use crate::Message;
 use crate::{style, utils};
+use crate::{Message, Page};
 
 pub fn c_sidebar<'a>(
     theme: &'a style::Theme,
-    teams: &Vec<Team>,
+    teams: &'a Vec<Team>,
+    page: &'a Page,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
 ) -> Element<'a, Message> {
@@ -26,22 +28,48 @@ pub fn c_sidebar<'a>(
     });
 
     for team in teams {
-        let team_picture = MouseArea::new(c_cached_image(
-            team.picture_e_tag
-                .clone()
-                .unwrap_or(team.display_name.clone()),
-            Message::FetchTeamImage(
+        let team_picture = MouseArea::new(
+            container(c_cached_image(
                 team.picture_e_tag
                     .clone()
                     .unwrap_or(team.display_name.clone()),
-                team.picture_e_tag.clone().unwrap_or("".to_string()),
-                team.team_site_information.group_id.clone(),
-                team.display_name.clone(),
-            ),
-            36.0,
-            36.0,
-            4.0,
-        ))
+                Message::FetchTeamImage(
+                    team.picture_e_tag
+                        .clone()
+                        .unwrap_or(team.display_name.clone()),
+                    team.picture_e_tag.clone().unwrap_or("".to_string()),
+                    team.team_site_information.group_id.clone(),
+                    team.display_name.clone(),
+                ),
+                36.0,
+                36.0,
+                4.0,
+            ))
+            .width(38)
+            .height(38)
+            .align_x(Horizontal::Center)
+            .align_y(Vertical::Center)
+            .style(|_| {
+                if page
+                    .current_team_id
+                    .as_ref()
+                    .map_or(false, |id| *id == team.id)
+                {
+                    container::Style {
+                        border: Border {
+                            color: theme.colors.accent,
+                            width: 1.0,
+                            radius: 4.into(),
+                        },
+                        ..Default::default()
+                    }
+                } else {
+                    container::Style {
+                        ..Default::default()
+                    }
+                }
+            }),
+        )
         .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
         .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()));
 

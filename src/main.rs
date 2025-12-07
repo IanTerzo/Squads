@@ -35,7 +35,6 @@ use iced::{
 };
 use pages::app;
 use pages::page_chat::chat;
-use pages::page_home::home;
 use pages::page_login::login;
 use pages::page_team::team;
 use rand::rngs::StdRng;
@@ -56,7 +55,7 @@ use types::*;
 use utils::{get_cache, get_epoch_ms, save_to_cache};
 use webbrowser;
 use websockets::{
-    connect, websockets_subscription, ConnectionInfo, Presence, Presences, WebsocketMessage,
+    websockets_subscription, ConnectionInfo, Presence, Presences, WebsocketMessage,
     WebsocketResponse,
 };
 
@@ -64,6 +63,7 @@ use crate::api::{
     add_member, message_property, start_thread, ChatMember, Conversation, Emotion, EmotionUser,
 };
 use crate::components::emoji_picker::{c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition};
+use crate::components::sidebar::c_sidebar;
 use crate::parsing::get_html_preview;
 use crate::websockets::{websocket_builder, WebsocketData};
 
@@ -76,12 +76,12 @@ pub enum ChatBody {
     Members,
     Add,
     Start,
+    Activity,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 enum View {
     Login,
-    Homepage,
     Team,
     Chat,
 }
@@ -165,7 +165,6 @@ pub enum Message {
     MessageAreaEdit(text_editor::Action),
     MessageAreaAction(MessageAreaAction),
     LinkClicked(String),
-    OpenHome,
     OpenTeam(String, String),
     OpenChat(String),
     ReadChat(String),
@@ -420,7 +419,7 @@ impl Counter {
         let counter_self = Self {
             page: Page {
                 view: if has_refresh_token {
-                    View::Homepage
+                    View::Chat
                 } else {
                     View::Login
                 },
@@ -444,7 +443,7 @@ impl Counter {
             chat_message_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
             history: vec![Page {
-                view: View::Homepage,
+                view: View::Chat,
                 chat_body: ChatBody::Messages,
                 current_team_id: None,
                 current_channel_id: None,
@@ -498,23 +497,14 @@ impl Counter {
     fn view(&self) -> Element<Message> {
         //println!("view called");
         app(
-            &self.theme,
-            &self.teams,
-            &self.me,
-            &self.user_presences,
+            c_sidebar(
+                &self.theme,
+                &self.teams,
+                &self.page,
+                &self.me,
+                &self.user_presences,
+            ),
             match self.page.view {
-                View::Homepage => home(
-                    &self.theme,
-                    &self.teams,
-                    &self.activities,
-                    self.activity_expanded_conversations.clone(),
-                    &self.emoji_map,
-                    &self.users,
-                    &self.me,
-                    &self.user_presences,
-                    self.window_width,
-                    self.search_teams_input_value.clone(),
-                ),
                 View::Login => login(&self.theme, &self.device_user_code),
                 View::Team => {
                     let current_team_id = self.page.current_team_id.as_ref().unwrap();
@@ -588,6 +578,9 @@ impl Counter {
                         self.search_users_input_value.clone(),
                         &self.chat_message_area_content,
                         &self.chat_message_area_height,
+                        &self.window_width,
+                        &self.activities,
+                        &self.activity_expanded_conversations,
                         &self.page.chat_body,
                     )
                 }
@@ -716,7 +709,7 @@ impl Counter {
                 )
             }
             Message::Authorized(refresh_token) => {
-                self.page.view = View::Homepage;
+                self.page.view = View::Chat;
 
                 self.access_tokens
                     .write()
@@ -1161,20 +1154,6 @@ impl Counter {
                 }
 
                 Task::none()
-            }
-            Message::OpenHome => {
-                let page = Page {
-                    view: View::Homepage,
-                    chat_body: ChatBody::Messages,
-                    current_team_id: None,
-                    current_channel_id: None,
-                    current_chat_id: self.page.current_chat_id.clone(),
-                };
-                self.page = page.clone();
-                self.history.push(page);
-                self.history_index += 1;
-                self.history.truncate(self.history_index + 1);
-                snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OpenTeam(team_id, channel_id) => {
                 let team_page = Page {

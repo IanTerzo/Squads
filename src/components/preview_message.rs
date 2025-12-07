@@ -11,7 +11,7 @@ use crate::Message;
 pub fn c_preview_message<'a>(
     theme: &'a style::Theme,
     activity: crate::api::Activity,
-    window_width: f32,
+    window_width: &f32,
     emoji_map: &IndexMap<String, Emoji>,
 ) -> Element<'a, Message> {
     let mut message_column = column![].spacing(20);
