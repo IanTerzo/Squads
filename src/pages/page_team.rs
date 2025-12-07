@@ -1,15 +1,17 @@
 use crate::api::{Channel, Profile, Team, TeamConversations};
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
-use crate::style;
 use crate::types::Emoji;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::Message;
+use crate::{style, utils};
 use directories::ProjectDirs;
-use iced::alignment::Vertical;
+use iced::alignment::{Horizontal, Vertical};
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, image, row, scrollable, space, text, Column, Id, MouseArea};
+use iced::widget::{
+    column, container, image, row, scrollable, space, svg, text, Column, Id, MouseArea,
+};
 use iced::{font, padding, ContentFit, Element, Length, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -107,40 +109,48 @@ pub fn team<'a>(
             .unwrap_or(team.display_name.clone())
     ));
 
-    let team_picture = image(image_path)
-        .content_fit(ContentFit::Cover)
-        .width(45)
-        .height(45);
-
-    let name_row = row![
-        team_picture,
-        column![
-            text!("{}", truncate_name(team.display_name.clone(), 16)).font(font::Font {
+    let team_info = column![
+        container(
+            text!("{}", truncate_name(team.display_name.clone(), 24)).font(font::Font {
                 weight: font::Weight::Bold,
                 ..Default::default()
-            }),
-            text!("{}", truncate_name(page_channel.display_name.clone(), 16))
-        ]
-        .spacing(5)
-    ]
-    .spacing(10);
-
-    let sidetabs = column![text!("Files")].spacing(8);
-
-    let team_info =
-        container(column![name_row, sidetabs, c_horizontal_line(theme, 210.into())].spacing(18))
-            .padding(Padding {
-                top: 11.0,
-                left: 10.0,
-                bottom: 14.0,
-                right: 0.0,
             })
-            .style(|_| container::Style {
-                background: Some(theme.colors.primary1.into()),
-                ..Default::default()
-            });
+        )
+        .padding(padding::left(10))
+        .height(43)
+        .align_y(Vertical::Center),
+        c_horizontal_line(theme, 230.into())
+    ]
+    .spacing(5);
+    let additionals = column![
+        container(column![container(text!("Files"))
+            .width(190)
+            .padding(Padding {
+                top: 4.0,
+                bottom: 4.0,
+                left: 8.0,
+                right: 8.0,
+            })
+            .style(move |_| { theme.stylesheet.list_tab })])
+        .padding(Padding {
+            top: 8.0,
+            bottom: 14.0,
+            left: 10.0,
+            right: 0.0,
+        }),
+        container(c_horizontal_line(theme, 210.into()))
+            .width(Length::Fill)
+            .align_x(Horizontal::Center),
+        container(text("Channels").size(14).color(theme.colors.demo_text)).padding(Padding {
+            top: 10.0,
+            bottom: 2.0,
+            right: 0.0,
+            left: 8.0
+        })
+    ]
+    .width(200);
 
-    let mut channels_coloumn: Column<Message> = column![]
+    let mut channels_coloumn: Column<Message> = column![additionals]
         .spacing(theme.features.list_spacing)
         .padding(Padding {
             right: 4.0,

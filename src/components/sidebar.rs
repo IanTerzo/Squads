@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use iced::widget::{column, container, mouse_area, scrollable, svg, MouseArea};
+use iced::widget::{column, container, mouse_area, row, scrollable, svg, MouseArea};
 use iced::{border, Alignment, Element, Length, Padding};
 
 use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
+use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
 use crate::Message;
 use crate::{style, utils};
@@ -75,12 +76,12 @@ pub fn c_sidebar<'a>(
     let presence = user_presences.get(&me.id);
     let user_icon = c_picture_and_status(theme, user_picture, presence, (28.0, 28.0));
 
-    container(
+    row![
         container(
             column![
                 container(
                     mouse_area(
-                        svg(utils::get_image_dir().join("message-square.svg"))
+                        svg(utils::get_image_dir().join("house.svg"))
                             .width(26)
                             .height(26),
                     )
@@ -88,29 +89,14 @@ pub fn c_sidebar<'a>(
                     .on_release(Message::OpenCurrentChat)
                 )
                 .padding(Padding {
-                    top: 4.0,
-                    bottom: 4.0,
+                    top: 11.0,
+                    bottom: 7.0,
                     left: 0.0,
                     right: 0.0
                 }),
-                container(
-                    mouse_area(
-                        svg(utils::get_image_dir().join("bell.svg"))
-                            .width(26)
-                            .height(26),
-                    )
-                    .on_enter(Message::PrefetchCurrentChat)
-                    .on_release(Message::OpenCurrentChat)
-                )
-                .padding(Padding {
-                    top: 4.0,
-                    bottom: 4.0,
-                    left: 0.0,
-                    right: 0.0
-                }),
-                c_horizontal_line(&theme, 34.into()),
+                c_horizontal_line(&theme, 51.into()),
                 team_scrollbar,
-                c_horizontal_line(&theme, 34.into()),
+                c_horizontal_line(&theme, 51.into()),
                 container(user_icon).padding(Padding {
                     top: 4.0,
                     bottom: 4.0,
@@ -123,10 +109,9 @@ pub fn c_sidebar<'a>(
         )
         .style(|_| container::Style {
             background: Some(theme.colors.primary1.into()),
-            border: border::rounded(8),
             ..Default::default()
         }),
-    )
-    .padding(6.0)
+        c_vertical_line(theme, Length::Fill)
+    ]
     .into()
 }

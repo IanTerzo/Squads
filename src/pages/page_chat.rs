@@ -14,6 +14,7 @@ use crate::widgets::circle::circle;
 use crate::Message;
 use crate::{style, ChatBody};
 
+use iced::alignment::Vertical;
 use iced::task::Handle;
 use iced::widget::text_editor::Content;
 use iced::widget::{checkbox, column, container, mouse_area, row, space, svg, text_input, Id};
@@ -154,38 +155,54 @@ pub fn chat<'a>(
 
     // Side panel
 
-    let mut chats_column = if *page_body == ChatBody::Start {
-        column![container(
+    let additionals = column![
+        container(column![container(
             row![
-                svg(utils::get_image_dir().join("message-square.svg"))
-                    .width(18)
-                    .height(18),
-                text("New chat").color(theme.colors.demo_text)
+                svg(utils::get_image_dir().join("bell.svg"))
+                    .width(20)
+                    .height(20),
+                text!("Activity")
             ]
-            .align_y(Center)
-            .spacing(10)
+            .spacing(8)
         )
-        .style(move |_| { theme.stylesheet.list_tab_selected })
-        .center_y(47)
-        .padding(12)
-        .width(220)]
+        .width(190)
+        .padding(Padding {
+            top: 4.0,
+            bottom: 4.0,
+            left: 8.0,
+            right: 8.0,
+        })
+        .style(move |_| { theme.stylesheet.list_tab })])
+        .padding(Padding {
+            top: 8.0,
+            bottom: 14.0,
+            left: 10.0,
+            right: 0.0,
+        }),
+        container(c_horizontal_line(theme, 210.into()))
+            .width(Length::Fill)
+            .align_x(Alignment::Center),
+        container(
+            text("Direct Messages")
+                .size(14)
+                .color(theme.colors.demo_text)
+        )
+        .padding(Padding {
+            top: 10.0,
+            bottom: 2.0,
+            right: 0.0,
+            left: 8.0
+        })
+    ];
+
+    let mut chats_column = column![additionals]
         .spacing(theme.features.list_spacing)
         .padding(Padding {
             right: 4.0,
             left: 6.0,
             top: 6.0,
             bottom: 6.0,
-        })
-    } else {
-        column![]
-            .spacing(theme.features.list_spacing)
-            .padding(Padding {
-                right: 4.0,
-                left: 6.0,
-                top: 6.0,
-                bottom: 6.0,
-            })
-    };
+        });
 
     for chat in chats {
         let chat_title = get_chat_title(&chat, &me.id, &users);
@@ -280,34 +297,25 @@ pub fn chat<'a>(
 
     let chat_options = column![
         container(
-            row![
-                container(
-                    text_input("Search chats...", &search_chats_input_value)
-                        .on_input(Message::SearchChatsContentChanged)
-                        .padding(6)
-                        .style(|_, _| theme.stylesheet.input),
-                )
-                .width(188),
-                mouse_area(
-                    svg(utils::get_image_dir().join("square-pen.svg"))
-                        .width(22)
-                        .height(22)
-                )
-                .on_release(Message::ToggleNewChatMenu)
-            ]
-            .spacing(10)
-            .align_y(Alignment::Center),
+            container(
+                mouse_area(text("Start or find a chat")).on_release(Message::ToggleNewChatMenu)
+            )
+            .padding(Padding {
+                top: 5.0,
+                bottom: 5.0,
+                left: 30.0,
+                right: 30.0
+            })
+            .style(|_| container::Style {
+                background: Some(theme.colors.primary3.into()),
+                border: border::rounded(4),
+                ..Default::default()
+            })
         )
-        .padding(Padding {
-            top: 8.0,
-            bottom: 7.0,
-            left: 7.0,
-            right: 7.0
-        })
-        .style(|_| container::Style {
-            background: Some(theme.colors.primary1.into()),
-            ..Default::default()
-        }),
+        .height(48)
+        .width(Length::Fill)
+        .align_x(Alignment::Center)
+        .align_y(Vertical::Center),
         c_horizontal_line(theme, Length::Fill),
         container(space().width(Length::Fill).height(2)).style(|_| container::Style {
             background: Some(theme.colors.primary1.into()),
