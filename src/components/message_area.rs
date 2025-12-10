@@ -40,7 +40,8 @@ pub fn c_message_area<'a>(
                                     })]
                                     .size(20)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::Bold)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Bold))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     rich_text![span::<(), Font>("I").font(Font {
                                         style: font::Style::Italic,
@@ -48,19 +49,22 @@ pub fn c_message_area<'a>(
                                     })]
                                     .size(20)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::Italic)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Italic))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     rich_text![span::<(), Font>("U").underline(true)].size(20)
                                 )
-                                .on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::Underline)
-                                ),
+                                .on_release(Message::MessageAreaAction(
+                                    MessageAreaAction::Underline
+                                ))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     rich_text![span::<(), Font>("S").strikethrough(true)].size(20)
                                 )
-                                .on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::Striketrough)
-                                ),
+                                .on_release(Message::MessageAreaAction(
+                                    MessageAreaAction::Striketrough
+                                ))
+                                .interaction(iced::mouse::Interaction::Pointer),
                             ]
                             .spacing(8),
                             row![
@@ -69,15 +73,17 @@ pub fn c_message_area<'a>(
                                         .width(23)
                                         .height(23)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::List)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::List))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     svg(utils::get_image_dir().join("list-ordered.svg"))
                                         .width(23)
                                         .height(23)
                                 )
-                                .on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::OrderedList)
-                                )
+                                .on_release(Message::MessageAreaAction(
+                                    MessageAreaAction::OrderedList
+                                ))
+                                .interaction(iced::mouse::Interaction::Pointer),
                             ]
                             .padding(padding::top(3))
                             .spacing(8),
@@ -87,27 +93,31 @@ pub fn c_message_area<'a>(
                                         .width(23)
                                         .height(23)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::Code)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Code))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     svg(utils::get_image_dir().join("text-quote.svg"))
                                         .width(23)
                                         .height(23)
                                 )
-                                .on_release(
-                                    Message::MessageAreaAction(MessageAreaAction::Blockquote)
-                                ),
+                                .on_release(Message::MessageAreaAction(
+                                    MessageAreaAction::Blockquote
+                                ))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     svg(utils::get_image_dir().join("link.svg"))
                                         .width(19)
                                         .height(19)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::Link)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Link))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 mouse_area(
                                     svg(utils::get_image_dir().join("image.svg"))
                                         .width(19)
                                         .height(19)
                                 )
-                                .on_release(Message::MessageAreaAction(MessageAreaAction::Image)),
+                                .on_release(Message::MessageAreaAction(MessageAreaAction::Image))
+                                .interaction(iced::mouse::Interaction::Pointer),
                                 svg(utils::get_image_dir().join("at-sign.svg"))
                                     .width(19)
                                     .height(19)
@@ -173,13 +183,15 @@ pub fn c_message_area<'a>(
                     .on_release(Message::ToggleEmojiPicker(
                         Some(EmojiPickerLocation::OverMessageArea),
                         EmojiPickerAction::Send
-                    )),
+                    ))
+                    .interaction(iced::mouse::Interaction::Pointer),
                     mouse_area(
                         svg(utils::get_image_dir().join("upload.svg"))
                             .width(20)
                             .height(20)
                     )
-                    .on_release(Message::UploadFile),
+                    .on_release(Message::UploadFile)
+                    .interaction(iced::mouse::Interaction::Pointer),
                 ]
                 .spacing(8),
                 container(
@@ -190,6 +202,7 @@ pub fn c_message_area<'a>(
                             .align_y(Alignment::Center)
                     )
                     .on_release(Message::PostMessage)
+                    .interaction(iced::mouse::Interaction::Pointer)
                 )
                 .align_right(Length::Fill)
             ]

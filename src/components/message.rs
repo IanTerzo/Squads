@@ -244,7 +244,8 @@ pub fn c_message<'a>(
                     .on_release(Message::EmotionClicked(
                         message.id.clone().unwrap(),
                         reaction.clone(),
-                    ));
+                    ))
+                    .interaction(iced::mouse::Interaction::Pointer);
                     reactions_row = reactions_row.push(reaction_container);
                 }
             }
@@ -259,7 +260,8 @@ pub fn c_message<'a>(
         .on_release(Message::ToggleEmojiPicker(
             Some(EmojiPickerLocation::ReactionAdd),
             EmojiPickerAction::Reaction(message.id.clone().unwrap(), source_thread_id.clone()),
-        ));
+        ))
+        .interaction(iced::mouse::Interaction::Pointer);
 
         reactions_row = reactions_row.push(add_reaction_container);
 

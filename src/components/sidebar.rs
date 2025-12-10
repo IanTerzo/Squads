@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{column, container, mouse_area, row, scrollable, svg, MouseArea};
+use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, tooltip, MouseArea};
 use iced::{border, Alignment, Border, Element, Length, Padding};
 
 use crate::api::{Profile, Team};
@@ -26,52 +26,68 @@ pub fn c_sidebar<'a>(
         top: 6.0,
         bottom: 6.0,
     });
-
     for team in teams {
-        let team_picture = MouseArea::new(
-            container(c_cached_image(
-                team.picture_e_tag
-                    .clone()
-                    .unwrap_or(team.display_name.clone()),
-                Message::FetchTeamImage(
+        let team_picture = tooltip(
+            MouseArea::new(
+                container(c_cached_image(
                     team.picture_e_tag
                         .clone()
                         .unwrap_or(team.display_name.clone()),
-                    team.picture_e_tag.clone().unwrap_or("".to_string()),
-                    team.team_site_information.group_id.clone(),
-                    team.display_name.clone(),
-                ),
-                36.0,
-                36.0,
-                4.0,
-            ))
-            .width(38)
-            .height(38)
-            .align_x(Horizontal::Center)
-            .align_y(Vertical::Center)
-            .style(|_| {
-                if page
-                    .current_team_id
-                    .as_ref()
-                    .map_or(false, |id| *id == team.id)
-                {
-                    container::Style {
-                        border: Border {
-                            color: theme.colors.accent,
-                            width: 1.0,
-                            radius: 4.into(),
-                        },
-                        ..Default::default()
+                    Message::FetchTeamImage(
+                        team.picture_e_tag
+                            .clone()
+                            .unwrap_or(team.display_name.clone()),
+                        team.picture_e_tag.clone().unwrap_or("".to_string()),
+                        team.team_site_information.group_id.clone(),
+                        team.display_name.clone(),
+                    ),
+                    36.0,
+                    36.0,
+                    4.0,
+                ))
+                .width(38)
+                .height(38)
+                .align_x(Horizontal::Center)
+                .align_y(Vertical::Center)
+                .style(|_| {
+                    if page
+                        .current_team_id
+                        .as_ref()
+                        .map_or(false, |id| *id == team.id)
+                    {
+                        container::Style {
+                            border: Border {
+                                color: theme.colors.accent,
+                                width: 1.0,
+                                radius: 4.into(),
+                            },
+                            ..Default::default()
+                        }
+                    } else {
+                        container::Style {
+                            ..Default::default()
+                        }
                     }
-                } else {
-                    container::Style {
-                        ..Default::default()
-                    }
-                }
-            }),
-        )
-        .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
-        .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()));
+                }),
+            )
+            .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
+            .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()))
+            .interaction(iced::mouse::Interaction::Pointer),
+            container(text(team.display_name.clone()).wrapping(text::Wrapping::WordOrGlyph))
+                .max_width(150)
+                .style(|_| container::Style {
+                    background: Some(theme.colors.primary2.into()),
+                    border: border::rounded(4),
+                    ..Default::default()
+                })
+                .padding(Padding {
+                    top: 8.0,
+                    bottom: 10.0,
+                    right: 10.0,
+                    left: 8.0,
+                }),
+            tooltip::Position::Right,
+        );
 
         teams_column = teams_column.push(team_picture);
     }
@@ -115,6 +131,7 @@ pub fn c_sidebar<'a>(
                     )
                     .on_enter(Message::PrefetchCurrentChat)
                     .on_release(Message::OpenCurrentChat)
+                    .interaction(iced::mouse::Interaction::Pointer)
                 )
                 .padding(Padding {
                     top: 11.0,

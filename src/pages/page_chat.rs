@@ -161,23 +161,27 @@ pub fn chat<'a>(
     // Side panel
 
     let additionals = column![
-        container(column![container(
-            row![
-                svg(utils::get_image_dir().join("bell.svg"))
-                    .width(20)
-                    .height(20),
-                text!("Activity")
-            ]
-            .spacing(8)
+        container(column![mouse_area(
+            container(
+                row![
+                    svg(utils::get_image_dir().join("bell.svg"))
+                        .width(20)
+                        .height(20),
+                    text!("Activity")
+                ]
+                .spacing(8)
+            )
+            .width(190)
+            .padding(Padding {
+                top: 4.0,
+                bottom: 4.0,
+                left: 8.0,
+                right: 8.0,
+            })
+            .style(move |_| { theme.stylesheet.list_tab })
         )
-        .width(190)
-        .padding(Padding {
-            top: 4.0,
-            bottom: 4.0,
-            left: 8.0,
-            right: 8.0,
-        })
-        .style(move |_| { theme.stylesheet.list_tab })])
+        .on_release(Message::ToggleActivity)
+        .interaction(iced::mouse::Interaction::Pointer)])
         .padding(Padding {
             top: 8.0,
             bottom: 14.0,
@@ -273,7 +277,10 @@ pub fn chat<'a>(
             container(chat_items)
                 .style(move |_| {
                     if let Some(current_chat) = current_chat {
-                        if chat.id == current_chat.id && *page_body != ChatBody::Start {
+                        if chat.id == current_chat.id
+                            && *page_body != ChatBody::Start
+                            && *page_body != ChatBody::Activity
+                        {
                             theme.stylesheet.list_tab_selected
                         } else {
                             theme.stylesheet.list_tab
@@ -286,7 +293,8 @@ pub fn chat<'a>(
                 .width(220),
         )
         .on_enter(Message::PrefetchChat(chat.id.clone()))
-        .on_release(Message::OpenChat(chat.id.clone()));
+        .on_release(Message::OpenChat(chat.id.clone()))
+        .interaction(iced::mouse::Interaction::Pointer);
 
         chats_column = chats_column.push(chat_item);
     }
@@ -372,13 +380,15 @@ pub fn chat<'a>(
                                 .width(19)
                                 .height(19)
                         )
-                        .on_release(Message::ToggleShowChatMembers),
+                        .on_release(Message::ToggleShowChatMembers)
+                        .interaction(iced::mouse::Interaction::Pointer),
                         mouse_area(
                             svg(utils::get_image_dir().join("user-round-plus.svg"))
                                 .width(19)
                                 .height(19)
                         )
-                        .on_release(Message::ToggleShowChatAdd),
+                        .on_release(Message::ToggleShowChatAdd)
+                        .interaction(iced::mouse::Interaction::Pointer),
                     ]
                     .spacing(14)
                 )
@@ -925,7 +935,7 @@ pub fn chat<'a>(
             bottom: 6.0,
         });
 
-        if *page_body != ChatBody::Start {
+        if *page_body != ChatBody::Start && *page_body != ChatBody::Activity {
             content_page = content_page.push(message_area);
         }
 

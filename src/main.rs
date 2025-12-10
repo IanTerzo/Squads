@@ -169,6 +169,7 @@ pub enum Message {
     OpenChat(String),
     ReadChat(String),
     OpenCurrentChat,
+    ToggleActivity,
     ToggleReplyOptions(String),
     ShowChatMessageOptions(String),
     StopShowChatMessageOptions(String),
@@ -1275,6 +1276,14 @@ impl Counter {
                     } else {
                         return snap_to(Id::new("conversation_column"), RelativeOffset::END);
                     };
+                }
+                Task::none()
+            }
+            Message::ToggleActivity => {
+                if self.page.chat_body == ChatBody::Activity {
+                    self.page.chat_body = ChatBody::Messages;
+                } else {
+                    self.page.chat_body = ChatBody::Activity;
                 }
                 Task::none()
             }

@@ -9,13 +9,10 @@ use crate::{style, utils};
 use directories::ProjectDirs;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::text_editor::Content;
-use iced::widget::{
-    column, container, image, row, scrollable, space, svg, text, Column, Id, MouseArea,
-};
-use iced::{font, padding, ContentFit, Element, Length, Padding};
+use iced::widget::{column, container, mouse_area, row, scrollable, space, text, Column, Id};
+use iced::{font, padding, Element, Length, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
-use std::fmt::Alignment;
 
 pub fn team<'a>(
     theme: &'a style::Theme,
@@ -164,7 +161,7 @@ pub fn team<'a>(
         let page_channel_cloned = page_channel.clone();
         let channel_cloned = channel.clone();
         channels_coloumn = channels_coloumn.push(
-            MouseArea::new(
+            mouse_area(
                 container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
@@ -179,7 +176,8 @@ pub fn team<'a>(
                     .width(216),
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
-            .on_release(Message::OpenTeam(team.id.clone(), channel.id)),
+            .on_release(Message::OpenTeam(team.id.clone(), channel.id))
+            .interaction(iced::mouse::Interaction::Pointer),
         );
     }
 

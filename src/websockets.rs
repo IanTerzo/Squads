@@ -368,6 +368,7 @@ pub struct WebsocketData {
     pub tenant: String,
 }
 
+// Implement Hash/Eq but only hash the things you actually want to identify the subscription by.
 impl Hash for WebsocketData {
     fn hash<H: Hasher>(&self, state: &mut H) {
         // only tenant contributes to subscription identity

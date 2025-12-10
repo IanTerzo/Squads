@@ -240,7 +240,9 @@ pub fn c_chat_message<'a>(
                     .on_release(Message::EmotionClicked(
                         message.id.clone().unwrap(),
                         reaction.clone(),
-                    ));
+                    ))
+                    .interaction(iced::mouse::Interaction::Pointer);
+
                     reactions_row = reactions_row.push(reaction_container);
 
                     are_reactions = true;
@@ -368,15 +370,15 @@ pub fn c_chat_message<'a>(
                                     "".to_string()
                                 }
                             )),
-                            mouse_area(container(text("+").size(20))).on_release(
-                                Message::ToggleEmojiPicker(
+                            mouse_area(container(text("+").size(20)))
+                                .on_release(Message::ToggleEmojiPicker(
                                     Some(EmojiPickerLocation::ReactionContext),
                                     EmojiPickerAction::Reaction(
                                         message.id.clone().unwrap(),
                                         chat_thread_id.clone()
                                     )
-                                )
-                            )
+                                ))
+                                .interaction(iced::mouse::Interaction::Pointer)
                         ]
                         .align_y(Alignment::Center)
                         .spacing(8)
