@@ -20,6 +20,7 @@ pub fn team<'a>(
     page_channel: &Channel,
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
+    channel_list_options: &'a HashMap<String, bool>,
     emoji_map: &IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
@@ -178,6 +179,18 @@ pub fn team<'a>(
                                 border: border::rounded(6),
                                 ..Default::default()
                             }
+                        } else if channel_list_options
+                            .get(&channel_cloned.id)
+                            .unwrap_or(&false)
+                            .to_owned()
+                        {
+                            container::Style {
+                                background: Some(
+                                    theme.colors.foreground_button_nobg_hovered.into(),
+                                ),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         } else {
                             container::Style {
                                 background: Some(theme.colors.foreground.into()),
@@ -192,6 +205,7 @@ pub fn team<'a>(
                     .width(216),
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
+            .on_exit(Message::StopShowChannelListOptions(channel.id.clone()))
             .on_release(Message::OpenTeam(team.id.clone(), channel.id))
             .interaction(iced::mouse::Interaction::Pointer),
         );

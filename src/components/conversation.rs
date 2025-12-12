@@ -50,6 +50,7 @@ pub fn c_conversation<'a>(
                 .color(theme.colors.text_link)
                 .size(14),
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::ToggleReplyOptions(conversation_id)),
         );
     }

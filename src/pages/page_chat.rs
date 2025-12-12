@@ -142,6 +142,7 @@ pub fn chat<'a>(
     chats: &'a Vec<Chat>,
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
+    chat_list_options: &'a HashMap<String, bool>,
     emoji_map: &'a IndexMap<String, Emoji>,
     users: &'a HashMap<String, Profile>,
     user_presences: &'a HashMap<String, Presence>,
@@ -293,6 +294,14 @@ pub fn chat<'a>(
                                 border: border::rounded(6),
                                 ..Default::default()
                             }
+                        } else if chat_list_options.get(&chat.id).unwrap_or(&false).to_owned() {
+                            container::Style {
+                                background: Some(
+                                    theme.colors.foreground_button_nobg_hovered.into(),
+                                ),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         } else {
                             container::Style {
                                 background: Some(theme.colors.foreground.into()),
@@ -312,6 +321,7 @@ pub fn chat<'a>(
                 .width(220),
         )
         .on_enter(Message::PrefetchChat(chat.id.clone()))
+        .on_exit(Message::StopShowChatListOptions(chat.id.clone()))
         .on_release(Message::OpenChat(chat.id.clone()))
         .interaction(iced::mouse::Interaction::Pointer);
 

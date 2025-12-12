@@ -2,7 +2,7 @@ use crate::{style::Theme, Message};
 use iced::{
     border,
     widget::{container, text},
-    Element, Padding,
+    Border, Element, Padding,
 };
 
 pub fn c_tooltip<'a>(theme: &'a Theme, message: &'a str) -> Element<'a, Message> {
@@ -10,7 +10,11 @@ pub fn c_tooltip<'a>(theme: &'a Theme, message: &'a str) -> Element<'a, Message>
         .max_width(150)
         .style(|_| container::Style {
             background: Some(theme.colors.tooltip.into()),
-            border: border::rounded(4),
+            border: Border {
+                color: theme.colors.line,
+                width: 1.0,
+                radius: 4.0.into(),
+            },
             ..Default::default()
         })
         .padding(Padding {

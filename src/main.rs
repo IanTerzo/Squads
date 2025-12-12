@@ -125,6 +125,8 @@ struct Counter {
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
     chat_message_options: HashMap<String, bool>, // String is the message id
+    chat_list_options: HashMap<String, bool>, // String is the chat id
+    channel_list_options: HashMap<String, bool>, // String is the channel id
     team_conversations: HashMap<String, TeamConversations>, // String is the team id
     chat_conversations: HashMap<String, Vec<api::Message>>, // String is the thread id
     activity_expanded_conversations: HashMap<String, (bool, Vec<api::Message>)>, // String is the thread id, bool is toggled
@@ -197,9 +199,11 @@ pub enum Message {
     ToggleExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
     PrefetchChat(String),
+    StopShowChatListOptions(String),
     PrefetchCurrentChat,
     GotChatConversations(String, Conversations), //callback
     PrefetchTeam(String, String),
+    StopShowChannelListOptions(String),
     GotConversations(String, TeamConversations), //callback
     OnScroll(Viewport),
     PostMessage,
@@ -442,6 +446,8 @@ impl Counter {
             scrollbar_scroll: 0,
             scrollbar_percentage_scroll: 1.0,
             chat_message_options: HashMap::new(),
+            chat_list_options: HashMap::new(),
+            channel_list_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
             history: vec![Page {
                 view: View::Chat,
@@ -536,6 +542,7 @@ impl Counter {
                         &current_channel,
                         &conversation,
                         &reply_options,
+                        &self.channel_list_options,
                         &self.emoji_map,
                         &self.users,
                         &self.me,
@@ -571,6 +578,7 @@ impl Counter {
                         &self.chats,
                         &conversation,
                         &self.chat_message_options,
+                        &self.chat_list_options,
                         &self.emoji_map,
                         &self.users,
                         &self.user_presences,
@@ -1541,6 +1549,11 @@ impl Counter {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
+                // Do not show the hover options if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.chat_list_options.insert(thread_id.clone(), true);
+                }
+
                 if !thread_id.starts_with("draft:") {
                     Task::perform(
                         async move {
@@ -1560,6 +1573,18 @@ impl Counter {
                 } else {
                     Task::none()
                 }
+            }
+            Message::StopShowChatListOptions(chat_id) => {
+                // Do not hide the options for the current shown option if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.chat_list_options.insert(chat_id, false);
+                } else {
+                    // This ensures that the options menu is hidding after leaving the reaction menu
+                    if self.emoji_picker_hide_options.is_none() {
+                        self.emoji_picker_hide_options = Some(chat_id)
+                    }
+                }
+                Task::none()
             }
             Message::PrefetchCurrentChat => {
                 if let Some(chat_id) = self.page.current_chat_id.clone() {
@@ -1591,6 +1616,12 @@ impl Counter {
                 let channel_id_clone = channel_id.clone();
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
+
+                // Do not show the hover options if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.channel_list_options.insert(channel_id.clone(), true);
+                }
+
                 Task::perform(
                     async move {
                         let access_token = get_or_gen_token(
@@ -1606,6 +1637,18 @@ impl Counter {
                     },
                     move |result| Message::GotConversations(channel_id_clone.clone(), result), // This calls a message
                 )
+            }
+            Message::StopShowChannelListOptions(channel_id) => {
+                // Do not hide the options for the current shown option if the emoji picker is open
+                if self.emoji_picker_toggle.location.is_none() {
+                    self.channel_list_options.insert(channel_id, false);
+                } else {
+                    // This ensures that the options menu is hidding after leaving the reaction menu
+                    if self.emoji_picker_hide_options.is_none() {
+                        self.emoji_picker_hide_options = Some(channel_id)
+                    }
+                }
+                Task::none()
             }
             Message::GotConversations(channel_id, conversations) => {
                 self.team_conversations.insert(channel_id, conversations);
