@@ -7,7 +7,7 @@ use crate::websockets::Presence;
 use crate::Message;
 use crate::{style, utils};
 use iced::widget::{column, container, mouse_area, row, svg, text};
-use iced::{border, font, Alignment, Element, Font, Padding};
+use iced::{border, font, Alignment, Border, Element, Font, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -228,9 +228,21 @@ pub fn c_message<'a>(
                         container(row![reaction_text, text(reacters)].spacing(4))
                             .style(move |_| {
                                 if self_has_reacted {
-                                    theme.stylesheet.accent_button
+                                    container::Style {
+                                        background: Some(theme.colors.not_set.into()),
+                                        border: Border {
+                                            color: theme.colors.line,
+                                            width: 2.0,
+                                            radius: 4.0.into(),
+                                        },
+                                        ..Default::default()
+                                    }
                                 } else {
-                                    theme.stylesheet.primary_button
+                                    container::Style {
+                                        background: Some(theme.colors.foreground.into()),
+                                        border: border::rounded(4),
+                                        ..Default::default()
+                                    }
                                 }
                             })
                             .padding(Padding {
@@ -253,7 +265,11 @@ pub fn c_message<'a>(
 
         let add_reaction_container = mouse_area(
             container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-                .style(|_| theme.stylesheet.primary_button)
+                .style(|_| container::Style {
+                    background: Some(theme.colors.foreground_surface.into()),
+                    border: border::rounded(4),
+                    ..Default::default()
+                })
                 .padding(3)
                 .align_y(Alignment::Center),
         )
@@ -289,7 +305,7 @@ pub fn c_message<'a>(
                             .spacing(8),
                         )
                         .style(|_| container::Style {
-                            background: Some(theme.colors.primary2.into()),
+                            background: Some(theme.colors.foreground.into()),
                             border: border::rounded(6),
                             ..Default::default()
                         })

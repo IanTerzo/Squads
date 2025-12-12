@@ -400,7 +400,7 @@ fn transform_html<'a>(
                     }
                 }
             } else if element_name == "blockquote" {
-                let color = theme.colors.primary3;
+                let color = theme.colors.foreground_surface;
 
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Reply" {
@@ -455,7 +455,7 @@ fn transform_html<'a>(
                     );
                 }
             } else if element_name == "code" {
-                let color = theme.colors.primary3;
+                let color = theme.colors.foreground_surface;
                 let mut raw_code = child_element.inner_html();
 
                 raw_code = raw_code.replace("<br>", "\n");

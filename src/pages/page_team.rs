@@ -1,16 +1,16 @@
 use crate::api::{Channel, Profile, Team, TeamConversations};
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
+use crate::style;
 use crate::types::Emoji;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
 use crate::Message;
-use crate::{style, utils};
 use directories::ProjectDirs;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::text_editor::Content;
 use iced::widget::{column, container, mouse_area, row, scrollable, space, text, Column, Id};
-use iced::{font, padding, Element, Length, Padding};
+use iced::{border, font, padding, Element, Length, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -128,7 +128,13 @@ pub fn team<'a>(
                 left: 8.0,
                 right: 8.0,
             })
-            .style(move |_| { theme.stylesheet.list_tab })])
+            .style(move |_| {
+                container::Style {
+                    background: Some(theme.colors.foreground.into()),
+                    border: border::rounded(6),
+                    ..Default::default()
+                }
+            })])
         .padding(Padding {
             top: 8.0,
             bottom: 14.0,
@@ -165,9 +171,19 @@ pub fn team<'a>(
                 container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
-                            theme.stylesheet.list_tab_selected
+                            container::Style {
+                                background: Some(
+                                    theme.colors.foreground_button_nobg_selected.into(),
+                                ),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         } else {
-                            theme.stylesheet.list_tab
+                            container::Style {
+                                background: Some(theme.colors.foreground.into()),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         }
                     })
                     .padding(Padding::from([0, 8]))
@@ -188,11 +204,11 @@ pub fn team<'a>(
                 .spacing(theme.features.scrollable_spacing)
                 .scroller_width(theme.features.scrollbar_width),
         ))
-        .style(|_, _| theme.stylesheet.side_scrollable);
+        .style(|_, _| theme.stylesheet.scrollable);
 
     let team_info_column = container(column![team_info, team_scrollbar])
         .style(|_| container::Style {
-            background: Some(theme.colors.primary1.into()),
+            background: Some(theme.colors.foreground.into()),
             ..Default::default()
         })
         .height(Length::Fill);

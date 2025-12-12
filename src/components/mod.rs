@@ -9,4 +9,5 @@ pub mod message_area;
 pub mod picture_and_status;
 pub mod preview_message;
 pub mod sidebar;
+pub mod toooltip;
 pub mod vertical_line;

@@ -91,7 +91,7 @@ pub fn c_preview_message<'a>(
                 ])
                 .padding(5)
                 .style(move |_| container::Style {
-                    background: Some(theme.colors.primary3.into()),
+                    background: Some(theme.colors.foreground_surface.into()),
                     border: border::rounded(4),
                     ..Default::default()
                 }),
@@ -120,7 +120,11 @@ pub fn c_preview_message<'a>(
     }
 
     container(message_column)
-        .style(|_| theme.stylesheet.conversation)
+        .style(|_| container::Style {
+            background: Some(theme.colors.foreground.into()),
+            border: border::rounded(8),
+            ..Default::default()
+        })
         .width(iced::Length::Fill)
         .padding(20)
         .into()

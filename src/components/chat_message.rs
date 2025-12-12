@@ -7,8 +7,8 @@ use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
 use crate::websockets::Presence;
 use crate::Message;
-use iced::widget::{column, container, mouse_area, row, stack, svg, text};
-use iced::{border, font, padding, Alignment, Element, Font, Length, Padding};
+use iced::widget::{column, container, mouse_area, row, stack, svg, text, tooltip};
+use iced::{border, font, padding, Alignment, Border, Element, Font, Length, Padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -174,7 +174,7 @@ pub fn c_chat_message<'a>(
                             .spacing(8),
                         )
                         .style(|_| container::Style {
-                            background: Some(theme.colors.primary3.into()),
+                            background: Some(theme.colors.foreground_surface.into()),
                             border: border::rounded(6),
                             ..Default::default()
                         })
@@ -224,9 +224,21 @@ pub fn c_chat_message<'a>(
                         container(row![reaction_text, text(reacters)].spacing(4))
                             .style(move |_| {
                                 if self_has_reacted {
-                                    theme.stylesheet.accent_button
+                                    container::Style {
+                                        background: Some(theme.colors.foreground.into()),
+                                        border: Border {
+                                            color: theme.colors.line,
+                                            width: 2.0,
+                                            radius: 4.0.into(),
+                                        },
+                                        ..Default::default()
+                                    }
                                 } else {
-                                    theme.stylesheet.primary_button
+                                    container::Style {
+                                        background: Some(theme.colors.foreground.into()),
+                                        border: border::rounded(4),
+                                        ..Default::default()
+                                    }
                                 }
                             })
                             .padding(Padding {
@@ -255,7 +267,11 @@ pub fn c_chat_message<'a>(
         reactions_row = reactions_row.push(
             mouse_area(
                 container(text("+"))
-                    .style(|_| theme.stylesheet.primary_button)
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.foreground_surface.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
                     .padding(Padding {
                         top: 3.0,
                         right: 5.0,
@@ -284,7 +300,6 @@ pub fn c_chat_message<'a>(
         .get(&message.id.clone().unwrap())
         .unwrap_or(&false)
         .to_owned();
-
     if is_hovered {
         action_container = container(
             container(
@@ -390,7 +405,11 @@ pub fn c_chat_message<'a>(
                     bottom: 3.0,
                     left: 6.0,
                 })
-                .style(|_| theme.stylesheet.primary_button),
+                .style(|_| container::Style {
+                    background: Some(theme.colors.foreground_surface.into()),
+                    border: border::rounded(4),
+                    ..Default::default()
+                }),
             )
             .padding(padding::right(10))
             .align_y(Alignment::Center),
@@ -403,9 +422,9 @@ pub fn c_chat_message<'a>(
             container(message_row)
                 .style(move |_| container::Style {
                     background: if is_hovered {
-                        Some(theme.colors.primary2_highlight.into())
+                        Some(theme.colors.message_hovered.into())
                     } else {
-                        Some(theme.colors.primary2.into())
+                        Some(theme.colors.background.into())
                     },
                     border: border::rounded(4),
                     ..Default::default()

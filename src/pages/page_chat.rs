@@ -21,7 +21,6 @@ use iced::task::Handle;
 use iced::widget::text_editor::Content;
 use iced::widget::{checkbox, column, container, mouse_area, row, space, svg, text_input, Id};
 use iced::widget::{scrollable, text};
-use iced::Alignment::Center;
 use iced::{border, padding, Alignment, Color, Element, Length, Padding};
 use indexmap::IndexMap;
 
@@ -178,7 +177,13 @@ pub fn chat<'a>(
                 left: 8.0,
                 right: 8.0,
             })
-            .style(move |_| { theme.stylesheet.list_tab })
+            .style(move |_| {
+                container::Style {
+                    background: Some(theme.colors.foreground.into()),
+                    border: border::rounded(6),
+                    ..Default::default()
+                }
+            })
         )
         .on_release(Message::ToggleActivity)
         .interaction(iced::mouse::Interaction::Pointer)])
@@ -281,12 +286,26 @@ pub fn chat<'a>(
                             && *page_body != ChatBody::Start
                             && *page_body != ChatBody::Activity
                         {
-                            theme.stylesheet.list_tab_selected
+                            container::Style {
+                                background: Some(
+                                    theme.colors.foreground_button_nobg_selected.into(),
+                                ),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         } else {
-                            theme.stylesheet.list_tab
+                            container::Style {
+                                background: Some(theme.colors.foreground.into()),
+                                border: border::rounded(6),
+                                ..Default::default()
+                            }
                         }
                     } else {
-                        theme.stylesheet.list_tab
+                        container::Style {
+                            background: Some(theme.colors.foreground.into()),
+                            border: border::rounded(6),
+                            ..Default::default()
+                        }
                     }
                 })
                 .center_y(47)
@@ -306,7 +325,7 @@ pub fn chat<'a>(
                 .spacing(theme.features.scrollable_spacing)
                 .scroller_width(theme.features.scrollbar_width),
         ))
-        .style(|_, _| theme.stylesheet.side_scrollable);
+        .style(|_, _| theme.stylesheet.scrollable);
 
     let chat_options = column![
         container(
@@ -320,7 +339,7 @@ pub fn chat<'a>(
                 right: 30.0
             })
             .style(|_| container::Style {
-                background: Some(theme.colors.primary3.into()),
+                background: Some(theme.colors.foreground_button.into()),
                 border: border::rounded(4),
                 ..Default::default()
             })
@@ -331,14 +350,14 @@ pub fn chat<'a>(
         .align_y(Vertical::Center),
         c_horizontal_line(theme, Length::Fill),
         container(space().width(Length::Fill).height(2)).style(|_| container::Style {
-            background: Some(theme.colors.primary1.into()),
+            background: Some(theme.colors.foreground.into()),
             ..Default::default()
         })
     ];
 
     let side_panel = container(column![chat_options, chats_scrollable].width(230))
         .style(|_| container::Style {
-            background: Some(theme.colors.primary1.into()),
+            background: Some(theme.colors.foreground.into()),
             ..Default::default()
         })
         .height(Length::Fill);
@@ -414,7 +433,7 @@ pub fn chat<'a>(
 
         let title_row_container = column![
             container(title_row).style(|_| container::Style {
-                background: Some(theme.colors.primary2.into()),
+                background: Some(theme.colors.background.into()),
                 ..Default::default()
             }),
             c_horizontal_line(theme, Length::Fill),
@@ -537,7 +556,7 @@ pub fn chat<'a>(
                                 .unwrap_or("Unknown User".to_string())
                         ),
                         container(checkbox(is_checked).style(|_, _| checkbox::Style {
-                            background: theme.colors.primary3.into(),
+                            background: theme.colors.foreground_surface.into(),
                             border: border::rounded(2),
                             icon_color: theme.colors.text,
                             text_color: None,
@@ -551,7 +570,7 @@ pub fn chat<'a>(
                             mouse_area(
                                 container(profile_row)
                                     .style(|_| container::Style {
-                                        background: Some(theme.colors.primary1.into()),
+                                        background: Some(theme.colors.foreground.into()),
                                         border: border::rounded(4),
                                         ..Default::default()
                                     })
@@ -592,7 +611,7 @@ pub fn chat<'a>(
                                 })
                                 .style(|_| {
                                     container::Style {
-                                        background: Some(theme.colors.primary1.into()),
+                                        background: Some(theme.colors.foreground_surface.into()),
                                         border: border::rounded(4),
                                         ..Default::default()
                                     }
@@ -732,7 +751,7 @@ pub fn chat<'a>(
                     members_column = members_column.push(
                         container(message_row)
                             .style(|_| container::Style {
-                                background: Some(theme.colors.primary1.into()),
+                                background: Some(theme.colors.foreground.into()),
                                 border: border::rounded(4),
                                 ..Default::default()
                             })

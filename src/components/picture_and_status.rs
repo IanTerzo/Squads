@@ -10,7 +10,7 @@ use crate::{style::Theme, websockets::Presence, Message};
 
 fn svg_availible<'a>(theme: &Theme) -> Element<'a, Message> {
     let [r, g, b, a] = theme.colors.status_available.into_rgba8();
-    let [r1, g1, b1, a1] = theme.colors.primary1.into_rgba8();
+    let [r1, g1, b1, a1] = theme.colors.foreground.into_rgba8();
 
     let svg_content = format!(
         r##"
@@ -28,7 +28,7 @@ fn svg_availible<'a>(theme: &Theme) -> Element<'a, Message> {
 
 fn svg_away<'a>(theme: &Theme) -> Element<'a, Message> {
     let [r, g, b, a] = theme.colors.status_away.into_rgba8();
-    let [r1, g1, b1, a1] = theme.colors.primary1.into_rgba8();
+    let [r1, g1, b1, a1] = theme.colors.foreground.into_rgba8();
 
     let svg_content = format!(
         r##"
@@ -51,7 +51,7 @@ fn svg_away<'a>(theme: &Theme) -> Element<'a, Message> {
 
 fn svg_busy<'a>(theme: &Theme) -> Element<'a, Message> {
     let [r, g, b, a] = theme.colors.status_busy.into_rgba8();
-    let [r1, g1, b1, a1] = theme.colors.primary1.into_rgba8();
+    let [r1, g1, b1, a1] = theme.colors.foreground.into_rgba8();
 
     let svg_content = format!(
         r##"
@@ -69,7 +69,7 @@ fn svg_busy<'a>(theme: &Theme) -> Element<'a, Message> {
 
 fn svg_offline<'a>(theme: &Theme) -> Element<'a, Message> {
     let [r, g, b, a] = theme.colors.status_offline.into_rgba8();
-    let [r1, g1, b1, a1] = theme.colors.primary1.into_rgba8();
+    let [r1, g1, b1, a1] = theme.colors.foreground.into_rgba8();
 
     let svg_content = format!(
         r##"

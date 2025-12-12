@@ -8,6 +8,7 @@ use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
+use crate::components::toooltip::c_tooltip;
 use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
 use crate::{style, utils};
@@ -73,19 +74,7 @@ pub fn c_sidebar<'a>(
             .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
             .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()))
             .interaction(iced::mouse::Interaction::Pointer),
-            container(text(team.display_name.clone()).wrapping(text::Wrapping::WordOrGlyph))
-                .max_width(150)
-                .style(|_| container::Style {
-                    background: Some(theme.colors.primary2.into()),
-                    border: border::rounded(4),
-                    ..Default::default()
-                })
-                .padding(Padding {
-                    top: 8.0,
-                    bottom: 10.0,
-                    right: 10.0,
-                    left: 8.0,
-                }),
+            c_tooltip(theme, &team.display_name),
             tooltip::Position::Right,
         );
 
@@ -100,7 +89,7 @@ pub fn c_sidebar<'a>(
                     .spacing(0)
                     .scroller_width(0),
             ))
-            .style(|_, _| theme.stylesheet.side_scrollable),
+            .style(|_, _| theme.stylesheet.scrollable),
     )
     .height(Length::Fill);
 
@@ -153,7 +142,7 @@ pub fn c_sidebar<'a>(
             .align_x(Alignment::Center),
         )
         .style(|_| container::Style {
-            background: Some(theme.colors.primary1.into()),
+            background: Some(theme.colors.foreground.into()),
             ..Default::default()
         }),
         c_vertical_line(theme, Length::Fill)

@@ -187,7 +187,7 @@ pub fn c_emoji_picker<'a>(
         bottom: 6.0,
     })
     .style(|_| container::Style {
-        background: Some(theme.colors.primary1.into()),
+        background: Some(theme.colors.foreground.into()),
 
         ..Default::default()
     });
@@ -209,9 +209,9 @@ pub fn c_emoji_picker<'a>(
         .height(400)
         .padding(2)
         .style(|_| container::Style {
-            background: Some(theme.colors.primary2.into()),
+            background: Some(theme.colors.foreground.into()),
             border: Border {
-                color: theme.colors.secondary1,
+                color: theme.colors.line,
                 width: 1.0,
                 radius: 8.0.into(),
             },

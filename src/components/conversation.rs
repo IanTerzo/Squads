@@ -1,5 +1,5 @@
 use iced::widget::{column, container, mouse_area, text};
-use iced::Element;
+use iced::{border, Element};
 use indexmap::IndexMap;
 
 use crate::types::Emoji;
@@ -71,7 +71,11 @@ pub fn c_conversation<'a>(
     }
     Some(
         container(message_chain)
-            .style(|_| theme.stylesheet.conversation)
+            .style(|_| container::Style {
+                background: Some(theme.colors.foreground.into()),
+                border: border::rounded(8),
+                ..Default::default()
+            })
             .width(iced::Length::Fill)
             .padding(20)
             .into(),

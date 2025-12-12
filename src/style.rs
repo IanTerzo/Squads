@@ -5,51 +5,39 @@ use iced::{
     widget::{
         container,
         scrollable::{self, AutoScroll},
-        text_editor, text_input,
+        text_input,
     },
-    Border, Color, Shadow,
+    Color, Shadow,
 };
 
 #[derive(Debug)]
 pub struct Stylesheet {
-    pub navbar: container::Style,
-    pub side_scrollable: scrollable::Style,
-    pub scrollable: scrollable::Style,
-    pub list_tab: container::Style,
-    pub list_tab_selected: container::Style,
     pub input: text_input::Style,
-    pub primary_button: container::Style,
-    pub accent_button: container::Style,
-    pub message_area: text_editor::Style,
-    pub message_area_bar: container::Style,
-    pub message_area_tab_active: container::Style,
-    pub message_area_tab: container::Style,
-    pub message_area_container: container::Style,
-    pub conversation: container::Style,
+    pub scrollable: scrollable::Style,
 }
 
 #[derive(Debug)]
 pub struct Colors {
-    pub not_set: Color,
+    pub not_set: Color, // To be used as a palceholder for colors that are not yet choosen
     pub background: Color,
+    pub foreground: Color,
+    pub foreground_button: Color,
+    pub foreground_button_nobg_hovered: Color,
+    pub foreground_button_nobg_selected: Color,
+    pub foreground_surface: Color,
+    pub line: Color,
+    pub tooltip: Color,
+    pub status_available: Color,
+    pub status_offline: Color,
+    pub status_busy: Color,
+    pub status_away: Color,
+    pub message_hovered: Color,
     pub text: Color,
     pub text_link: Color,
     pub demo_text: Color,
     pub text_selection: Color,
     pub accent: Color,
-    pub emotion_background: Color,
-    pub emotion_border: Color,
-    pub primary1: Color,
-    pub primary2: Color,
-    pub primary2_highlight: Color,
-    pub primary3: Color,
-    pub secondary1: Color,
-    pub primary1_selected: Color,
     pub notification: Color,
-    pub status_available: Color,
-    pub status_offline: Color,
-    pub status_busy: Color,
-    pub status_away: Color,
 }
 
 #[derive(Debug)]
@@ -70,25 +58,25 @@ pub struct Theme {
 pub fn squads_dark() -> Theme {
     let colors = Colors {
         not_set: Color::from_rgb(1.0, 0.0, 0.0), // To be used as a palceholder for colors that are not yet choosen
-        text: Color::WHITE,
-        text_link: Color::from_str("#6d74f4").expect("Color is invalid."),
-        demo_text: Color::from_str("#c1c1c1").expect("Color is invalid."),
-        background: Color::from_str("#1c1d22").expect("Color is invalid."),
-        text_selection: Color::from_str("#8e8b94").expect("Color is invalid."),
-        accent: Color::WHITE,
-        emotion_background: Color::from_rgba(0.427, 0.4, 0.8, 0.15),
-        emotion_border: Color::from_rgba(0.427, 0.4, 0.8, 0.34),
-        primary1: Color::from_str("#13171a").expect("Color is invalid."),
-        primary1_selected: Color::from_str("#283034").expect("Color is invalid."),
-        primary2: Color::from_str("#1c1d22").expect("Color is invalid."),
-        primary2_highlight: Color::from_str("#22282c").expect("Color is invalid."),
-        primary3: Color::from_str("#303137").expect("Color is invalid."),
-        secondary1: Color::from_str("#303137").expect("Color is invalid."),
-        notification: Color::WHITE,
+        background: Color::from_str("#211F1F").expect("Color is invalid."),
+        foreground: Color::from_str("#1B1A1A").expect("Color is invalid."),
+        foreground_button: Color::from_str("#232222").expect("Color is invalid."),
+        foreground_button_nobg_hovered: Color::from_str("#201F1F").expect("Color is invalid."),
+        foreground_button_nobg_selected: Color::from_str("#323030").expect("Color is invalid."),
+        foreground_surface: Color::from_str("#332E2E").expect("Color is invalid."),
+        line: Color::from_str("#393939").expect("Color is invalid."),
+        tooltip: Color::from_str("#29292A").expect("Color is invalid."),
         status_available: Color::from_str("#4db255").expect("Color is invalid."),
         status_offline: Color::from_str("#696c65").expect("Color is invalid."),
         status_busy: Color::from_str("#a92622").expect("Color is invalid."),
         status_away: Color::from_str("#ed9612").expect("Color is invalid."),
+        message_hovered: Color::from_str("#2A2929").expect("Color is invalid."),
+        text: Color::WHITE,
+        text_link: Color::from_str("#6d74f4").expect("Color is invalid."),
+        demo_text: Color::from_str("#c1c1c1").expect("Color is invalid."),
+        text_selection: Color::from_str("#8e8b94").expect("Color is invalid."),
+        accent: Color::WHITE,
+        notification: Color::WHITE,
     };
 
     let features = Features {
@@ -99,58 +87,21 @@ pub fn squads_dark() -> Theme {
     };
 
     let stylesheet = Stylesheet {
-        navbar: container::Style {
-            background: Some(colors.primary1.into()),
-            //border: border::rounded(10),
-            ..Default::default()
-        },
         input: text_input::Style {
-            background: colors.secondary1.into(),
+            background: colors.foreground_surface.into(),
             border: border::rounded(6),
             icon: colors.not_set,
             placeholder: colors.demo_text,
             value: colors.text,
             selection: colors.text_selection,
         },
-        side_scrollable: scrollable::Style {
-            container: container::Style {
-                background: Some(colors.primary1.into()),
-                ..Default::default()
-            },
-            vertical_rail: scrollable::Rail {
-                background: Some(colors.primary1.into()),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    background: colors.accent.into(),
-                    border: border::rounded(10),
-                },
-            },
-            horizontal_rail: scrollable::Rail {
-                background: Some(colors.primary1.into()),
-                border: border::rounded(10),
-                scroller: scrollable::Scroller {
-                    background: colors.not_set.into(),
-                    border: border::rounded(10),
-                },
-            },
-            gap: Some(colors.not_set.into()),
-            auto_scroll: AutoScroll {
-                background: colors.primary1.into(),
-                icon: colors.not_set,
-                border: border::rounded(10),
-                shadow: Shadow {
-                    ..Default::default()
-                },
-            },
-        },
         scrollable: scrollable::Style {
             container: container::Style {
-                background: Some(colors.background.into()),
-                border: border::rounded(10),
+                background: None,
                 ..Default::default()
             },
             vertical_rail: scrollable::Rail {
-                background: Some(colors.primary1.into()),
+                background: Some(colors.foreground.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
                     background: colors.accent.into(),
@@ -158,7 +109,7 @@ pub fn squads_dark() -> Theme {
                 },
             },
             horizontal_rail: scrollable::Rail {
-                background: Some(colors.primary1.into()),
+                background: Some(colors.foreground.into()),
                 border: border::rounded(10),
                 scroller: scrollable::Scroller {
                     background: colors.not_set.into(),
@@ -167,68 +118,13 @@ pub fn squads_dark() -> Theme {
             },
             gap: Some(colors.not_set.into()),
             auto_scroll: AutoScroll {
-                background: colors.primary1.into(),
+                background: colors.foreground.into(),
                 icon: colors.not_set,
                 border: border::rounded(10),
                 shadow: Shadow {
                     ..Default::default()
                 },
             },
-        },
-        list_tab: container::Style {
-            background: Some(colors.primary1.into()),
-            border: border::rounded(6),
-            ..Default::default()
-        },
-        list_tab_selected: container::Style {
-            background: Some(colors.primary1_selected.into()),
-            border: border::rounded(6),
-            ..Default::default()
-        },
-        message_area_bar: container::Style {
-            background: Some(colors.secondary1.into()),
-            border: border::rounded(4),
-
-            ..Default::default()
-        },
-        message_area_tab_active: container::Style {
-            background: Some(colors.primary1_selected.into()),
-            ..Default::default()
-        },
-        message_area_tab: container::Style {
-            background: Some(colors.primary3.into()),
-            ..Default::default()
-        },
-        message_area: text_editor::Style {
-            background: colors.primary1.into(),
-            border: border::rounded(4),
-            placeholder: colors.demo_text,
-            value: colors.text,
-            selection: colors.text_selection,
-        },
-        message_area_container: container::Style {
-            background: Some(colors.primary1.into()),
-            border: border::rounded(8),
-            ..Default::default()
-        },
-        primary_button: container::Style {
-            background: Some(colors.secondary1.into()),
-            border: border::rounded(4),
-            ..Default::default()
-        },
-        accent_button: container::Style {
-            background: Some(colors.emotion_background.into()),
-            border: Border {
-                color: colors.emotion_border,
-                width: 2.0,
-                radius: 4.0.into(),
-            },
-            ..Default::default()
-        },
-        conversation: container::Style {
-            background: Some(colors.primary1.into()),
-            border: border::rounded(8),
-            ..Default::default()
         },
     };
 

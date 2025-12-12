@@ -21,11 +21,17 @@ pub fn c_message_area<'a>(
                 row![
                     row![
                         container(text("Write"))
-                            .style(|_| theme.stylesheet.message_area_tab)
+                            .style(|_| container::Style {
+                                background: Some(theme.colors.foreground_surface.into()),
+                                ..Default::default()
+                            })
                             .padding(3)
                             .align_y(Alignment::Center),
                         container(text("Preview"))
-                            .style(|_| theme.stylesheet.message_area_tab)
+                            .style(|_| container::Style {
+                                background: Some(theme.colors.foreground_surface.into()),
+                                ..Default::default()
+                            })
                             .padding(3)
                             .align_y(Alignment::Center)
                     ]
@@ -136,7 +142,12 @@ pub fn c_message_area<'a>(
                     left: 10.0
                 })
             )
-            .style(|_| theme.stylesheet.message_area_bar),
+            .style(|_| container::Style {
+                background: Some(theme.colors.foreground_surface.into()),
+                border: border::rounded(4),
+
+                ..Default::default()
+            }),
             if let Some(subject_input_content) = subject_input_content {
                 column![
                     container(
@@ -148,7 +159,7 @@ pub fn c_message_area<'a>(
                             .on_input(Message::SubjectInputContentChanged)
                             .padding(6)
                             .style(|_, _| text_input::Style {
-                                background: theme.colors.primary1.into(),
+                                background: theme.colors.foreground.into(),
                                 border: border::rounded(6),
                                 icon: theme.colors.not_set,
                                 placeholder: theme.colors.demo_text,
@@ -172,7 +183,13 @@ pub fn c_message_area<'a>(
                 .height(*message_area_height)
                 .on_action(move |action| Message::MessageAreaEdit(action))
                 .placeholder("Type your message...")
-                .style(|_, _| theme.stylesheet.message_area),
+                .style(|_, _| text_editor::Style {
+                    background: theme.colors.foreground.into(),
+                    border: border::rounded(4),
+                    placeholder: theme.colors.demo_text,
+                    value: theme.colors.text,
+                    selection: theme.colors.text_selection,
+                }),
             row![
                 row![
                     mouse_area(
@@ -197,7 +214,11 @@ pub fn c_message_area<'a>(
                 container(
                     mouse_area(
                         container(text("Send"))
-                            .style(|_| theme.stylesheet.primary_button)
+                            .style(|_| container::Style {
+                                background: Some(theme.colors.foreground_button.into()),
+                                border: border::rounded(4),
+                                ..Default::default()
+                            })
                             .padding(4)
                             .align_y(Alignment::Center)
                     )
@@ -213,7 +234,11 @@ pub fn c_message_area<'a>(
                 left: 10.0
             })
         ])
-        .style(|_| theme.stylesheet.message_area_container),
+        .style(|_| container::Style {
+            background: Some(theme.colors.foreground.into()),
+            border: border::rounded(6),
+            ..Default::default()
+        }),
     )
     .into()
 }
