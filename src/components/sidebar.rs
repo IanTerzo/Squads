@@ -128,9 +128,9 @@ pub fn c_sidebar<'a>(
                     left: 0.0,
                     right: 0.0
                 }),
-                c_horizontal_line(&theme, 51.into()),
+                c_horizontal_line(&theme, 60.into()),
                 team_scrollbar,
-                c_horizontal_line(&theme, 51.into()),
+                c_horizontal_line(&theme, 60.into()),
                 container(user_icon).padding(Padding {
                     top: 4.0,
                     bottom: 4.0,

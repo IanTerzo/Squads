@@ -1,11 +1,13 @@
 use iced::advanced::image::{self, FilterMethod, Handle};
 use iced::advanced::mouse::Cursor;
-use iced::advanced::widget::{tree, Tree};
-use iced::advanced::{layout, renderer, Clipboard, Layout, Shell, Widget};
+use iced::advanced::widget::{Tree, tree};
+use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, renderer};
+use iced::border::Radius;
 use iced::widget::image::layout;
-use iced::{window, ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector};
+use iced::{ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector, window};
 use image_rs::codecs::gif;
 use image_rs::{AnimationDecoder, Frame, Frames};
+use std::any::Any;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -27,11 +29,13 @@ pub struct Gif {
     path: PathBuf,
     width: Length,
     height: Length,
-    region: Option<Rectangle<u32>>,
+    crop: Option<Rectangle<u32>>,
+    border_radius: Radius,
     content_fit: ContentFit,
     filter_method: FilterMethod,
     rotation: Rotation,
     opacity: f32,
+    scale: f32,
     expand: bool,
 }
 
@@ -42,11 +46,13 @@ impl<'a> Gif {
             path: path,
             width: Length::Shrink,
             height: Length::Shrink,
-            region: Some(Rectangle::default()),
+            crop: None,
+            border_radius: Radius::default(),
             content_fit: ContentFit::default(),
             filter_method: FilterMethod::default(),
             rotation: Rotation::default(),
             opacity: 1.0,
+            scale: 1.0,
             expand: false,
         }
     }
@@ -91,6 +97,91 @@ impl<'a> Gif {
         self.opacity = opacity.into();
         self
     }
+
+    pub fn crop(mut self, region: Rectangle<u32>) -> Self {
+        self.crop = Some(region);
+        self
+    }
+}
+
+fn crop(size: Size<u32>, region: Option<Rectangle<u32>>) -> Size<f32> {
+    if let Some(region) = region {
+        Size::new(
+            region.width.min(size.width) as f32,
+            region.height.min(size.height) as f32,
+        )
+    } else {
+        Size::new(size.width as f32, size.height as f32)
+    }
+}
+
+fn drawing_bounds<Renderer, Handle>(
+    renderer: &Renderer,
+    bounds: Rectangle,
+    handle: &Handle,
+    region: Option<Rectangle<u32>>,
+    content_fit: ContentFit,
+    rotation: Rotation,
+    scale: f32,
+) -> Rectangle
+where
+    Renderer: image::Renderer<Handle = Handle>,
+{
+    let original_size = renderer.measure_image(handle).unwrap_or_default();
+    let image_size = crop(original_size, region);
+    let rotated_size = rotation.apply(image_size);
+    let adjusted_fit = content_fit.fit(rotated_size, bounds.size());
+
+    let fit_scale = Vector::new(
+        adjusted_fit.width / rotated_size.width,
+        adjusted_fit.height / rotated_size.height,
+    );
+
+    let final_size = image_size * fit_scale * scale;
+
+    let (crop_offset, final_size) = if let Some(region) = region {
+        let x = region.x.min(original_size.width) as f32;
+        let y = region.y.min(original_size.height) as f32;
+        let width = image_size.width;
+        let height = image_size.height;
+
+        let ratio = Vector::new(
+            original_size.width as f32 / width,
+            original_size.height as f32 / height,
+        );
+
+        let final_size = final_size * ratio;
+
+        let scale = Vector::new(
+            final_size.width / original_size.width as f32,
+            final_size.height / original_size.height as f32,
+        );
+
+        let offset = match content_fit {
+            ContentFit::None => Vector::new(x * scale.x, y * scale.y),
+            _ => Vector::new(
+                ((original_size.width as f32 - width) / 2.0 - x) * scale.x,
+                ((original_size.height as f32 - height) / 2.0 - y) * scale.y,
+            ),
+        };
+
+        (offset, final_size)
+    } else {
+        (Vector::ZERO, final_size)
+    };
+
+    let position = match content_fit {
+        ContentFit::None => Point::new(
+            bounds.x + (rotated_size.width - adjusted_fit.width) / 2.0,
+            bounds.y + (rotated_size.height - adjusted_fit.height) / 2.0,
+        ),
+        _ => Point::new(
+            bounds.center_x() - final_size.width / 2.0,
+            bounds.center_y() - final_size.height / 2.0,
+        ),
+    };
+
+    Rectangle::new(position + crop_offset, final_size)
 }
 
 impl<'a, Message, Theme, Renderer> Widget<Message, Theme, Renderer> for Gif
@@ -135,17 +226,32 @@ where
         let (width, height) = current.buffer().dimensions();
         let handle = image::Handle::from_rgba(width, height, current.into_buffer().into_vec());
 
-        layout(
-            renderer,
-            limits,
-            &handle,
-            self.width,
-            self.height,
-            self.region,
-            self.content_fit,
-            self.rotation,
-            self.expand,
-        )
+        // The raw w/h of the underlying image
+        let image_size = crop(
+            renderer.measure_image(&handle).unwrap_or_default(),
+            self.crop,
+        );
+
+        // The rotated size of the image
+        let rotated_size = self.rotation.apply(image_size);
+
+        // The size to be available to the widget prior to `Shrink`ing
+        let bounds = if self.expand {
+            limits.width(width).height(height).max()
+        } else {
+            limits.resolve(width, height, rotated_size)
+        };
+
+        // The uncropped size of the image when fit to the bounds above
+        let full_size = self.content_fit.fit(rotated_size, bounds);
+
+        // Shrink the widget to fit the resized image, if requested
+        let final_size = Size {
+            width: bounds.width,
+            height: bounds.height,
+        };
+
+        layout::Node::new(final_size)
     }
 
     fn update(
@@ -210,52 +316,30 @@ where
             let (width, height) = frame.buffer().dimensions();
             let handle = image::Handle::from_rgba(width, height, frame.into_buffer().into_vec());
 
-            let image_size = Size::new(width as f32, height as f32);
-            let rotated_size = self.rotation.apply(image_size);
-
             let bounds = layout.bounds();
-            let adjusted_fit = self.content_fit.fit(rotated_size, bounds.size());
 
-            let scale = Vector::new(
-                adjusted_fit.width / rotated_size.width,
-                adjusted_fit.height / rotated_size.height,
+            let drawing_bounds = drawing_bounds(
+                renderer,
+                bounds,
+                &handle,
+                self.crop,
+                self.content_fit,
+                self.rotation,
+                self.scale,
             );
 
-            let final_size = image_size * scale;
-
-            let position = match self.content_fit {
-                ContentFit::None => Point::new(
-                    bounds.x + (rotated_size.width - adjusted_fit.width) / 2.0,
-                    bounds.y + (rotated_size.height - adjusted_fit.height) / 2.0,
-                ),
-                _ => Point::new(
-                    bounds.center_x() - final_size.width / 2.0,
-                    bounds.center_y() - final_size.height / 2.0,
-                ),
-            };
-
-            let drawing_bounds = Rectangle::new(position, final_size);
-
-            let render = |renderer: &mut Renderer| {
-                renderer.draw_image(
-                    image::Image {
-                        handle,
-                        filter_method: self.filter_method,
-                        rotation: self.rotation.radians(),
-                        opacity: self.opacity,
-                        snap: true,
-                        border_radius: 0.into(),
-                    },
-                    drawing_bounds,
-                    drawing_bounds,
-                );
-            };
-
-            if adjusted_fit.width > bounds.width || adjusted_fit.height > bounds.height {
-                renderer.with_layer(bounds, render);
-            } else {
-                render(renderer);
-            }
+            renderer.draw_image(
+                image::Image {
+                    handle,
+                    filter_method: self.filter_method,
+                    rotation: self.rotation.radians(),
+                    opacity: self.opacity,
+                    snap: true,
+                    border_radius: 0.into(),
+                },
+                drawing_bounds,
+                bounds,
+            );
         }
     }
 }

@@ -239,7 +239,7 @@ pub fn c_message<'a>(
                                     }
                                 } else {
                                     container::Style {
-                                        background: Some(theme.colors.foreground.into()),
+                                        background: Some(theme.colors.foreground_surface.into()),
                                         border: border::rounded(4),
                                         ..Default::default()
                                     }
@@ -305,7 +305,7 @@ pub fn c_message<'a>(
                             .spacing(8),
                         )
                         .style(|_| container::Style {
-                            background: Some(theme.colors.foreground.into()),
+                            background: Some(theme.colors.foreground_surface.into()),
                             border: border::rounded(6),
                             ..Default::default()
                         })

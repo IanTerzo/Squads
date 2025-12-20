@@ -1,21 +1,25 @@
+use crate::Message;
 use crate::components::cached_image::c_cached_gif;
 use crate::components::cached_image::c_cached_image;
 use crate::style;
 use crate::widgets::circle::circle;
-use crate::Message;
-use base64::engine::general_purpose::STANDARD;
+use crate::widgets::selectable_rich_text::selectable_rich_text;
+use crate::widgets::selectable_text;
+use crate::widgets::selectable_text::selectable_text;
 use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use directories::ProjectDirs;
+use iced::Alignment;
+use iced::Color;
+use iced::Padding;
 use iced::border;
 use iced::mouse;
 use iced::padding;
 use iced::widget::mouse_area;
 use iced::widget::space;
 use iced::widget::span;
-use iced::widget::{column, container, rich_text, row, text, Column, Container, Row};
-use iced::Alignment;
-use iced::Color;
-use iced::{font, Element, Font};
+use iced::widget::{Column, Container, Row, column, container, rich_text, row, text};
+use iced::{Element, Font, font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};
 use markdown_it::parser::inline::InlineRule;
@@ -23,7 +27,7 @@ use markdown_it::parser::inline::InlineState;
 use markdown_it::plugins::extra::linkify;
 use markdown_it::plugins::extra::strikethrough;
 use markdown_it::plugins::extra::tables;
-use markdown_it::{plugins, MarkdownIt, Node, NodeValue, Renderer};
+use markdown_it::{MarkdownIt, Node, NodeValue, Renderer, plugins};
 use scraper::{Html, Selector};
 use serde::Deserialize;
 use serde_json::Value;
@@ -251,6 +255,8 @@ fn transform_html<'a>(
     element: scraper::ElementRef<'a>,
     mut cascading_properties: HashMap<&'a str, String>,
 ) -> DynamicContainer {
+    let selection_color = theme.colors.text_selection;
+
     let element_tagname = element.value().name();
 
     // Initialize container as either row or column based on the tag name
@@ -298,8 +304,14 @@ fn transform_html<'a>(
                 if let Some(itemtype) = child_element.attr("itemtype") {
                     if itemtype == "http://schema.skype.com/Emoji" {
                         if let Some(alt) = child_element.attr("alt") {
-                            dynamic_container = dynamic_container
-                                .push(rich_text![span::<(), Font>(alt.to_string())].into());
+                            dynamic_container = dynamic_container.push(
+                                selectable_rich_text(vec![span::<(), Font>(alt.to_string())])
+                                    .style(move |_| selectable_text::Style {
+                                        color: None,
+                                        selection_color: selection_color,
+                                    })
+                                    .into(),
+                            );
                         }
                     } else if itemtype == "http://schema.skype.com/AMSImage" {
                         // most consistent way to get the image id
@@ -460,21 +472,44 @@ fn transform_html<'a>(
 
                 raw_code = raw_code.replace("<br>", "\n");
 
+                let lines_count = raw_code.lines().count();
+
                 let lines: Vec<Element<Message>> = raw_code
                     .lines()
-                    .map(|line| text!("{}", line.to_string()).into())
+                    .map(|line| {
+                        selectable_text(format!("{}", line.to_string()))
+                            .style(move |_| selectable_text::Style {
+                                color: None,
+                                selection_color: selection_color,
+                            })
+                            .into()
+                    })
                     .collect();
 
-                dynamic_container = dynamic_container.push(
-                    container(column(lines))
-                        .padding(5)
-                        .style(move |_| container::Style {
-                            background: Some(color.into()),
-                            border: border::rounded(5),
-                            ..Default::default()
-                        })
+                if lines_count > 1 {
+                    dynamic_container = dynamic_container.push(
+                        container(container(column(lines)).padding(10).style(move |_| {
+                            container::Style {
+                                background: Some(color.into()),
+                                border: border::rounded(5),
+                                ..Default::default()
+                            }
+                        }))
+                        .padding(padding::vertical(6))
                         .into(),
-                );
+                    );
+                } else {
+                    dynamic_container = dynamic_container.push(
+                        container(container(column(lines)).padding(3).style(move |_| {
+                            container::Style {
+                                background: Some(color.into()),
+                                border: border::rounded(3),
+                                ..Default::default()
+                            }
+                        }))
+                        .into(),
+                    );
+                }
             } else if element_name == "ul" {
                 let mut ul_list = column![].spacing(2);
                 for li in child_element.select(&Selector::parse("li").unwrap()) {
@@ -581,13 +616,25 @@ fn transform_html<'a>(
 
                 if let Some(ref link) = link_href {
                     dynamic_container = dynamic_container.push(
-                        mouse_area(rich_text(spans))
-                            .on_release(Message::LinkClicked(link.clone()))
-                            .interaction(mouse::Interaction::Pointer)
-                            .into(),
+                        mouse_area(selectable_rich_text(spans).style(move |_| {
+                            selectable_text::Style {
+                                color: None,
+                                selection_color: selection_color,
+                            }
+                        }))
+                        .on_release(Message::LinkClicked(link.clone()))
+                        .interaction(mouse::Interaction::Pointer)
+                        .into(),
                     );
                 } else {
-                    dynamic_container = dynamic_container.push(rich_text(spans).into());
+                    dynamic_container = dynamic_container.push(
+                        selectable_rich_text(spans)
+                            .style(move |_| selectable_text::Style {
+                                color: None,
+                                selection_color: selection_color,
+                            })
+                            .into(),
+                    );
                 };
             }
         }

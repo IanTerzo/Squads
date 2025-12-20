@@ -1,3 +1,4 @@
+use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
@@ -6,9 +7,10 @@ use crate::style;
 use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
 use crate::utils;
 use crate::websockets::Presence;
-use crate::Message;
+use crate::widgets::selectable_text;
+use crate::widgets::selectable_text::selectable_text;
 use iced::widget::{column, container, mouse_area, row, stack, svg, text, tooltip};
-use iced::{border, font, padding, Alignment, Border, Element, Font, Length, Padding};
+use iced::{Alignment, Border, Element, Font, Length, Padding, border, font, padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -144,11 +146,21 @@ pub fn c_chat_message<'a>(
             }
         } else if message_type == "Text" {
             if let Some(content) = message.content.clone() {
-                contents_column = contents_column.push(text(content));
+                contents_column = contents_column.push(selectable_text(content).style(|_| {
+                    selectable_text::Style {
+                        color: None,
+                        selection_color: theme.colors.text_selection,
+                    }
+                }));
             }
         } else {
             if let Some(content) = message.content.clone() {
-                contents_column = contents_column.push(text(content));
+                contents_column = contents_column.push(selectable_text(content).style(|_| {
+                    selectable_text::Style {
+                        color: None,
+                        selection_color: theme.colors.text_selection,
+                    }
+                }));
             }
         }
     }
@@ -225,7 +237,7 @@ pub fn c_chat_message<'a>(
                             .style(move |_| {
                                 if self_has_reacted {
                                     container::Style {
-                                        background: Some(theme.colors.foreground.into()),
+                                        background: Some(theme.colors.not_set.into()),
                                         border: Border {
                                             color: theme.colors.line,
                                             width: 2.0,
@@ -235,7 +247,7 @@ pub fn c_chat_message<'a>(
                                     }
                                 } else {
                                     container::Style {
-                                        background: Some(theme.colors.foreground.into()),
+                                        background: Some(theme.colors.foreground_surface.into()),
                                         border: border::rounded(4),
                                         ..Default::default()
                                     }
@@ -322,9 +334,21 @@ pub fn c_chat_message<'a>(
                                 message.id.clone(),
                             )),
                             mouse_area(
-                                svg(utils::get_image_dir().join("copy.svg"))
-                                    .width(17)
-                                    .height(17)
+                                svg(utils::get_image_dir().join("plus.svg"))
+                                    .width(21)
+                                    .height(21)
+                            )
+                            .on_release(Message::ToggleEmojiPicker(
+                                Some(EmojiPickerLocation::ReactionContext),
+                                EmojiPickerAction::Reaction(
+                                    message.id.clone().unwrap(),
+                                    chat_thread_id.clone()
+                                )
+                            )),
+                            mouse_area(
+                                svg(utils::get_image_dir().join("ellipsis.svg"))
+                                    .width(21)
+                                    .height(21)
                             )
                             .on_release(Message::CopyText(
                                 if let Some(content) = message.content.clone() {
@@ -341,18 +365,9 @@ pub fn c_chat_message<'a>(
                                     "".to_string()
                                 }
                             )),
-                            mouse_area(container(text("+").size(20))).on_release(
-                                Message::ToggleEmojiPicker(
-                                    Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction(
-                                        message.id.clone().unwrap(),
-                                        chat_thread_id.clone()
-                                    )
-                                )
-                            )
                         ]
                         .align_y(Alignment::Center)
-                        .spacing(8)
+                        .spacing(6)
                     } else {
                         row![
                             mouse_area(
@@ -366,9 +381,22 @@ pub fn c_chat_message<'a>(
                                 message.id.clone(),
                             )),
                             mouse_area(
-                                svg(utils::get_image_dir().join("copy.svg"))
-                                    .width(17)
-                                    .height(17)
+                                svg(utils::get_image_dir().join("plus.svg"))
+                                    .width(21)
+                                    .height(21)
+                            )
+                            .on_release(Message::ToggleEmojiPicker(
+                                Some(EmojiPickerLocation::ReactionContext),
+                                EmojiPickerAction::Reaction(
+                                    message.id.clone().unwrap(),
+                                    chat_thread_id.clone()
+                                )
+                            ))
+                            .interaction(iced::mouse::Interaction::Pointer),
+                            mouse_area(
+                                svg(utils::get_image_dir().join("ellipsis.svg"))
+                                    .width(21)
+                                    .height(21)
                             )
                             .on_release(Message::CopyText(
                                 if let Some(content) = message.content.clone() {
@@ -384,16 +412,7 @@ pub fn c_chat_message<'a>(
                                 } else {
                                     "".to_string()
                                 }
-                            )),
-                            mouse_area(container(text("+").size(20)))
-                                .on_release(Message::ToggleEmojiPicker(
-                                    Some(EmojiPickerLocation::ReactionContext),
-                                    EmojiPickerAction::Reaction(
-                                        message.id.clone().unwrap(),
-                                        chat_thread_id.clone()
-                                    )
-                                ))
-                                .interaction(iced::mouse::Interaction::Pointer)
+                            ))
                         ]
                         .align_y(Alignment::Center)
                         .spacing(8)

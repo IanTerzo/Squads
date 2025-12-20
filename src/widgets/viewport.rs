@@ -99,12 +99,12 @@ where
     }
     fn update(
         &mut self,
-        _tree: &mut Tree,
-        _event: &iced::Event,
+        tree: &mut Tree,
+        event: &iced::Event,
         layout: Layout<'_>,
-        _cursor: iced::advanced::mouse::Cursor,
-        _renderer: &Renderer,
-        _clipboard: &mut dyn iced::advanced::Clipboard,
+        cursor: iced::advanced::mouse::Cursor,
+        renderer: &Renderer,
+        clipboard: &mut dyn iced::advanced::Clipboard,
         shell: &mut iced::advanced::Shell<'_, Message>,
         viewport: &Rectangle,
     ) {
@@ -121,6 +121,17 @@ where
                 identifiers.insert(identfier, true);
             }
         }
+
+        self.content.as_widget_mut().update(
+            tree,
+            event,
+            layout.children().next().unwrap(),
+            cursor,
+            renderer,
+            clipboard,
+            shell,
+            viewport,
+        );
     }
 }
 

@@ -2,11 +2,11 @@ mod api;
 mod api_types;
 mod components;
 mod parsing;
-use base64::prelude::BASE64_URL_SAFE;
 use base64::Engine;
+use base64::prelude::BASE64_URL_SAFE;
 use iced::task::Handle;
-use iced::widget::operation::{focus, snap_to};
 use iced::widget::Id;
+use iced::widget::operation::{focus, snap_to};
 use indexmap::IndexMap;
 use parsing::parse_message_markdown;
 mod auth;
@@ -17,21 +17,21 @@ mod utils;
 mod websockets;
 mod widgets;
 use api::{
+    AccessToken, Chat, Conversations, DeviceCodeInfo, File, Profile, Team, TeamConversations,
     authorize_image, authorize_merged_profile_picture, authorize_profile_picture,
     authorize_team_picture, consumption_horizon, conversations, gen_refresh_token_from_device_code,
     me, send_message, sharepoint_download_file, site_info, team_conversations, teams_me, users,
-    AccessToken, Chat, Conversations, DeviceCodeInfo, File, Profile, Team, TeamConversations,
 };
 use auth::{get_or_gen_skype_token, get_or_gen_token};
 use components::{cached_image::save_cached_image, expanded_image::c_expanded_image};
 use iced::clipboard;
-use iced::keyboard::key::Named;
 use iced::keyboard::Key;
+use iced::keyboard::key::Named;
 use iced::widget::scrollable::{RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
-    event, keyboard, mouse, window, Color, Element, Event, Font, Padding, Size, Subscription, Task,
-    Theme,
+    Color, Element, Event, Font, Padding, Size, Subscription, Task, Theme, event, keyboard, mouse,
+    window,
 };
 use pages::app;
 use pages::page_chat::chat;
@@ -55,17 +55,18 @@ use types::*;
 use utils::{get_cache, get_epoch_ms, save_to_cache};
 use webbrowser;
 use websockets::{
-    websockets_subscription, ConnectionInfo, Presence, Presences, WebsocketMessage,
-    WebsocketResponse,
+    ConnectionInfo, Presence, Presences, WebsocketMessage, WebsocketResponse,
+    websockets_subscription,
 };
 
 use crate::api::{
-    add_member, message_property, start_thread, ChatMember, Conversation, Emotion, EmotionUser,
+    ChatMember, Conversation, Emotion, EmotionUser, add_member, message_property, start_thread,
 };
-use crate::components::emoji_picker::{c_emoji_picker, EmojiPickerAlignment, EmojiPickerPosition};
+use crate::components::emoji_picker::{EmojiPickerAlignment, EmojiPickerPosition, c_emoji_picker};
 use crate::components::sidebar::c_sidebar;
 use crate::parsing::get_html_preview;
-use crate::websockets::{websocket_builder, WebsocketData};
+use crate::websockets::{WebsocketData, websocket_builder};
+use crate::widgets::selectable_text;
 
 const WINDOW_WIDTH: f32 = 1240.0;
 const WINDOW_HEIGHT: f32 = 780.0;
@@ -116,6 +117,7 @@ struct Counter {
     mouse_position: (f32, f32),
     last_mouse_position: (f32, f32),
     shift_held_down: bool,
+    control_held_down: bool,
     scrollbar_scroll: u64,
     scrollbar_percentage_scroll: f32,
     should_send_typing: bool,
@@ -189,6 +191,7 @@ pub enum Message {
     Reply(Option<String>, Option<String>, Option<String>),
     CopyText(String),
     EmojiPickerScrollTo(f32),
+    CopySelected(Vec<(f32, String)>),
 
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -482,6 +485,7 @@ impl Counter {
             chat_conversations: HashMap::new(),
             activities: Vec::new(),
             shift_held_down: false,
+            control_held_down: false,
             emoji_picker_toggle: EmojiPickerInfo {
                 action: EmojiPickerAction::None,
                 location: None,
@@ -765,7 +769,7 @@ impl Counter {
                         };
                     }
                     Event::Mouse(mouse::Event::CursorMoved { position }) => {
-                        self.mouse_position = (position.x, position.y)
+                        self.mouse_position = (position.x, position.y);
                     }
                     Event::Keyboard(keyboard::Event::KeyPressed {
                         key,
@@ -787,6 +791,15 @@ impl Counter {
                             }
                         }
                         Key::Named(Named::Shift) => self.shift_held_down = true,
+                        Key::Named(Named::Control) => self.control_held_down = true,
+
+                        Key::Character(char) => {
+                            if (char == "c" || char == "x") && self.control_held_down {
+                                return selectable_text::selected(|selected_text| {
+                                    Message::CopySelected(selected_text)
+                                });
+                            }
+                        }
                         _ => {}
                     },
                     Event::Keyboard(keyboard::Event::KeyReleased {
@@ -797,6 +810,8 @@ impl Counter {
                         modifiers: _,
                     }) => match key {
                         Key::Named(Named::Shift) => self.shift_held_down = false,
+                        Key::Named(Named::Control) => self.control_held_down = false,
+
                         _ => {}
                     },
                     _ => {}
@@ -1071,7 +1086,7 @@ impl Counter {
                         content_send(content, "~~");
                     }
                     MessageAreaAction::Blockquote => {
-                        if content.text() != "\n" {
+                        if content.text() != "" {
                             content_send(content, "\n\n");
                         }
 
@@ -1384,7 +1399,7 @@ impl Counter {
             Message::Reply(message_content, display_name, message_id) => {
                 let area_content = &mut self.chat_message_area_content;
 
-                if area_content.text() != "\n" {
+                if area_content.text() != "" {
                     content_send(area_content, "\n\n");
                 }
 
@@ -1413,13 +1428,23 @@ impl Counter {
                     new_height
                 };
 
-                Task::none()
+                focus(Id::new("message_area"))
             }
             Message::CopyText(text) => clipboard::write(text),
             Message::EmojiPickerScrollTo(height) => snap_to(
                 Id::new("emoji_column"),
                 RelativeOffset { x: 0.0, y: height },
             ),
+            Message::CopySelected(selection) => {
+                let selection_string = selection
+                    .iter()
+                    .map(|(_, s)| s.as_str())
+                    .collect::<String>();
+
+                println!("{:#?}", selection);
+
+                clipboard::write(selection_string)
+            }
 
             // Teams requests
             Message::GotActivities(activities) => {

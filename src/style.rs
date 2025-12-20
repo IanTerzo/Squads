@@ -1,13 +1,12 @@
 use std::str::FromStr;
 
 use iced::{
-    border,
+    Color, Shadow, border,
     widget::{
         container,
         scrollable::{self, AutoScroll},
         text_input,
     },
-    Color, Shadow,
 };
 
 #[derive(Debug)]
@@ -72,9 +71,9 @@ pub fn squads_dark() -> Theme {
         status_away: Color::from_str("#ed9612").expect("Color is invalid."),
         message_hovered: Color::from_str("#2A2929").expect("Color is invalid."),
         text: Color::WHITE,
-        text_link: Color::from_str("#6d74f4").expect("Color is invalid."),
+        text_link: Color::from_str("#767df5").expect("Color is invalid."),
         demo_text: Color::from_str("#c1c1c1").expect("Color is invalid."),
-        text_selection: Color::from_str("#8e8b94").expect("Color is invalid."),
+        text_selection: Color::from_str("#0824bb").expect("Color is invalid."),
         accent: Color::WHITE,
         notification: Color::WHITE,
     };
