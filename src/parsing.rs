@@ -11,7 +11,6 @@ use base64::engine::general_purpose::STANDARD;
 use directories::ProjectDirs;
 use iced::Alignment;
 use iced::Color;
-use iced::Padding;
 use iced::border;
 use iced::mouse;
 use iced::padding;
@@ -544,16 +543,6 @@ fn transform_html<'a>(
                 dynamic_container = dynamic_container.push(ol_list.into())
             }
         } else if child.value().is_text() {
-            // ID might be useful for hover logic
-            //let mut state = AHasher::default();
-            //let id = child.id().hash(&mut state);
-            //println!("{:#?}", state.finish());
-            let text_content = child.value().as_text().unwrap().text.to_string();
-            // Remove things like newlines since it is handled separately
-            let text_content = text_content.replace("\n", "").replace("\r", "");
-
-            let words = text_content.split_inclusive(" ");
-
             let mut font_text = Font::with_name("Open Sans Twemoji");
             let mut color = theme.colors.text;
             let mut underline = false;
@@ -598,33 +587,35 @@ fn transform_html<'a>(
 
             // Turn every word into its own rich text (not ideal but necessary to mantain correct wrapping)
 
-            for word in words {
-                let mut spans = vec![];
+            let text_content = child.value().as_text().unwrap().text.to_string();
+            // Remove things like newlines since it is handled separately
+            let text_content = text_content.replace("\n", "").replace("\r", "");
 
-                // Use a different font for emojis
-                for char in word.chars() {
-                    let mut text_span = span::<(), Font>(char.to_string());
-                    text_span = text_span
+            for word in text_content.split_inclusive(" ") {
+                let spans = vec![if !link_href.is_none() {
+                    span::<(), Font>(word.to_string())
+                        .font(font_text)
+                        .color(color)
+                        .link(())
+                        .underline(underline)
+                        .strikethrough(strikethrough)
+                } else {
+                    span::<(), Font>(word.to_string())
                         .font(font_text)
                         .color(color)
                         .underline(underline)
-                        .strikethrough(strikethrough);
-                    spans.push(text_span);
-                }
+                        .strikethrough(strikethrough)
+                }];
 
-                // TODO: show an underline when hovering a link
-
-                if let Some(ref link) = link_href {
+                if let Some(href) = link_href.clone() {
                     dynamic_container = dynamic_container.push(
-                        mouse_area(selectable_rich_text(spans).style(move |_| {
-                            selectable_text::Style {
+                        selectable_rich_text(spans)
+                            .on_link(move |_| Message::LinkClicked(href.clone()))
+                            .style(move |_| selectable_text::Style {
                                 color: None,
                                 selection_color: selection_color,
-                            }
-                        }))
-                        .on_release(Message::LinkClicked(link.clone()))
-                        .interaction(mouse::Interaction::Pointer)
-                        .into(),
+                            })
+                            .into(),
                     );
                 } else {
                     dynamic_container = dynamic_container.push(
@@ -635,7 +626,7 @@ fn transform_html<'a>(
                             })
                             .into(),
                     );
-                };
+                }
             }
         }
     }

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use iced::alignment::{Horizontal, Vertical};
-use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, tooltip, MouseArea};
-use iced::{border, Alignment, Border, Element, Length, Padding};
+use iced::widget::{MouseArea, column, container, mouse_area, row, scrollable, svg, text, tooltip};
+use iced::{Alignment, Border, Element, Length, Padding, border};
 
 use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
@@ -11,8 +11,8 @@ use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::toooltip::c_tooltip;
 use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
-use crate::{style, utils};
 use crate::{Message, Page};
+use crate::{style, utils};
 
 pub fn c_sidebar<'a>(
     theme: &'a style::Theme,
@@ -74,7 +74,23 @@ pub fn c_sidebar<'a>(
             .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
             .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()))
             .interaction(iced::mouse::Interaction::Pointer),
-            c_tooltip(theme, &team.display_name),
+            container(text(&team.display_name).wrapping(text::Wrapping::WordOrGlyph))
+                .max_width(150)
+                .style(|_| container::Style {
+                    background: Some(theme.colors.tooltip.into()),
+                    border: Border {
+                        color: theme.colors.line,
+                        width: 1.0,
+                        radius: 4.0.into(),
+                    },
+                    ..Default::default()
+                })
+                .padding(Padding {
+                    top: 8.0,
+                    bottom: 10.0,
+                    right: 10.0,
+                    left: 8.0,
+                }),
             tooltip::Position::Right,
         );
 
@@ -100,7 +116,7 @@ pub fn c_sidebar<'a>(
         Message::FetchUserImage(
             identifier,
             me.id.clone(),
-            me.display_name.as_ref().unwrap().clone(),
+            me.display_name.as_ref().unwrap_or(&"".to_string()).clone(),
         ),
         28.0,
         28.0,

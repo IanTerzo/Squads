@@ -5,15 +5,16 @@ use iced::{Alignment, Element, Font, Length};
 pub fn login<'a>(theme: &'a crate::style::Theme, code: &'a Option<String>) -> Element<'a, Message> {
     let code = code.as_deref().unwrap_or("...");
     column![
-        container(rich_text![
-            span::<Message, Font>("Head over to "),
-            span("aka.ms/devicelogin")
-                .underline(true)
-                .link(Message::LinkClicked(
-                    "https://aka.ms/devicelogin".to_string()
-                )),
-            span(" and enter the following code to authorize:")
-        ])
+        container(
+            rich_text![
+                span::<String, Font>("Head over to "),
+                span("aka.ms/devicelogin")
+                    .color(theme.colors.text_link)
+                    .link("https://aka.ms/devicelogin".to_string()),
+                span(" and enter the following code to authorize:")
+            ]
+            .on_link_click(|link| Message::LinkClicked(link))
+        )
         .align_x(Alignment::Center)
         .width(Length::Fill)
         .padding(30),

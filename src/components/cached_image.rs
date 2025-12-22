@@ -1,12 +1,12 @@
-use crate::widgets::{gif::Gif, viewport::ViewportHandler};
 use crate::Message;
+use crate::widgets::{gif::Gif, viewport::ViewportHandler};
 use bytes::Bytes;
 use directories::ProjectDirs;
 use iced::widget::{container, image, space};
 use iced::{Color, ContentFit, Element};
 use std::str::FromStr;
 use std::{
-    fs::{create_dir_all, File},
+    fs::{File, create_dir_all},
     io::Write,
     path::Path,
 };

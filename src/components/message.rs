@@ -1,13 +1,13 @@
+use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
 use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
 use crate::websockets::Presence;
-use crate::Message;
 use crate::{style, utils};
 use iced::widget::{column, container, mouse_area, row, svg, text};
-use iced::{border, font, Alignment, Border, Element, Font, Padding};
+use iced::{Alignment, Border, Element, Font, Padding, border, font};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -229,10 +229,10 @@ pub fn c_message<'a>(
                             .style(move |_| {
                                 if self_has_reacted {
                                     container::Style {
-                                        background: Some(theme.colors.not_set.into()),
+                                        background: Some(theme.colors.emotion_selected.into()),
                                         border: Border {
-                                            color: theme.colors.line,
-                                            width: 2.0,
+                                            color: theme.colors.emotion_selected_line,
+                                            width: 1.0,
                                             radius: 4.0.into(),
                                         },
                                         ..Default::default()
@@ -311,7 +311,9 @@ pub fn c_message<'a>(
                         })
                         .padding(12),
                     )
-                    .on_release(Message::DownloadFile(file.clone()));
+                    .on_release(Message::DownloadFile(file.clone()))
+                    .interaction(iced::mouse::Interaction::Pointer);
+
                     files_row = files_row.push(file_container);
                 }
 

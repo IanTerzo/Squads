@@ -1,3 +1,4 @@
+use crate::Message;
 use crate::api::{Channel, Profile, Team, TeamConversations};
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::{conversation::c_conversation, message_area::c_message_area};
@@ -5,12 +6,11 @@ use crate::style;
 use crate::types::Emoji;
 use crate::utils::truncate_name;
 use crate::websockets::Presence;
-use crate::Message;
 use directories::ProjectDirs;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::text_editor::Content;
-use iced::widget::{column, container, mouse_area, row, scrollable, space, text, Column, Id};
-use iced::{border, font, padding, Element, Length, Padding};
+use iced::widget::{Column, Id, column, container, mouse_area, row, scrollable, space, text};
+use iced::{Element, Length, Padding, border, font, padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
 
@@ -25,7 +25,7 @@ pub fn team<'a>(
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
-    subject_input_content: &String,
+    subject_input_content: &Option<String>,
     message_area_content: &'a Content,
     message_area_height: &f32,
 ) -> Element<'a, Message> {
@@ -35,6 +35,8 @@ pub fn team<'a>(
         top: 0.0,
         bottom: 0.0,
     });
+
+    let mut is_empty = true;
 
     if let Some(conversations) = conversations {
         let ordered_conversations: Vec<_> =
@@ -61,9 +63,12 @@ pub fn team<'a>(
             // let ordered_conversation: Vec<_> = c;
 
             if let Some(conversation_element_un) = conversaton_element {
-                conversation_column = conversation_column.push(conversation_element_un)
+                conversation_column = conversation_column.push(conversation_element_un);
+                is_empty = false;
             }
         }
+    } else {
+        is_empty = false; // For when the data is still being fetched
     }
 
     let conversation_scrollbar = container(
@@ -84,7 +89,8 @@ pub fn team<'a>(
     let message_area = container(c_message_area(
         theme,
         message_area_content,
-        Some(subject_input_content),
+        subject_input_content,
+        crate::View::Team,
         message_area_height,
     ))
     .padding(Padding {
@@ -94,7 +100,18 @@ pub fn team<'a>(
         bottom: 6.0,
     });
 
-    let content_page = column![conversation_scrollbar, space().height(7), message_area].spacing(7);
+    let content_page = column![
+        if !is_empty {
+            conversation_scrollbar
+        } else {
+            container(text!("👀 Nothing posted here yet..."))
+                .height(Length::Fill)
+                .padding(28)
+        },
+        space().height(7),
+        message_area
+    ]
+    .spacing(7);
 
     let project_dirs = ProjectDirs::from("", "ianterzo", "squads");
 
@@ -121,21 +138,23 @@ pub fn team<'a>(
     ]
     .spacing(5);
     let additionals = column![
-        container(column![container(text!("Files"))
-            .width(190)
-            .padding(Padding {
-                top: 4.0,
-                bottom: 4.0,
-                left: 8.0,
-                right: 8.0,
-            })
-            .style(move |_| {
-                container::Style {
-                    background: Some(theme.colors.foreground.into()),
-                    border: border::rounded(6),
-                    ..Default::default()
-                }
-            })])
+        container(column![
+            container(text!("Files"))
+                .width(190)
+                .padding(Padding {
+                    top: 4.0,
+                    bottom: 4.0,
+                    left: 8.0,
+                    right: 8.0,
+                })
+                .style(move |_| {
+                    container::Style {
+                        background: Some(theme.colors.foreground.into()),
+                        border: border::rounded(6),
+                        ..Default::default()
+                    }
+                })
+        ])
         .padding(Padding {
             top: 8.0,
             bottom: 14.0,

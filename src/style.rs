@@ -37,6 +37,8 @@ pub struct Colors {
     pub text_selection: Color,
     pub accent: Color,
     pub notification: Color,
+    pub emotion_selected: Color,
+    pub emotion_selected_line: Color,
 }
 
 #[derive(Debug)]
@@ -76,6 +78,8 @@ pub fn squads_dark() -> Theme {
         text_selection: Color::from_str("#0824bb").expect("Color is invalid."),
         accent: Color::WHITE,
         notification: Color::WHITE,
+        emotion_selected: Color::from_str("#24323D").expect("Color is invalid."),
+        emotion_selected_line: Color::from_str("#5057D7").expect("Color is invalid."),
     };
 
     let features = Features {

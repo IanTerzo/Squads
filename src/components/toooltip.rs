@@ -1,8 +1,7 @@
-use crate::{style::Theme, Message};
+use crate::{Message, style::Theme};
 use iced::{
-    border,
+    Border, Element, Padding, border,
     widget::{container, text},
-    Border, Element, Padding,
 };
 
 pub fn c_tooltip<'a>(theme: &'a Theme, message: &'a str) -> Element<'a, Message> {
@@ -18,9 +17,9 @@ pub fn c_tooltip<'a>(theme: &'a Theme, message: &'a str) -> Element<'a, Message>
             ..Default::default()
         })
         .padding(Padding {
-            top: 8.0,
-            bottom: 10.0,
-            right: 10.0,
+            top: 6.0,
+            bottom: 6.0,
+            right: 8.0,
             left: 8.0,
         })
         .into()

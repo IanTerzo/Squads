@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use crate::Message;
 use crate::api::{self, Chat, Profile};
 use crate::components::conversation::c_conversation;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::preview_message::c_preview_message;
+use crate::components::toooltip::c_tooltip;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
 };
@@ -13,15 +15,16 @@ use crate::types::Emoji;
 use crate::utils::{self, truncate_name};
 use crate::websockets::Presence;
 use crate::widgets::circle::circle;
-use crate::Message;
-use crate::{style, ChatBody};
+use crate::{ChatBody, style};
 
 use iced::alignment::Vertical;
 use iced::task::Handle;
 use iced::widget::text_editor::Content;
-use iced::widget::{checkbox, column, container, mouse_area, row, space, svg, text_input, Id};
+use iced::widget::{
+    Id, checkbox, column, container, mouse_area, row, space, svg, text_input, tooltip,
+};
 use iced::widget::{scrollable, text};
-use iced::{border, padding, Alignment, Color, Element, Length, Padding};
+use iced::{Alignment, Color, Element, Length, Padding, border, padding};
 use indexmap::IndexMap;
 
 fn get_chat_title(chat: &Chat, user_id: &String, users: &HashMap<String, Profile>) -> String {
@@ -161,33 +164,35 @@ pub fn chat<'a>(
     // Side panel
 
     let additionals = column![
-        container(column![mouse_area(
-            container(
-                row![
-                    svg(utils::get_image_dir().join("bell.svg"))
-                        .width(20)
-                        .height(20),
-                    text!("Activity")
-                ]
-                .spacing(8)
+        container(column![
+            mouse_area(
+                container(
+                    row![
+                        svg(utils::get_image_dir().join("bell.svg"))
+                            .width(20)
+                            .height(20),
+                        text!("Activity")
+                    ]
+                    .spacing(8)
+                )
+                .width(190)
+                .padding(Padding {
+                    top: 4.0,
+                    bottom: 4.0,
+                    left: 8.0,
+                    right: 8.0,
+                })
+                .style(move |_| {
+                    container::Style {
+                        background: Some(theme.colors.foreground.into()),
+                        border: border::rounded(6),
+                        ..Default::default()
+                    }
+                })
             )
-            .width(190)
-            .padding(Padding {
-                top: 4.0,
-                bottom: 4.0,
-                left: 8.0,
-                right: 8.0,
-            })
-            .style(move |_| {
-                container::Style {
-                    background: Some(theme.colors.foreground.into()),
-                    border: border::rounded(6),
-                    ..Default::default()
-                }
-            })
-        )
-        .on_release(Message::ToggleActivity)
-        .interaction(iced::mouse::Interaction::Pointer)])
+            .on_release(Message::ToggleActivity)
+            .interaction(iced::mouse::Interaction::Pointer)
+        ])
         .padding(Padding {
             top: 8.0,
             bottom: 14.0,
@@ -404,20 +409,28 @@ pub fn chat<'a>(
                 },
                 container(
                     row![
-                        mouse_area(
-                            svg(utils::get_image_dir().join("users-round.svg"))
-                                .width(19)
-                                .height(19)
-                        )
-                        .on_release(Message::ToggleShowChatMembers)
-                        .interaction(iced::mouse::Interaction::Pointer),
-                        mouse_area(
-                            svg(utils::get_image_dir().join("user-round-plus.svg"))
-                                .width(19)
-                                .height(19)
-                        )
-                        .on_release(Message::ToggleShowChatAdd)
-                        .interaction(iced::mouse::Interaction::Pointer),
+                        tooltip(
+                            mouse_area(
+                                svg(utils::get_image_dir().join("users-round.svg"))
+                                    .width(19)
+                                    .height(19)
+                            )
+                            .on_release(Message::ToggleShowChatMembers)
+                            .interaction(iced::mouse::Interaction::Pointer),
+                            c_tooltip(theme, "Show Member List"),
+                            tooltip::Position::Bottom
+                        ),
+                        tooltip(
+                            mouse_area(
+                                svg(utils::get_image_dir().join("user-round-plus.svg"))
+                                    .width(19)
+                                    .height(19)
+                            )
+                            .on_release(Message::ToggleShowChatAdd)
+                            .interaction(iced::mouse::Interaction::Pointer),
+                            c_tooltip(theme, "Add Users to DM"),
+                            tooltip::Position::Bottom
+                        ),
                     ]
                     .spacing(14)
                 )
@@ -637,11 +650,7 @@ pub fn chat<'a>(
                                             .iter()
                                             .filter_map(
                                                 |(key, &val)| {
-                                                    if val {
-                                                        Some(key.clone())
-                                                    } else {
-                                                        None
-                                                    }
+                                                    if val { Some(key.clone()) } else { None }
                                                 },
                                             )
                                             .collect(),
@@ -652,11 +661,7 @@ pub fn chat<'a>(
                                             let mut users: Vec<String> = add_users_cheked
                                                 .iter()
                                                 .filter_map(|(key, &val)| {
-                                                    if val {
-                                                        Some(key.clone())
-                                                    } else {
-                                                        None
-                                                    }
+                                                    if val { Some(key.clone()) } else { None }
                                                 })
                                                 .collect();
 
@@ -954,7 +959,8 @@ pub fn chat<'a>(
         let message_area = container(c_message_area(
             theme,
             message_area_content,
-            None,
+            &None,
+            crate::View::Chat,
             message_area_height,
         ))
         .padding(Padding {

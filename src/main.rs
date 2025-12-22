@@ -140,7 +140,7 @@ struct Counter {
     team_message_area_height: f32,
     chat_message_area_content: Content,
     chat_message_area_height: f32,
-    subject_input_value: String,
+    subject_input_value: Option<String>,
     expanded_image: Option<(String, String)>,
     add_users_checked: HashMap<String, bool>, // Where string is the user id
     emoji_picker_toggle: EmojiPickerInfo,
@@ -192,6 +192,8 @@ pub enum Message {
     CopyText(String),
     EmojiPickerScrollTo(f32),
     CopySelected(Vec<(f32, String)>),
+    AddSubject,
+    RemoveSubject,
 
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -470,7 +472,7 @@ impl Counter {
             search_chats_input_value: "".to_string(),
             search_users_input_value: "".to_string(),
             search_emojis_input_value: "".to_string(),
-            subject_input_value: "".to_string(),
+            subject_input_value: None,
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             mouse_position: (0.0, 0.0),
@@ -507,159 +509,167 @@ impl Counter {
 
     fn view(&self) -> Element<Message> {
         //println!("view called");
-        app(
-            c_sidebar(
-                &self.theme,
-                &self.teams,
-                &self.page,
-                &self.me,
-                &self.user_presences,
-            ),
-            match self.page.view {
-                View::Login => login(&self.theme, &self.device_user_code),
-                View::Team => {
-                    let current_team_id = self.page.current_team_id.as_ref().unwrap();
+        //
 
-                    let mut current_team = self
-                        .teams
-                        .iter()
-                        .find(|team| &team.id == current_team_id)
-                        .unwrap()
-                        .clone();
+        match self.page.view {
+            View::Login => login(&self.theme, &self.device_user_code),
+            _ => app(
+                c_sidebar(
+                    &self.theme,
+                    &self.teams,
+                    &self.page,
+                    &self.me,
+                    &self.user_presences,
+                ),
+                match self.page.view {
+                    View::Team => {
+                        let current_team_id = self.page.current_team_id.as_ref().unwrap();
 
-                    let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
+                        let mut current_team = self
+                            .teams
+                            .iter()
+                            .find(|team| &team.id == current_team_id)
+                            .unwrap()
+                            .clone();
 
-                    let current_channel = current_team
-                        .channels
-                        .iter()
-                        .find(|channel| &channel.id == current_channel_id)
-                        .unwrap()
-                        .clone();
+                        let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
 
-                    let reply_options = &self.reply_options;
+                        let current_channel = current_team
+                            .channels
+                            .iter()
+                            .find(|channel| &channel.id == current_channel_id)
+                            .unwrap()
+                            .clone();
 
-                    let conversation = self.team_conversations.get(current_channel_id);
+                        let reply_options = &self.reply_options;
 
-                    team(
-                        &self.theme,
-                        &mut current_team,
-                        &current_channel,
-                        &conversation,
-                        &reply_options,
-                        &self.channel_list_options,
-                        &self.emoji_map,
-                        &self.users,
-                        &self.me,
-                        &self.user_presences,
-                        &self.subject_input_value,
-                        &self.team_message_area_content,
-                        &self.team_message_area_height,
-                    )
-                }
-                View::Chat => {
-                    let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id {
-                        Some(
-                            self.chats
-                                .iter()
-                                .find(|chat| &chat.id == current_chat_id)
-                                .unwrap(),
+                        let conversation = self.team_conversations.get(current_channel_id);
+
+                        team(
+                            &self.theme,
+                            &mut current_team,
+                            &current_channel,
+                            &conversation,
+                            &reply_options,
+                            &self.channel_list_options,
+                            &self.emoji_map,
+                            &self.users,
+                            &self.me,
+                            &self.user_presences,
+                            &self.subject_input_value,
+                            &self.team_message_area_content,
+                            &self.team_message_area_height,
                         )
-                    } else {
-                        None
-                    };
+                    }
+                    View::Chat | _ => {
+                        // Only chat since login is handled earlier
+                        let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id
+                        {
+                            Some(
+                                self.chats
+                                    .iter()
+                                    .find(|chat| &chat.id == current_chat_id)
+                                    .unwrap(),
+                            )
+                        } else {
+                            None
+                        };
 
-                    let conversation = if let Some(current_chat_id) = &self.page.current_chat_id {
-                        self.chat_conversations.get(current_chat_id)
-                    } else {
-                        None
-                    };
+                        let conversation = if let Some(current_chat_id) = &self.page.current_chat_id
+                        {
+                            self.chat_conversations.get(current_chat_id)
+                        } else {
+                            None
+                        };
 
-                    chat(
-                        &self.theme,
-                        current_chat,
-                        &self.users_typing_timeouts,
-                        &self.add_users_checked,
-                        &self.chats,
-                        &conversation,
-                        &self.chat_message_options,
-                        &self.chat_list_options,
-                        &self.emoji_map,
-                        &self.users,
-                        &self.user_presences,
-                        &self.me,
-                        self.search_chats_input_value.clone(),
-                        self.search_users_input_value.clone(),
-                        &self.chat_message_area_content,
-                        &self.chat_message_area_height,
-                        &self.window_width,
-                        &self.activities,
-                        &self.activity_expanded_conversations,
-                        &self.page.chat_body,
-                    )
-                }
-            },
-            if let Some(expanded_image) = self.expanded_image.clone() {
-                Some(c_expanded_image(expanded_image.0, expanded_image.1))
-            } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
-                if let Some(ref location) = self.emoji_picker_toggle.location {
-                    Some(c_emoji_picker(
-                        &self.theme,
-                        match location {
-                            EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
-                                alignment: EmojiPickerAlignment::BottomLeft,
-                                padding: Padding {
-                                    top: 0.0,
-                                    right: 0.0,
-                                    bottom: 150.0,
-                                    left: 260.0,
-                                },
-                            },
-                            EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
-                                alignment: EmojiPickerAlignment::TopRight,
-                                padding: Padding {
-                                    top: if self.last_mouse_position.1 - 30.0
-                                        < self.window_height - 450.0
-                                    {
-                                        self.last_mouse_position.1 - 30.0
-                                    } else {
-                                        self.window_height - 450.0
-                                    },
-                                    right: 84.0,
-                                    bottom: 0.0,
-                                    left: 0.0,
-                                },
-                            },
-                            EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
-                                alignment: EmojiPickerAlignment::TopLeft,
-                                padding: Padding {
-                                    top: if self.last_mouse_position.1 - 30.0
-                                        < self.window_height - 450.0
-                                    {
-                                        self.last_mouse_position.1 - 30.0
-                                    } else {
-                                        self.window_height - 450.0
-                                    },
-                                    right: 0.0,
-                                    bottom: 0.0,
-                                    left: if self.last_mouse_position.0 < self.window_width - 400.0
-                                    {
-                                        self.last_mouse_position.0 + 30.0
-                                    } else {
-                                        self.last_mouse_position.0 - 395.0
+                        chat(
+                            &self.theme,
+                            current_chat,
+                            &self.users_typing_timeouts,
+                            &self.add_users_checked,
+                            &self.chats,
+                            &conversation,
+                            &self.chat_message_options,
+                            &self.chat_list_options,
+                            &self.emoji_map,
+                            &self.users,
+                            &self.user_presences,
+                            &self.me,
+                            self.search_chats_input_value.clone(),
+                            self.search_users_input_value.clone(),
+                            &self.chat_message_area_content,
+                            &self.chat_message_area_height,
+                            &self.window_width,
+                            &self.activities,
+                            &self.activity_expanded_conversations,
+                            &self.page.chat_body,
+                        )
+                    }
+                },
+                if let Some(expanded_image) = self.expanded_image.clone() {
+                    Some(c_expanded_image(expanded_image.0, expanded_image.1))
+                } else if self.emoji_picker_toggle.action != EmojiPickerAction::None {
+                    if let Some(ref location) = self.emoji_picker_toggle.location {
+                        Some(c_emoji_picker(
+                            &self.theme,
+                            match location {
+                                EmojiPickerLocation::OverMessageArea => EmojiPickerPosition {
+                                    alignment: EmojiPickerAlignment::BottomLeft,
+                                    padding: Padding {
+                                        top: 0.0,
+                                        right: 0.0,
+                                        bottom: 150.0,
+                                        left: 260.0,
                                     },
                                 },
+                                EmojiPickerLocation::ReactionContext => EmojiPickerPosition {
+                                    alignment: EmojiPickerAlignment::TopRight,
+                                    padding: Padding {
+                                        top: if self.last_mouse_position.1 - 30.0
+                                            < self.window_height - 450.0
+                                        {
+                                            self.last_mouse_position.1 - 30.0
+                                        } else {
+                                            self.window_height - 450.0
+                                        },
+                                        right: 84.0,
+                                        bottom: 0.0,
+                                        left: 0.0,
+                                    },
+                                },
+                                EmojiPickerLocation::ReactionAdd => EmojiPickerPosition {
+                                    alignment: EmojiPickerAlignment::TopLeft,
+                                    padding: Padding {
+                                        top: if self.last_mouse_position.1 - 30.0
+                                            < self.window_height - 450.0
+                                        {
+                                            self.last_mouse_position.1 - 30.0
+                                        } else {
+                                            self.window_height - 450.0
+                                        },
+                                        right: 0.0,
+                                        bottom: 0.0,
+                                        left: if self.last_mouse_position.0
+                                            < self.window_width - 400.0
+                                        {
+                                            self.last_mouse_position.0 + 30.0
+                                        } else {
+                                            self.last_mouse_position.0 - 395.0
+                                        },
+                                    },
+                                },
                             },
-                        },
-                        self.search_emojis_input_value.clone(),
-                        &self.emoji_map,
-                    ))
+                            self.search_emojis_input_value.clone(),
+                            &self.emoji_map,
+                        ))
+                    } else {
+                        None // Should never happen
+                    }
                 } else {
-                    None // Should never happen
-                }
-            } else {
-                None
-            },
-        )
+                    None
+                },
+            ),
+        }
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -880,7 +890,7 @@ impl Counter {
                             // Post a message instead if the content is not empty
 
                             let subject_text = if self.page.view == View::Team {
-                                Some(self.subject_input_value.clone())
+                                self.subject_input_value.clone()
                             } else {
                                 None
                             };
@@ -893,7 +903,7 @@ impl Counter {
 
                             *message_area_height = 54.0;
 
-                            self.subject_input_value = "".to_string();
+                            self.subject_input_value = None;
 
                             let me_id = self.me.id.clone();
 
@@ -1381,7 +1391,7 @@ impl Counter {
                 Task::none()
             }
             Message::SubjectInputContentChanged(content) => {
-                self.subject_input_value = content;
+                self.subject_input_value = Some(content);
                 Task::none()
             }
             Message::ToggleNewChatMenu => {
@@ -1436,14 +1446,34 @@ impl Counter {
                 RelativeOffset { x: 0.0, y: height },
             ),
             Message::CopySelected(selection) => {
-                let selection_string = selection
-                    .iter()
-                    .map(|(_, s)| s.as_str())
-                    .collect::<String>();
+                let line_height_min = 18.0;
+                let mut last_y = 0.0;
 
-                println!("{:#?}", selection);
+                let mut selection_string = String::new();
+
+                for (y, word) in selection {
+                    if last_y != 0.0 {
+                        let height_diff = y - last_y;
+                        let newlines = (height_diff / line_height_min).floor() as i32;
+                        for _ in 0..newlines {
+                            selection_string += "\n"
+                        }
+                    }
+
+                    last_y = y;
+
+                    selection_string += &word
+                }
 
                 clipboard::write(selection_string)
+            }
+            Message::AddSubject => {
+                self.subject_input_value = Some(String::new());
+                Task::none()
+            }
+            Message::RemoveSubject => {
+                self.subject_input_value = None;
+                Task::none()
             }
 
             // Teams requests
@@ -1706,7 +1736,7 @@ impl Counter {
                 };
 
                 let subject_text = if self.page.view == View::Team {
-                    Some(self.subject_input_value.clone())
+                    self.subject_input_value.clone()
                 } else {
                     None
                 };
@@ -1721,7 +1751,7 @@ impl Counter {
 
                 *message_area_height = 54.0;
 
-                self.subject_input_value = "".to_string();
+                self.subject_input_value = None;
 
                 let conversation_id = match self.page.view {
                     View::Team => self.page.current_channel_id.clone().unwrap(),

@@ -2,6 +2,7 @@ use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::picture_and_status::c_picture_and_status;
+use crate::components::toooltip::c_tooltip;
 use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
 use crate::style;
 use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
@@ -9,10 +10,13 @@ use crate::utils;
 use crate::websockets::Presence;
 use crate::widgets::selectable_text;
 use crate::widgets::selectable_text::selectable_text;
-use iced::widget::{column, container, mouse_area, row, stack, svg, text, tooltip};
+use iced::alignment::Vertical;
+use iced::widget::tooltip::Position;
+use iced::widget::{column, container, mouse_area, row, space, stack, svg, text, tooltip};
 use iced::{Alignment, Border, Element, Font, Length, Padding, border, font, padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::time::Duration;
 
 const LOG_THREAD_ACTIVITY: bool = false;
 
@@ -192,7 +196,8 @@ pub fn c_chat_message<'a>(
                         })
                         .padding(12),
                     )
-                    .on_release(Message::DownloadFile(file.clone()));
+                    .on_release(Message::DownloadFile(file.clone()))
+                    .interaction(iced::mouse::Interaction::Pointer);
                     files_row = files_row.push(file_container);
                 }
 
@@ -232,40 +237,79 @@ pub fn c_chat_message<'a>(
                         }
                     }
 
-                    let reaction_container = mouse_area(
-                        container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(move |_| {
-                                if self_has_reacted {
-                                    container::Style {
-                                        background: Some(theme.colors.not_set.into()),
-                                        border: Border {
-                                            color: theme.colors.line,
-                                            width: 2.0,
-                                            radius: 4.0.into(),
-                                        },
-                                        ..Default::default()
+                    let reaction_string = reaction
+                        .users
+                        .iter()
+                        .filter_map(|reactor| {
+                            if let Some(reactor_id) = reactor.mri.split(":").nth(2) {
+                                users.get(reactor_id).map(|profile| {
+                                    profile
+                                        .display_name
+                                        .clone()
+                                        .unwrap_or("Unknown User".to_string())
+                                })
+                            } else {
+                                Some("Unknown User".to_string())
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ");
+
+                    let reaction_container = tooltip(
+                        mouse_area(
+                            container(row![reaction_text, text(reacters)].spacing(4))
+                                .style(move |_| {
+                                    if self_has_reacted {
+                                        container::Style {
+                                            background: Some(theme.colors.emotion_selected.into()),
+                                            border: Border {
+                                                color: theme.colors.emotion_selected_line,
+                                                width: 1.0,
+                                                radius: 4.0.into(),
+                                            },
+                                            ..Default::default()
+                                        }
+                                    } else {
+                                        container::Style {
+                                            background: Some(
+                                                theme.colors.foreground_surface.into(),
+                                            ),
+                                            border: border::rounded(4),
+                                            ..Default::default()
+                                        }
                                     }
-                                } else {
-                                    container::Style {
-                                        background: Some(theme.colors.foreground_surface.into()),
-                                        border: border::rounded(4),
-                                        ..Default::default()
-                                    }
-                                }
-                            })
-                            .padding(Padding {
-                                top: 3.0,
-                                right: 3.0,
-                                bottom: 3.0,
-                                left: 5.0,
-                            })
-                            .align_y(Alignment::Center),
+                                })
+                                .padding(Padding {
+                                    top: 3.0,
+                                    right: 3.0,
+                                    bottom: 3.0,
+                                    left: 5.0,
+                                })
+                                .align_y(Alignment::Center),
+                        )
+                        .on_release(Message::EmotionClicked(
+                            message.id.clone().unwrap(),
+                            reaction.clone(),
+                        ))
+                        .interaction(iced::mouse::Interaction::Pointer),
+                        container(text(format!(
+                            "{} \"{}\" reacted by {}",
+                            reaction_val
+                                .map(|emoji| emoji.unicode.clone())
+                                .unwrap_or("(?)".to_string()),
+                            reaction.key.clone(),
+                            reaction_string
+                        )))
+                        .padding(12)
+                        .max_width(200)
+                        .style(|_| container::Style {
+                            background: Some(theme.colors.foreground_surface.into()),
+                            border: border::rounded(4),
+                            ..Default::default()
+                        }),
+                        tooltip::Position::Top,
                     )
-                    .on_release(Message::EmotionClicked(
-                        message.id.clone().unwrap(),
-                        reaction.clone(),
-                    ))
-                    .interaction(iced::mouse::Interaction::Pointer);
+                    .delay(Duration::from_millis(400));
 
                     reactions_row = reactions_row.push(reaction_container);
 
@@ -276,26 +320,34 @@ pub fn c_chat_message<'a>(
     }
 
     if are_reactions {
-        reactions_row = reactions_row.push(
+        reactions_row = reactions_row.push(tooltip(
             mouse_area(
-                container(text("+"))
-                    .style(|_| container::Style {
-                        background: Some(theme.colors.foreground_surface.into()),
-                        border: border::rounded(4),
-                        ..Default::default()
-                    })
-                    .padding(Padding {
-                        top: 3.0,
-                        right: 5.0,
-                        bottom: 3.0,
-                        left: 5.0,
-                    }),
+                container(
+                    svg(utils::get_image_dir().join("plus.svg"))
+                        .width(19)
+                        .height(19),
+                )
+                .align_y(Vertical::Center)
+                .style(|_| container::Style {
+                    background: Some(theme.colors.foreground_surface.into()),
+                    border: border::rounded(4),
+                    ..Default::default()
+                })
+                .padding(Padding {
+                    top: 4.0,
+                    right: 5.0,
+                    bottom: 4.0,
+                    left: 5.0,
+                }),
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::ToggleEmojiPicker(
                 Some(EmojiPickerLocation::ReactionAdd),
                 EmojiPickerAction::Reaction(message.id.clone().unwrap(), chat_thread_id.clone()),
             )),
-        );
+            c_tooltip(theme, "Add Reaction"),
+            Position::Top,
+        ));
 
         contents_column = contents_column.push(reactions_row.wrap());
     }
@@ -316,13 +368,25 @@ pub fn c_chat_message<'a>(
         action_container = container(
             container(
                 container(
-                    if message.from.clone().unwrap_or("none".to_string())
-                        == format!("8:orgid:{}", me.id)
-                    {
-                        row![
-                            svg(utils::get_image_dir().join("pencil.svg"))
-                                .width(17)
-                                .height(17),
+                    row![
+                        if message.from.clone().unwrap_or("none".to_string())
+                            == format!("8:orgid:{}", me.id)
+                        {
+                            container(row![
+                                tooltip(
+                                    svg(utils::get_image_dir().join("pencil.svg"))
+                                        .width(17)
+                                        .height(17),
+                                    c_tooltip(theme, "Edit"),
+                                    tooltip::Position::Top
+                                )
+                                .gap(3),
+                                space().width(6),
+                            ])
+                        } else {
+                            container(space())
+                        },
+                        tooltip(
                             mouse_area(
                                 svg(utils::get_image_dir().join("reply.svg"))
                                     .width(21)
@@ -333,6 +397,12 @@ pub fn c_chat_message<'a>(
                                 message.im_display_name.clone(),
                                 message.id.clone(),
                             )),
+                            c_tooltip(theme, "Reply"),
+                            tooltip::Position::Top
+                        )
+                        .gap(3),
+                        space().width(6),
+                        tooltip(
                             mouse_area(
                                 svg(utils::get_image_dir().join("plus.svg"))
                                     .width(21)
@@ -345,6 +415,12 @@ pub fn c_chat_message<'a>(
                                     chat_thread_id.clone()
                                 )
                             )),
+                            c_tooltip(theme, "React"),
+                            tooltip::Position::Top
+                        )
+                        .gap(3),
+                        space().width(6),
+                        tooltip(
                             mouse_area(
                                 svg(utils::get_image_dir().join("ellipsis.svg"))
                                     .width(21)
@@ -365,58 +441,12 @@ pub fn c_chat_message<'a>(
                                     "".to_string()
                                 }
                             )),
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(6)
-                    } else {
-                        row![
-                            mouse_area(
-                                svg(utils::get_image_dir().join("reply.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::Reply(
-                                message.content.clone(),
-                                message.im_display_name.clone(),
-                                message.id.clone(),
-                            )),
-                            mouse_area(
-                                svg(utils::get_image_dir().join("plus.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::ToggleEmojiPicker(
-                                Some(EmojiPickerLocation::ReactionContext),
-                                EmojiPickerAction::Reaction(
-                                    message.id.clone().unwrap(),
-                                    chat_thread_id.clone()
-                                )
-                            ))
-                            .interaction(iced::mouse::Interaction::Pointer),
-                            mouse_area(
-                                svg(utils::get_image_dir().join("ellipsis.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::CopyText(
-                                if let Some(content) = message.content.clone() {
-                                    if let Some(message_type) = message.message_type.clone() {
-                                        if message_type == "RichText/Html" {
-                                            get_html_preview(&content)
-                                        } else {
-                                            content
-                                        }
-                                    } else {
-                                        content
-                                    }
-                                } else {
-                                    "".to_string()
-                                }
-                            ))
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(8)
-                    },
+                            c_tooltip(theme, "More"),
+                            tooltip::Position::Top
+                        )
+                        .gap(3),
+                    ]
+                    .align_y(Alignment::Center),
                 )
                 .padding(Padding {
                     top: 3.0,
