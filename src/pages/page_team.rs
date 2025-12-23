@@ -21,13 +21,15 @@ pub fn team<'a>(
     conversations: &Option<&TeamConversations>,
     reply_options: &HashMap<String, bool>,
     channel_list_options: &'a HashMap<String, bool>,
-    emoji_map: &IndexMap<String, Emoji>,
+    search_emojis_input_value: &String,
+    emoji_map: &'a IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
     subject_input_content: &Option<String>,
     message_area_content: &'a Content,
     message_area_height: &f32,
+    show_message_area_emoji_picker: &bool,
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(12).padding(Padding {
         left: 8.0,
@@ -92,6 +94,9 @@ pub fn team<'a>(
         subject_input_content,
         crate::View::Team,
         message_area_height,
+        show_message_area_emoji_picker,
+        search_emojis_input_value,
+        emoji_map,
     ))
     .padding(Padding {
         left: 8.0,

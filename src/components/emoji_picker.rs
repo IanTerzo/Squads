@@ -1,31 +1,20 @@
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::style::Theme;
-use crate::types::{Emoji, EmojiPickerAction};
-use crate::{utils, Message};
-use iced::widget::{column, container, mouse_area, row, scrollable, svg, text, text_input, Id};
+use crate::types::Emoji;
+use crate::{Message, utils};
+use iced::widget::{Id, column, container, mouse_area, row, scrollable, svg, text, text_input};
 use iced::{Border, Element, Length, Padding};
 use indexmap::IndexMap;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum EmojiPickerAlignment {
-    TopRight,
-    TopLeft,
-    BottomRight,
-    BottomLeft,
-}
-
-#[derive(Debug, Clone)]
-pub struct EmojiPickerPosition {
-    pub alignment: EmojiPickerAlignment,
-    pub padding: Padding,
-}
-
-pub fn c_emoji_picker<'a>(
+pub fn c_emoji_picker<'a, F>(
     theme: &'a Theme,
-    pos: EmojiPickerPosition,
-    search_emojis_input_value: String,
+    search_emojis_input_value: &String,
     emoji_map: &'a IndexMap<String, Emoji>,
-) -> Element<'a, Message> {
+    on_pick: F,
+) -> Element<'a, Message>
+where
+    F: Fn(String, String) -> Message + 'a,
+{
     let emoji_scrollable = container(
         scrollable(if search_emojis_input_value == "" {
             let mut emoji_cat1 = row![];
@@ -46,10 +35,8 @@ pub fn c_emoji_picker<'a>(
                     )
                     .padding(2),
                 )
-                .on_release(Message::EmojiPickerPicked(
-                    _emoji_id.to_string(),
-                    emoji.unicode.clone(),
-                ));
+                .interaction(iced::mouse::Interaction::Pointer)
+                .on_release(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
 
                 match emoji.category.as_str() {
                     "People & Body" => emoji_cat1 = emoji_cat1.push(emoji_component),
@@ -97,10 +84,8 @@ pub fn c_emoji_picker<'a>(
                         )
                         .padding(2),
                     )
-                    .on_release(Message::EmojiPickerPicked(
-                        _emoji_id.to_string(),
-                        emoji.unicode.clone(),
-                    ));
+                    .interaction(iced::mouse::Interaction::Pointer)
+                    .on_release(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
 
                     emoji_row = emoji_row.push(emoji_component);
                 }
@@ -193,13 +178,13 @@ pub fn c_emoji_picker<'a>(
     });
 
     let top_part = container(
-        text_input("Find your emoji...", &search_emojis_input_value)
+        text_input("Find your emoji...", search_emojis_input_value)
             .on_input(Message::SearchEmojisContentChanged)
             .style(|_, _| theme.stylesheet.input),
     )
     .padding(12);
 
-    let mut picker_screen = container(
+    mouse_area(
         container(column![
             top_part,
             c_horizontal_line(theme, Length::Fill),
@@ -218,23 +203,7 @@ pub fn c_emoji_picker<'a>(
             ..Default::default()
         }),
     )
-    .width(Length::Fill)
-    .height(Length::Fill)
-    .padding(pos.padding);
-
-    match pos.alignment {
-        EmojiPickerAlignment::TopLeft => {}
-        EmojiPickerAlignment::BottomLeft => {
-            picker_screen = picker_screen.align_bottom(Length::Fill)
-        }
-        EmojiPickerAlignment::TopRight => picker_screen = picker_screen.align_right(Length::Fill),
-        EmojiPickerAlignment::BottomRight => {
-            picker_screen = picker_screen.align_bottom(Length::Fill);
-            picker_screen = picker_screen.align_right(Length::Fill)
-        }
-    }
-
-    mouse_area(picker_screen)
-        .on_release(Message::ToggleEmojiPicker(None, EmojiPickerAction::None))
-        .into()
+    .on_enter(Message::EnterEmojiPicker)
+    .on_exit(Message::ExitEmojiPicker)
+    .into()
 }

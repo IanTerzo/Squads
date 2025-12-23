@@ -1,13 +1,16 @@
 use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
+use crate::components::emoji_picker::c_emoji_picker;
+use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::toooltip::c_tooltip;
 use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
 use crate::style;
-use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
+use crate::types::Emoji;
 use crate::utils;
 use crate::websockets::Presence;
+use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::widgets::selectable_text;
 use crate::widgets::selectable_text::selectable_text;
 use iced::alignment::Vertical;
@@ -23,12 +26,17 @@ const LOG_THREAD_ACTIVITY: bool = false;
 pub fn c_chat_message<'a>(
     theme: &'a style::Theme,
     message: crate::api::Message,
-    chat_thread_id: &String,
+    chat_thread_id: &'a String,
     chat_message_options: &HashMap<String, bool>,
-    emoji_map: &IndexMap<String, Emoji>,
+    emoji_map: &'a IndexMap<String, Emoji>,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
+    show_more_options: &'a bool,
+    more_menu_message_id: &'a Option<String>,
+    show_emoji_picker: &'a bool,
+    emoji_picker_message_id: &'a Option<String>,
+    search_emojis_input_value: &String,
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -341,9 +349,8 @@ pub fn c_chat_message<'a>(
                 }),
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::ToggleEmojiPicker(
-                Some(EmojiPickerLocation::ReactionAdd),
-                EmojiPickerAction::Reaction(message.id.clone().unwrap(), chat_thread_id.clone()),
+            .on_release(Message::ToggleMessageEmojiPicker(
+                message.id.clone().unwrap(),
             )),
             c_tooltip(theme, "Add Reaction"),
             Position::Top,
@@ -364,113 +371,223 @@ pub fn c_chat_message<'a>(
         .get(&message.id.clone().unwrap())
         .unwrap_or(&false)
         .to_owned();
-    if is_hovered {
-        action_container = container(
+
+    let message_id_clone = message.id.clone().unwrap();
+    if (is_hovered && more_menu_message_id.is_none() && emoji_picker_message_id.is_none())
+        || *more_menu_message_id == message.id.clone()
+        || *emoji_picker_message_id == message.id.clone()
+    {
+        action_container =
             container(
                 container(
-                    row![
-                        if message.from.clone().unwrap_or("none".to_string())
-                            == format!("8:orgid:{}", me.id)
-                        {
-                            container(row![
+                    container(
+                        row![
+                            if message.from.clone().unwrap_or("none".to_string())
+                                == format!("8:orgid:{}", me.id)
+                            {
+                                container(row![
+                                    tooltip(
+                                        svg(utils::get_image_dir().join("pencil.svg"))
+                                            .width(17)
+                                            .height(17),
+                                        c_tooltip(theme, "Edit"),
+                                        tooltip::Position::Top
+                                    )
+                                    .gap(3),
+                                    space().width(6),
+                                ])
+                            } else {
+                                container(space())
+                            },
+                            tooltip(
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("reply.svg"))
+                                        .width(21)
+                                        .height(21)
+                                )
+                                .on_release(Message::Reply(
+                                    message.content.clone(),
+                                    message.im_display_name.clone(),
+                                    message.id.clone(),
+                                )),
+                                c_tooltip(theme, "Reply"),
+                                tooltip::Position::Top
+                            )
+                            .gap(3),
+                            space().width(6),
+                            anchored_overlay(
                                 tooltip(
-                                    svg(utils::get_image_dir().join("pencil.svg"))
-                                        .width(17)
-                                        .height(17),
-                                    c_tooltip(theme, "Edit"),
+                                    mouse_area(
+                                        svg(utils::get_image_dir().join("plus.svg"))
+                                            .width(21)
+                                            .height(21)
+                                    )
+                                    .on_release(
+                                        Message::ToggleMessageEmojiPicker(
+                                            message.id.clone().unwrap()
+                                        )
+                                    ),
+                                    c_tooltip(theme, "React"),
                                     tooltip::Position::Top
                                 )
                                 .gap(3),
-                                space().width(6),
-                            ])
-                        } else {
-                            container(space())
-                        },
-                        tooltip(
-                            mouse_area(
-                                svg(utils::get_image_dir().join("reply.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::Reply(
-                                message.content.clone(),
-                                message.im_display_name.clone(),
-                                message.id.clone(),
-                            )),
-                            c_tooltip(theme, "Reply"),
-                            tooltip::Position::Top
-                        )
-                        .gap(3),
-                        space().width(6),
-                        tooltip(
-                            mouse_area(
-                                svg(utils::get_image_dir().join("plus.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::ToggleEmojiPicker(
-                                Some(EmojiPickerLocation::ReactionContext),
-                                EmojiPickerAction::Reaction(
-                                    message.id.clone().unwrap(),
-                                    chat_thread_id.clone()
+                                c_emoji_picker(
+                                    theme,
+                                    search_emojis_input_value,
+                                    emoji_map,
+                                    move |emoji_id, emoji_unicode| Message::EmojiPickerReaction(
+                                        emoji_id,
+                                        emoji_unicode,
+                                        message_id_clone.clone(),
+                                        chat_thread_id.clone()
+                                    )
+                                ),
+                                crate::widgets::anchored_overlay::Position::Left,
+                                5.0,
+                                *show_emoji_picker
+                            ),
+                            space().width(6),
+                            anchored_overlay(
+                                tooltip(
+                                    mouse_area(
+                                        svg(utils::get_image_dir().join("ellipsis.svg"))
+                                            .width(21)
+                                            .height(21)
+                                    )
+                                    .on_release(
+                                        Message::ToggleShowMoreOptions(message.id.clone().unwrap())
+                                    ),
+                                    c_tooltip(theme, "More"),
+                                    tooltip::Position::Top
                                 )
-                            )),
-                            c_tooltip(theme, "React"),
-                            tooltip::Position::Top
-                        )
-                        .gap(3),
-                        space().width(6),
-                        tooltip(
-                            mouse_area(
-                                svg(utils::get_image_dir().join("ellipsis.svg"))
-                                    .width(21)
-                                    .height(21)
-                            )
-                            .on_release(Message::CopyText(
-                                if let Some(content) = message.content.clone() {
-                                    if let Some(message_type) = message.message_type.clone() {
-                                        if message_type == "RichText/Html" {
-                                            get_html_preview(&content)
-                                        } else {
-                                            content
+                                .gap(3),
+                                mouse_area(
+                                    container(
+                                        column![
+                                            row![
+                                                svg(utils::get_image_dir().join("smile.svg"))
+                                                    .width(19)
+                                                    .height(19),
+                                                text("Add reaction")
+                                            ]
+                                            .align_y(Vertical::Center)
+                                            .spacing(8),
+                                            c_horizontal_line(theme, 200.into()),
+                                            row![
+                                                svg(utils::get_image_dir().join("pencil.svg"))
+                                                    .width(19)
+                                                    .height(19),
+                                                text("Edit message")
+                                            ]
+                                            .align_y(Vertical::Center)
+                                            .spacing(8),
+                                            mouse_area(
+                                                row![
+                                                    svg(utils::get_image_dir().join("reply.svg"))
+                                                        .width(19)
+                                                        .height(19),
+                                                    text("Reply")
+                                                ]
+                                                .align_y(Vertical::Center)
+                                                .spacing(8)
+                                            )
+                                            .interaction(iced::mouse::Interaction::Pointer)
+                                            .on_release(Message::Reply(
+                                                message.content.clone(),
+                                                message.im_display_name.clone(),
+                                                message.id.clone(),
+                                            )),
+                                            mouse_area(
+                                                row![
+                                                    svg(utils::get_image_dir().join("copy.svg"))
+                                                        .width(19)
+                                                        .height(19),
+                                                    text("Copy Text")
+                                                ]
+                                                .align_y(Vertical::Center)
+                                                .spacing(8)
+                                            )
+                                            .interaction(iced::mouse::Interaction::Pointer)
+                                            .on_release(Message::CopyText(
+                                                if let Some(content) = message.content.clone() {
+                                                    if let Some(message_type) =
+                                                        message.message_type.clone()
+                                                    {
+                                                        if message_type == "RichText/Html" {
+                                                            get_html_preview(&content)
+                                                        } else {
+                                                            content
+                                                        }
+                                                    } else {
+                                                        content
+                                                    }
+                                                } else {
+                                                    "".to_string()
+                                                }
+                                            )),
+                                            c_horizontal_line(theme, 200.into()),
+                                            row![
+                                                svg(utils::get_image_dir().join("trash.svg"))
+                                                    .width(19)
+                                                    .height(19),
+                                                text("Delete Message")
+                                            ]
+                                            .align_y(Vertical::Center)
+                                            .spacing(8)
+                                        ]
+                                        .spacing(12)
+                                    )
+                                    .padding(15)
+                                    .style(|_| {
+                                        container::Style {
+                                            background: Some(theme.colors.tooltip.into()),
+                                            border: Border {
+                                                color: theme.colors.line,
+                                                width: 1.0,
+                                                radius: 4.into(),
+                                            },
+                                            ..Default::default()
                                         }
-                                    } else {
-                                        content
-                                    }
-                                } else {
-                                    "".to_string()
-                                }
-                            )),
-                            c_tooltip(theme, "More"),
-                            tooltip::Position::Top
-                        )
-                        .gap(3),
-                    ]
-                    .align_y(Alignment::Center),
+                                    })
+                                )
+                                .on_enter(Message::EnterMoreOptions)
+                                .on_exit(Message::ExitMoreOptions),
+                                crate::widgets::anchored_overlay::Position::Left,
+                                2.0,
+                                *show_more_options
+                            ),
+                        ]
+                        .align_y(Alignment::Center),
+                    )
+                    .padding(Padding {
+                        top: 3.0,
+                        right: 6.0,
+                        bottom: 3.0,
+                        left: 6.0,
+                    })
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.foreground_surface.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    }),
                 )
-                .padding(Padding {
-                    top: 3.0,
-                    right: 6.0,
-                    bottom: 3.0,
-                    left: 6.0,
-                })
-                .style(|_| container::Style {
-                    background: Some(theme.colors.foreground_surface.into()),
-                    border: border::rounded(4),
-                    ..Default::default()
-                }),
+                .padding(padding::right(10))
+                .align_y(Alignment::Center),
             )
-            .padding(padding::right(10))
-            .align_y(Alignment::Center),
-        )
-        .align_right(iced::Length::Fill);
+            .align_right(iced::Length::Fill);
     }
 
+    let message_id_clone = message.id.clone();
     let message_stack = stack!(
         mouse_area(
             container(message_row)
                 .style(move |_| container::Style {
-                    background: if is_hovered {
+                    background: if (is_hovered
+                        && more_menu_message_id.is_none()
+                        && emoji_picker_message_id.is_none())
+                        || *more_menu_message_id == message_id_clone
+                        || *emoji_picker_message_id == message_id_clone
+                    {
                         Some(theme.colors.message_hovered.into())
                     } else {
                         Some(theme.colors.background.into())

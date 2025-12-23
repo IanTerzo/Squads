@@ -1,6 +1,3 @@
-use std::borrow::Cow;
-use std::sync::Arc;
-
 use iced::advanced::graphics::core::touch;
 use iced::advanced::renderer::Quad;
 use iced::advanced::text::{self, Highlight, Paragraph, Span, Text};
@@ -15,6 +12,7 @@ use iced::{
     Size, Vector, alignment, mouse, widget,
 };
 use itertools::Itertools;
+use std::borrow::Cow;
 
 use super::selectable_text::{Catalog, Interaction, Style, StyleFn, selection};
 

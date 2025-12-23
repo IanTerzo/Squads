@@ -273,10 +273,7 @@ pub fn c_message<'a>(
                 .padding(3)
                 .align_y(Alignment::Center),
         )
-        .on_release(Message::ToggleEmojiPicker(
-            Some(EmojiPickerLocation::ReactionAdd),
-            EmojiPickerAction::Reaction(message.id.clone().unwrap(), source_thread_id.clone()),
-        ))
+        .on_release(Message::ToggleMessageAreaEmojiPicker)
         .interaction(iced::mouse::Interaction::Pointer);
 
         reactions_row = reactions_row.push(add_reaction_container);

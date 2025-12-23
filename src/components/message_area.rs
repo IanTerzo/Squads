@@ -5,9 +5,12 @@ use iced::widget::{
     tooltip,
 };
 use iced::{Alignment, Border, Element, Font, Length, Padding, border, font, padding};
+use indexmap::IndexMap;
 
+use crate::components::emoji_picker::c_emoji_picker;
 use crate::components::toooltip::c_tooltip;
-use crate::types::{EmojiPickerAction, EmojiPickerLocation, MessageAreaAction};
+use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation, MessageAreaAction};
+use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{Message, View};
 use crate::{style, utils};
 
@@ -17,6 +20,9 @@ pub fn c_message_area<'a>(
     subject_input_content: &Option<String>,
     view: View,
     message_area_height: &f32,
+    show_emoji_picker: &bool,
+    search_emojis_input_value: &String,
+    emoji_map: &'a IndexMap<String, Emoji>,
 ) -> Element<'a, Message> {
     container(
         container(
@@ -60,19 +66,30 @@ pub fn c_message_area<'a>(
                 row![
                     row![
                         row![
-                            tooltip(
-                                mouse_area(
-                                    svg(utils::get_image_dir().join("smile.svg"))
-                                        .width(19)
-                                        .height(19)
-                                )
-                                .on_release(Message::ToggleEmojiPicker(
-                                    Some(EmojiPickerLocation::OverMessageArea),
-                                    EmojiPickerAction::Send
-                                ))
-                                .interaction(iced::mouse::Interaction::Pointer),
-                                c_tooltip(theme, "Emojis"),
-                                tooltip::Position::Top
+                            anchored_overlay(
+                                tooltip(
+                                    mouse_area(
+                                        svg(utils::get_image_dir().join("smile.svg"))
+                                            .width(19)
+                                            .height(19)
+                                    )
+                                    .on_release(Message::ToggleMessageAreaEmojiPicker)
+                                    .interaction(iced::mouse::Interaction::Pointer),
+                                    c_tooltip(theme, "Emojis"),
+                                    tooltip::Position::Top
+                                ),
+                                c_emoji_picker(
+                                    theme,
+                                    search_emojis_input_value,
+                                    emoji_map,
+                                    |emoji_id, emoji_unicode| Message::EmojiPickerSend(
+                                        emoji_id,
+                                        emoji_unicode
+                                    )
+                                ),
+                                crate::widgets::anchored_overlay::Position::Top,
+                                *message_area_height + 28.0,
+                                *show_emoji_picker
                             ),
                             tooltip(
                                 mouse_area(

@@ -146,6 +146,7 @@ pub fn chat<'a>(
     conversation: &Option<&Vec<api::Message>>,
     chat_message_options: &'a HashMap<String, bool>,
     chat_list_options: &'a HashMap<String, bool>,
+    search_emojis_input_value: &String,
     emoji_map: &'a IndexMap<String, Emoji>,
     users: &'a HashMap<String, Profile>,
     user_presences: &'a HashMap<String, Presence>,
@@ -158,6 +159,11 @@ pub fn chat<'a>(
     activities: &Vec<crate::api::Message>,
     expanded_conversations: &HashMap<String, (bool, Vec<api::Message>)>,
     page_body: &'a ChatBody,
+    show_more_options: &'a bool,
+    more_menu_message_id: &'a Option<String>,
+    show_message_area_emoji_picker: &bool,
+    show_message_emoji_picker: &'a bool,
+    emoji_picker_message_id: &'a Option<String>,
 ) -> Element<'a, Message> {
     let mut page = row![].spacing(theme.features.page_row_spacing);
 
@@ -486,6 +492,11 @@ pub fn chat<'a>(
                             users,
                             me,
                             user_presences,
+                            show_more_options,
+                            more_menu_message_id,
+                            show_message_emoji_picker,
+                            emoji_picker_message_id,
+                            search_emojis_input_value,
                         ) {
                             message_column = message_column.push(message_element);
                         }
@@ -962,6 +973,9 @@ pub fn chat<'a>(
             &None,
             crate::View::Chat,
             message_area_height,
+            show_message_area_emoji_picker,
+            search_emojis_input_value,
+            emoji_map,
         ))
         .padding(Padding {
             left: 8.0,
