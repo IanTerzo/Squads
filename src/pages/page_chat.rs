@@ -155,7 +155,6 @@ pub fn chat<'a>(
     search_users_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
-    window_width: &f32,
     activities: &Vec<crate::api::Message>,
     expanded_conversations: &HashMap<String, (bool, Vec<api::Message>)>,
     page_body: &'a ChatBody,
@@ -163,7 +162,9 @@ pub fn chat<'a>(
     more_menu_message_id: &'a Option<String>,
     show_message_area_emoji_picker: &bool,
     show_message_emoji_picker: &'a bool,
+    show_plus_emoji_picker: &'a bool,
     emoji_picker_message_id: &'a Option<String>,
+    window_size: &(f32, f32),
 ) -> Element<'a, Message> {
     let mut page = row![].spacing(theme.features.page_row_spacing);
 
@@ -495,8 +496,10 @@ pub fn chat<'a>(
                             show_more_options,
                             more_menu_message_id,
                             show_message_emoji_picker,
+                            show_plus_emoji_picker,
                             emoji_picker_message_id,
                             search_emojis_input_value,
+                            window_size,
                         ) {
                             message_column = message_column.push(message_element);
                         }
@@ -835,9 +838,13 @@ pub fn chat<'a>(
                                         message_activity_id.clone(),
                                         false,
                                         emoji_map,
+                                        search_emojis_input_value,
                                         users,
                                         me,
                                         user_presences,
+                                        show_plus_emoji_picker,
+                                        emoji_picker_message_id,
+                                        window_size,
                                     );
                                     if let Some(message) = message {
                                         activities_colum =
@@ -864,7 +871,7 @@ pub fn chat<'a>(
                                     mouse_area(c_preview_message(
                                         theme,
                                         activity,
-                                        window_width,
+                                        &window_size.0,
                                         emoji_map,
                                     ))
                                     .on_release(
@@ -881,7 +888,7 @@ pub fn chat<'a>(
                                 mouse_area(c_preview_message(
                                     theme,
                                     activity,
-                                    window_width,
+                                    &window_size.0,
                                     emoji_map,
                                 ))
                                 .on_release(
@@ -976,6 +983,7 @@ pub fn chat<'a>(
             show_message_area_emoji_picker,
             search_emojis_input_value,
             emoji_map,
+            window_size,
         ))
         .padding(Padding {
             left: 8.0,

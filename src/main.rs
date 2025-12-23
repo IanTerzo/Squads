@@ -142,6 +142,7 @@ struct Counter {
     add_users_checked: HashMap<String, bool>, // Where string is the user id
     show_message_area_emoji_picker: bool,
     show_message_emoji_picker: bool,
+    show_plus_emoji_picker: bool,
     emoji_picker_message_id: Option<String>,
     is_in_emoji_picker: bool,
     show_more_options: bool,
@@ -235,6 +236,7 @@ pub enum Message {
     ToggleUserCheckbox(bool, String),
     ToggleMessageAreaEmojiPicker,
     ToggleMessageEmojiPicker(String),
+    TogglePlusEmojiPicker(String),
     EnterEmojiPicker,
     ExitEmojiPicker,
     EmojiPickerSend(String, String),
@@ -505,6 +507,7 @@ impl Counter {
             is_in_more_options: false,
             show_message_area_emoji_picker: false,
             show_message_emoji_picker: false,
+            show_plus_emoji_picker: false,
             emoji_picker_message_id: None,
             is_in_emoji_picker: false,
         };
@@ -575,6 +578,9 @@ impl Counter {
                             &self.team_message_area_content,
                             &self.team_message_area_height,
                             &self.show_message_area_emoji_picker,
+                            &self.show_plus_emoji_picker,
+                            &self.emoji_picker_message_id,
+                            &(self.window_width, self.window_height),
                         )
                     }
                     View::Chat | _ => {
@@ -616,7 +622,6 @@ impl Counter {
                             self.search_users_input_value.clone(),
                             &self.chat_message_area_content,
                             &self.chat_message_area_height,
-                            &self.window_width,
                             &self.activities,
                             &self.activity_expanded_conversations,
                             &self.page.chat_body,
@@ -624,7 +629,9 @@ impl Counter {
                             &self.more_menu_message_id,
                             &self.show_message_area_emoji_picker,
                             &self.show_message_emoji_picker,
+                            &self.show_plus_emoji_picker,
                             &self.emoji_picker_message_id,
+                            &(self.window_width, self.window_height),
                         )
                     }
                 },
@@ -758,6 +765,11 @@ impl Counter {
                                 self.show_message_emoji_picker = false;
                                 self.emoji_picker_message_id = None;
                             }
+
+                            if self.show_plus_emoji_picker && !self.is_in_emoji_picker {
+                                self.show_plus_emoji_picker = false;
+                                self.emoji_picker_message_id = None;
+                            }
                         }
                     }
                     Event::Keyboard(keyboard::Event::KeyPressed {
@@ -778,6 +790,10 @@ impl Counter {
                                 self.more_menu_message_id = None;
                             } else if self.show_message_emoji_picker {
                                 self.show_message_emoji_picker = false;
+                                self.is_in_emoji_picker = false;
+                                self.emoji_picker_message_id = None;
+                            } else if self.show_plus_emoji_picker {
+                                self.show_plus_emoji_picker = false;
                                 self.is_in_emoji_picker = false;
                                 self.emoji_picker_message_id = None;
                             }
@@ -1467,6 +1483,12 @@ impl Counter {
                     self.emoji_picker_message_id = None;
                 }
 
+                if self.show_plus_emoji_picker {
+                    self.show_plus_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
                 if self.show_message_area_emoji_picker {
                     self.show_message_area_emoji_picker = false;
                     self.is_in_emoji_picker = false;
@@ -1618,10 +1640,7 @@ impl Counter {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                // Do not show the hover options if the emoji picker is open
-                if self.show_message_area_emoji_picker {
-                    self.chat_list_options.insert(thread_id.clone(), true);
-                }
+                self.chat_list_options.insert(thread_id.clone(), true);
 
                 if !thread_id.starts_with("draft:") {
                     Task::perform(
@@ -1678,10 +1697,7 @@ impl Counter {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                // Do not show the hover options if the emoji picker is open
-                if !self.show_message_area_emoji_picker {
-                    self.channel_list_options.insert(channel_id.clone(), true);
-                }
+                self.channel_list_options.insert(channel_id.clone(), true);
 
                 Task::perform(
                     async move {
@@ -2245,6 +2261,12 @@ impl Counter {
                     self.more_menu_message_id = None;
                 }
 
+                if self.show_plus_emoji_picker {
+                    self.show_plus_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
                 if self.show_message_emoji_picker {
                     self.show_message_emoji_picker = false;
                     self.emoji_picker_message_id = None;
@@ -2259,6 +2281,12 @@ impl Counter {
                     self.show_more_options = false;
                     self.is_in_more_options = false;
                     self.more_menu_message_id = None;
+                }
+
+                if self.show_plus_emoji_picker {
+                    self.show_plus_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
                 }
 
                 if self.show_message_area_emoji_picker {
@@ -2276,6 +2304,34 @@ impl Counter {
 
                 Task::none()
             }
+            Message::TogglePlusEmojiPicker(message_id) => {
+                if self.show_more_options {
+                    self.show_more_options = false;
+                    self.is_in_more_options = false;
+                    self.more_menu_message_id = None;
+                }
+
+                if self.show_message_emoji_picker {
+                    self.show_message_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
+                if self.show_message_area_emoji_picker {
+                    self.show_message_area_emoji_picker = false;
+                }
+
+                self.just_opened_overlay = true;
+                self.show_plus_emoji_picker = !self.show_plus_emoji_picker;
+
+                if self.show_plus_emoji_picker {
+                    self.emoji_picker_message_id = Some(message_id);
+                } else {
+                    self.emoji_picker_message_id = None;
+                }
+
+                Task::none()
+            }
             Message::EnterEmojiPicker => {
                 self.is_in_emoji_picker = true;
                 Task::none()
@@ -2286,6 +2342,11 @@ impl Counter {
             }
 
             Message::EmojiPickerSend(_emoji_id, emoji_unicode) => {
+                if self.show_message_area_emoji_picker && self.is_in_emoji_picker {
+                    self.show_message_area_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                }
+
                 let content = match self.page.view {
                     View::Team => &mut self.team_message_area_content,
                     View::Chat => &mut self.chat_message_area_content,
@@ -2299,6 +2360,12 @@ impl Counter {
             Message::EmojiPickerReaction(emoji_id, emoji_unicode, message_id, thread_id) => {
                 if self.show_message_emoji_picker && self.is_in_emoji_picker {
                     self.show_message_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
+                if self.show_plus_emoji_picker && self.is_in_emoji_picker {
+                    self.show_plus_emoji_picker = false;
                     self.is_in_emoji_picker = false;
                     self.emoji_picker_message_id = None;
                 }

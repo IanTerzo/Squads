@@ -34,9 +34,11 @@ pub fn c_chat_message<'a>(
     user_presences: &'a HashMap<String, Presence>,
     show_more_options: &'a bool,
     more_menu_message_id: &'a Option<String>,
-    show_emoji_picker: &'a bool,
+    show_message_emoji_picker: &'a bool,
+    show_plus_emoji_picker: &'a bool,
     emoji_picker_message_id: &'a Option<String>,
     search_emojis_input_value: &String,
+    window_size: &(f32, f32),
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -327,33 +329,52 @@ pub fn c_chat_message<'a>(
         }
     }
 
+    let message_id_clone = message.id.clone().unwrap();
+
     if are_reactions {
-        reactions_row = reactions_row.push(tooltip(
-            mouse_area(
-                container(
-                    svg(utils::get_image_dir().join("plus.svg"))
-                        .width(19)
-                        .height(19),
+        reactions_row = reactions_row.push(anchored_overlay(
+            tooltip(
+                mouse_area(
+                    container(
+                        svg(utils::get_image_dir().join("plus.svg"))
+                            .width(19)
+                            .height(19),
+                    )
+                    .align_y(Vertical::Center)
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.foreground_surface.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
+                    .padding(Padding {
+                        top: 4.0,
+                        right: 5.0,
+                        bottom: 4.0,
+                        left: 5.0,
+                    }),
                 )
-                .align_y(Vertical::Center)
-                .style(|_| container::Style {
-                    background: Some(theme.colors.foreground_surface.into()),
-                    border: border::rounded(4),
-                    ..Default::default()
-                })
-                .padding(Padding {
-                    top: 4.0,
-                    right: 5.0,
-                    bottom: 4.0,
-                    left: 5.0,
-                }),
-            )
-            .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::ToggleMessageEmojiPicker(
-                message.id.clone().unwrap(),
-            )),
-            c_tooltip(theme, "Add Reaction"),
-            Position::Top,
+                .interaction(iced::mouse::Interaction::Pointer)
+                .on_release(Message::TogglePlusEmojiPicker(message.id.clone().unwrap())),
+                c_tooltip(theme, "Add Reaction"),
+                Position::Top,
+            ),
+            c_emoji_picker(
+                theme,
+                search_emojis_input_value,
+                emoji_map,
+                move |emoji_id, emoji_unicode| {
+                    Message::EmojiPickerReaction(
+                        emoji_id,
+                        emoji_unicode,
+                        message_id_clone.clone(),
+                        chat_thread_id.clone(),
+                    )
+                },
+            ),
+            crate::widgets::anchored_overlay::Position::Right,
+            5.0,
+            *show_plus_emoji_picker && *emoji_picker_message_id == message.id.clone(),
+            *window_size,
         ));
 
         contents_column = contents_column.push(reactions_row.wrap());
@@ -373,6 +394,7 @@ pub fn c_chat_message<'a>(
         .to_owned();
 
     let message_id_clone = message.id.clone().unwrap();
+
     if (is_hovered && more_menu_message_id.is_none() && emoji_picker_message_id.is_none())
         || *more_menu_message_id == message.id.clone()
         || *emoji_picker_message_id == message.id.clone()
@@ -444,7 +466,8 @@ pub fn c_chat_message<'a>(
                                 ),
                                 crate::widgets::anchored_overlay::Position::Left,
                                 5.0,
-                                *show_emoji_picker
+                                *show_message_emoji_picker,
+                                *window_size
                             ),
                             space().width(6),
                             anchored_overlay(
@@ -464,14 +487,20 @@ pub fn c_chat_message<'a>(
                                 mouse_area(
                                     container(
                                         column![
-                                            row![
-                                                svg(utils::get_image_dir().join("smile.svg"))
-                                                    .width(19)
-                                                    .height(19),
-                                                text("Add reaction")
-                                            ]
-                                            .align_y(Vertical::Center)
-                                            .spacing(8),
+                                            mouse_area(
+                                                row![
+                                                    svg(utils::get_image_dir().join("smile.svg"))
+                                                        .width(19)
+                                                        .height(19),
+                                                    text("Add reaction")
+                                                ]
+                                                .align_y(Vertical::Center)
+                                                .spacing(8)
+                                            )
+                                            .interaction(iced::mouse::Interaction::Pointer)
+                                            .on_release(Message::ToggleMessageEmojiPicker(
+                                                message.id.clone().unwrap()
+                                            )),
                                             c_horizontal_line(theme, 200.into()),
                                             row![
                                                 svg(utils::get_image_dir().join("pencil.svg"))
@@ -554,7 +583,8 @@ pub fn c_chat_message<'a>(
                                 .on_exit(Message::ExitMoreOptions),
                                 crate::widgets::anchored_overlay::Position::Left,
                                 2.0,
-                                *show_more_options
+                                *show_more_options,
+                                *window_size
                             ),
                         ]
                         .align_y(Alignment::Center),

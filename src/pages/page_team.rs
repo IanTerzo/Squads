@@ -30,6 +30,9 @@ pub fn team<'a>(
     message_area_content: &'a Content,
     message_area_height: &f32,
     show_message_area_emoji_picker: &bool,
+    show_plus_emoji_picker: &bool,
+    emoji_picker_message_id: &Option<String>,
+    window_size: &(f32, f32),
 ) -> Element<'a, Message> {
     let mut conversation_column = column![].spacing(12).padding(Padding {
         left: 8.0,
@@ -57,9 +60,13 @@ pub fn team<'a>(
                 conversation.id,
                 show_replies,
                 emoji_map,
+                search_emojis_input_value,
                 users,
                 me,
                 user_presences,
+                show_plus_emoji_picker,
+                emoji_picker_message_id,
+                window_size,
             );
 
             // let ordered_conversation: Vec<_> = c;
@@ -97,6 +104,7 @@ pub fn team<'a>(
         show_message_area_emoji_picker,
         search_emojis_input_value,
         emoji_map,
+        window_size,
     ))
     .padding(Padding {
         left: 8.0,

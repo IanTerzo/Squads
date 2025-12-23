@@ -1,10 +1,12 @@
 use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
+use crate::components::emoji_picker::c_emoji_picker;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::parsing::{parse_card_html, parse_message_html};
-use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation};
+use crate::types::Emoji;
 use crate::websockets::Presence;
+use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{style, utils};
 use iced::widget::{column, container, mouse_area, row, svg, text};
 use iced::{Alignment, Border, Element, Font, Padding, border, font};
@@ -15,12 +17,16 @@ const LOG_THREAD_ACTIVITY: bool = false;
 
 pub fn c_message<'a>(
     theme: &'a style::Theme,
-    source_thread_id: &String,
+    source_thread_id: String,
     message: crate::api::Message,
-    emoji_map: &IndexMap<String, Emoji>,
+    emoji_map: &'a IndexMap<String, Emoji>,
+    search_emojis_input_value: &String,
     users: &HashMap<String, Profile>,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
+    show_plus_emoji_picker: &bool,
+    emoji_picker_message_id: &Option<String>,
+    window_size: &(f32, f32),
 ) -> Option<Element<'a, Message>> {
     if let Some(message_type) = message.message_type.clone() {
         if message_type.contains("ThreadActivity") && !LOG_THREAD_ACTIVITY {
@@ -263,18 +269,38 @@ pub fn c_message<'a>(
             }
         }
 
-        let add_reaction_container = mouse_area(
-            container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
-                .style(|_| container::Style {
-                    background: Some(theme.colors.foreground_surface.into()),
-                    border: border::rounded(4),
-                    ..Default::default()
-                })
-                .padding(3)
-                .align_y(Alignment::Center),
-        )
-        .on_release(Message::ToggleMessageAreaEmojiPicker)
-        .interaction(iced::mouse::Interaction::Pointer);
+        let message_id_clone = message.id.clone().unwrap();
+        let add_reaction_container = anchored_overlay(
+            mouse_area(
+                container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
+                    .style(|_| container::Style {
+                        background: Some(theme.colors.foreground_surface.into()),
+                        border: border::rounded(4),
+                        ..Default::default()
+                    })
+                    .padding(3)
+                    .align_y(Alignment::Center),
+            )
+            .on_release(Message::TogglePlusEmojiPicker(message.id.clone().unwrap()))
+            .interaction(iced::mouse::Interaction::Pointer),
+            c_emoji_picker(
+                theme,
+                search_emojis_input_value,
+                emoji_map,
+                move |emoji_id, emoji_unicode| {
+                    Message::EmojiPickerReaction(
+                        emoji_id,
+                        emoji_unicode,
+                        message_id_clone.clone(),
+                        source_thread_id.clone(),
+                    )
+                },
+            ),
+            crate::widgets::anchored_overlay::Position::Right,
+            5.0,
+            *show_plus_emoji_picker && *emoji_picker_message_id == message.id.clone(),
+            *window_size,
+        );
 
         reactions_row = reactions_row.push(add_reaction_container);
 

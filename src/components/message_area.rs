@@ -23,6 +23,7 @@ pub fn c_message_area<'a>(
     show_emoji_picker: &bool,
     search_emojis_input_value: &String,
     emoji_map: &'a IndexMap<String, Emoji>,
+    window_size: &(f32, f32),
 ) -> Element<'a, Message> {
     container(
         container(
@@ -89,7 +90,8 @@ pub fn c_message_area<'a>(
                                 ),
                                 crate::widgets::anchored_overlay::Position::Top,
                                 *message_area_height + 28.0,
-                                *show_emoji_picker
+                                *show_emoji_picker,
+                                *window_size
                             ),
                             tooltip(
                                 mouse_area(

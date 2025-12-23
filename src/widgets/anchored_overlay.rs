@@ -9,6 +9,7 @@ pub fn anchored_overlay<'a, Message: 'a>(
     anchor: Position,
     offset: f32,
     visible: bool,
+    window_size: (f32, f32),
 ) -> Element<'a, Message> {
     AnchoredOverlay {
         base: base.into(),
@@ -16,6 +17,7 @@ pub fn anchored_overlay<'a, Message: 'a>(
         anchor,
         offset,
         visible,
+        window_size: window_size,
     }
     .into()
 }
@@ -35,6 +37,7 @@ struct AnchoredOverlay<'a, Message> {
     anchor: Position,
     offset: f32,
     visible: bool,
+    window_size: (f32, f32),
 }
 
 impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> {
@@ -168,6 +171,7 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
                 base_layout: layout.bounds(),
                 position: layout.position() + translation,
                 viewport: *viewport,
+                window_size: self.window_size,
             })))
         } else {
             None
@@ -198,6 +202,7 @@ struct Overlay<'a, 'b, Message> {
     base_layout: Rectangle,
     position: Point,
     viewport: Rectangle,
+    window_size: (f32, f32),
 }
 
 impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Message> {
@@ -245,7 +250,23 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             Position::Right => Vector::new(self.base_layout.width + self.offset, 0.0),
         };
 
-        node.move_to(self.position + translation)
+        let mut desired = self.position + translation;
+
+        let (window_width, window_height) = self.window_size;
+        let padding = 20.0;
+
+        // Compute padded window bounds
+        let min_x = padding;
+        let min_y = padding;
+
+        let max_x = (window_width - node.size().width - padding).max(min_x);
+        let max_y = (window_height - node.size().height - padding).max(min_y);
+
+        // Clamp to padded window
+        desired.x = desired.x.clamp(min_x, max_x);
+        desired.y = desired.y.clamp(min_y, max_y);
+
+        node.move_to(desired)
     }
 
     fn draw(
