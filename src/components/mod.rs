@@ -1,3 +1,4 @@
+pub mod add_users;
 pub mod cached_image;
 pub mod chat_message;
 pub mod conversation;
@@ -9,5 +10,6 @@ pub mod message_area;
 pub mod picture_and_status;
 pub mod preview_message;
 pub mod sidebar;
+pub mod start_chat;
 pub mod toooltip;
 pub mod vertical_line;

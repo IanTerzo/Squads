@@ -10,14 +10,9 @@ pub fn app<'a>(
     sidebar: Element<'a, Message>,
     content: Element<'a, Message>,
     overlay: Option<Element<'a, Message>>,
-    window_size: (f32, f32),
 ) -> Element<'a, Message> {
     if let Some(overlay) = overlay {
-        stack![
-            row![sidebar, container(content)],
-            centered_overlay(overlay, window_size, 0.9),
-        ]
-        .into()
+        stack![row![sidebar, container(content)], overlay].into()
     } else {
         stack![row![sidebar, container(content)]].into()
     }

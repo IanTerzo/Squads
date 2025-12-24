@@ -20,9 +20,7 @@ use crate::{ChatBody, style};
 use iced::alignment::Vertical;
 use iced::task::Handle;
 use iced::widget::text_editor::Content;
-use iced::widget::{
-    Id, checkbox, column, container, mouse_area, row, space, svg, text_input, tooltip,
-};
+use iced::widget::{Id, column, container, mouse_area, row, space, svg, tooltip};
 use iced::widget::{scrollable, text};
 use iced::{Alignment, Color, Element, Length, Padding, border, padding};
 use indexmap::IndexMap;
@@ -295,10 +293,7 @@ pub fn chat<'a>(
             container(chat_items)
                 .style(move |_| {
                     if let Some(current_chat) = current_chat {
-                        if chat.id == current_chat.id
-                            && *page_body != ChatBody::Start
-                            && *page_body != ChatBody::Activity
-                        {
+                        if chat.id == current_chat.id && *page_body != ChatBody::Activity {
                             container::Style {
                                 background: Some(
                                     theme.colors.foreground_button_nobg_selected.into(),
@@ -352,7 +347,9 @@ pub fn chat<'a>(
     let chat_options = column![
         container(
             container(
-                mouse_area(text("Start or find a chat")).on_release(Message::ToggleNewChatMenu)
+                mouse_area(text("Start or find a chat"))
+                    .interaction(iced::mouse::Interaction::Pointer)
+                    .on_release(Message::ToggleNewChatMenu)
             )
             .padding(Padding {
                 top: 5.0,
@@ -394,72 +391,61 @@ pub fn chat<'a>(
 
         // Chat page title
 
-        let title_row = if *page_body != ChatBody::Start {
-            row![
-                space().width(2),
-                picture,
-                space().width(15),
-                text(title),
-                if let Some(is_one_on_one) = current_chat.is_one_on_one {
-                    if !is_one_on_one {
-                        row![
-                            space().width(8),
-                            svg(utils::get_image_dir().join("pencil.svg"))
-                                .width(17)
-                                .height(17),
-                        ]
-                    } else {
-                        row![]
-                    }
+        let title_row = row![
+            space().width(2),
+            picture,
+            space().width(15),
+            text(title),
+            if let Some(is_one_on_one) = current_chat.is_one_on_one {
+                if !is_one_on_one {
+                    row![
+                        space().width(8),
+                        svg(utils::get_image_dir().join("pencil.svg"))
+                            .width(17)
+                            .height(17),
+                    ]
                 } else {
                     row![]
-                },
-                container(
-                    row![
-                        tooltip(
-                            mouse_area(
-                                svg(utils::get_image_dir().join("users-round.svg"))
-                                    .width(19)
-                                    .height(19)
-                            )
-                            .on_release(Message::ToggleShowChatMembers)
-                            .interaction(iced::mouse::Interaction::Pointer),
-                            c_tooltip(theme, "Show Member List"),
-                            tooltip::Position::Bottom
-                        ),
-                        tooltip(
-                            mouse_area(
-                                svg(utils::get_image_dir().join("user-round-plus.svg"))
-                                    .width(19)
-                                    .height(19)
-                            )
-                            .on_release(Message::ToggleShowChatAdd)
-                            .interaction(iced::mouse::Interaction::Pointer),
-                            c_tooltip(theme, "Add Users to DM"),
-                            tooltip::Position::Bottom
-                        ),
-                    ]
-                    .spacing(14)
-                )
-                .align_right(Length::Fill)
-            ]
-            .padding(Padding {
-                top: 10.0,
-                right: 30.0,
-                bottom: 10.0,
-                left: 14.0,
-            })
-            .align_y(Alignment::Center)
-        } else {
-            row![space().width(2), text("Start chat"),]
-                .padding(Padding {
-                    top: 10.0,
-                    right: 30.0,
-                    bottom: 10.0,
-                    left: 14.0,
-                })
-                .align_y(Alignment::Center)
-        };
+                }
+            } else {
+                row![]
+            },
+            container(
+                row![
+                    tooltip(
+                        mouse_area(
+                            svg(utils::get_image_dir().join("users-round.svg"))
+                                .width(19)
+                                .height(19)
+                        )
+                        .on_release(Message::ToggleShowChatMembers)
+                        .interaction(iced::mouse::Interaction::Pointer),
+                        c_tooltip(theme, "Show Member List"),
+                        tooltip::Position::Bottom
+                    ),
+                    tooltip(
+                        mouse_area(
+                            svg(utils::get_image_dir().join("user-round-plus.svg"))
+                                .width(19)
+                                .height(19)
+                        )
+                        .on_release(Message::ToggleShowChatAdd)
+                        .interaction(iced::mouse::Interaction::Pointer),
+                        c_tooltip(theme, "Add Users to DM"),
+                        tooltip::Position::Bottom
+                    ),
+                ]
+                .spacing(14)
+            )
+            .align_right(Length::Fill)
+        ]
+        .padding(Padding {
+            top: 10.0,
+            right: 30.0,
+            bottom: 10.0,
+            left: 14.0,
+        })
+        .align_y(Alignment::Center);
 
         let title_row_container = column![
             container(title_row).style(|_| container::Style {
@@ -539,191 +525,6 @@ pub fn chat<'a>(
                     left: 0.0,
                     bottom: 0.0,
                 })
-                .height(Length::Fill)
-            }
-            ChatBody::Add | ChatBody::Start => {
-                let mut user_column =
-                    column![]
-                        .spacing(theme.features.list_spacing)
-                        .padding(Padding {
-                            left: 8.0,
-                            right: 6.0,
-                            top: 6.0,
-                            bottom: 6.0,
-                        });
-
-                for user in users {
-                    // Hotfix, this removes all non "human" users
-                    if user.1.surname.is_none() || user.1.display_name.is_none() {
-                        continue;
-                    }
-
-                    if !user
-                        .1
-                        .display_name
-                        .as_ref()
-                        .unwrap()
-                        .to_lowercase()
-                        .starts_with(&search_users_input_value.to_lowercase())
-                    {
-                        continue;
-                    }
-
-                    // Do not show user if already part of group or chat (except if in the start chat menu)
-                    if current_chat
-                        .members
-                        .iter()
-                        .any(|member| &member.mri.replace("8:orgid:", "") == user.0)
-                        && *page_body != ChatBody::Start
-                    {
-                        continue;
-                    }
-
-                    // Remove yourself if the alst check din't chatch you if in start chat body
-                    if *user.0 == me.id {
-                        continue;
-                    }
-
-                    let is_checked = add_users_cheked.get(user.0).unwrap_or(&false).clone();
-                    let profile_row = row![
-                        text(
-                            user.1
-                                .display_name
-                                .clone()
-                                .unwrap_or("Unknown User".to_string())
-                        ),
-                        container(checkbox(is_checked).style(|_, _| checkbox::Style {
-                            background: theme.colors.foreground_surface.into(),
-                            border: border::rounded(2),
-                            icon_color: theme.colors.text,
-                            text_color: None,
-                        }))
-                        .align_right(Length::Fill)
-                    ]
-                    .width(Length::Fill)
-                    .align_y(Alignment::Center);
-                    user_column = user_column
-                        .push(
-                            mouse_area(
-                                container(profile_row)
-                                    .style(|_| container::Style {
-                                        background: Some(theme.colors.foreground.into()),
-                                        border: border::rounded(4),
-                                        ..Default::default()
-                                    })
-                                    .padding(Padding {
-                                        top: 9.0,
-                                        right: 6.0,
-                                        bottom: 9.0,
-                                        left: 6.0,
-                                    }),
-                            )
-                            .on_release(Message::ToggleUserCheckbox(
-                                is_checked,
-                                user.0.to_string(),
-                            )),
-                        )
-                        .into();
-                }
-
-                container(
-                    column![
-                        row![
-                            text_input("Search users...", &search_users_input_value)
-                                .on_input(Message::SearchUsersContentChanged)
-                                .padding(10)
-                                .id("search_users_input")
-                                .style(|_, _| theme.stylesheet.input),
-                            mouse_area(
-                                container(if *page_body == ChatBody::Start {
-                                    text("Start")
-                                } else {
-                                    text("Add")
-                                })
-                                .padding(Padding {
-                                    top: 8.0,
-                                    bottom: 8.0,
-                                    left: 13.0,
-                                    right: 13.0
-                                })
-                                .style(|_| {
-                                    container::Style {
-                                        background: Some(theme.colors.foreground_surface.into()),
-                                        border: border::rounded(4),
-                                        ..Default::default()
-                                    }
-                                })
-                            )
-                            .on_release(
-                                if !current_chat.is_one_on_one.unwrap_or(false)
-                                    && *page_body != ChatBody::Start
-                                {
-                                    Message::AddToGroupChat(
-                                        current_chat.id.clone(),
-                                        add_users_cheked
-                                            .iter()
-                                            .filter_map(
-                                                |(key, &val)| {
-                                                    if val { Some(key.clone()) } else { None }
-                                                },
-                                            )
-                                            .collect(),
-                                    )
-                                } else {
-                                    if add_users_cheked.len() > 0 {
-                                        Message::StartChat({
-                                            let mut users: Vec<String> = add_users_cheked
-                                                .iter()
-                                                .filter_map(|(key, &val)| {
-                                                    if val { Some(key.clone()) } else { None }
-                                                })
-                                                .collect();
-
-                                            if *page_body != ChatBody::Start {
-                                                users.push(
-                                                    current_chat
-                                                        .members
-                                                        .iter()
-                                                        .find(|member| {
-                                                            &member.mri.replace("8:orgid:", "")
-                                                                != &me.id
-                                                        })
-                                                        .unwrap()
-                                                        .mri
-                                                        .clone()
-                                                        .replace("8:orgid:", ""),
-                                                );
-                                            }
-
-                                            users
-                                        })
-                                    } else {
-                                        Message::DoNothing(())
-                                    }
-                                }
-                            )
-                        ]
-                        .align_y(Alignment::Center)
-                        .spacing(10)
-                        .padding(Padding {
-                            top: 6.0,
-                            bottom: 0.0,
-                            left: 8.0,
-                            right: 8.0
-                        }),
-                        scrollable(user_column)
-                            .direction(scrollable::Direction::Vertical(
-                                scrollable::Scrollbar::new()
-                                    .width(theme.features.scrollbar_width)
-                                    .spacing(theme.features.scrollable_spacing)
-                                    .scroller_width(theme.features.scrollbar_width),
-                            ))
-                            .style(|_, _| theme.stylesheet.scrollable)
-                            .id(Id::new("members_column"))
-                    ]
-                    .spacing(6),
-                )
-                .padding(padding::right(3))
                 .height(Length::Fill)
             }
             ChatBody::Members => {
@@ -930,9 +731,7 @@ pub fn chat<'a>(
 
         let mut content_page = column![];
 
-        if *page_body != ChatBody::Start {
-            content_page = content_page.push(title_row_container);
-        }
+        content_page = content_page.push(title_row_container);
 
         content_page = content_page.push(body);
 
@@ -992,7 +791,7 @@ pub fn chat<'a>(
             bottom: 6.0,
         });
 
-        if *page_body != ChatBody::Start && *page_body != ChatBody::Activity {
+        if *page_body != ChatBody::Activity {
             content_page = content_page.push(message_area);
         }
 

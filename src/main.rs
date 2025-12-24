@@ -4,6 +4,7 @@ mod components;
 mod parsing;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE;
+use iced::advanced::input_method;
 use iced::task::Handle;
 use iced::widget::Id;
 use iced::widget::operation::{focus, snap_to};
@@ -61,10 +62,13 @@ use websockets::{
 use crate::api::{
     ChatMember, Conversation, Emotion, EmotionUser, add_member, message_property, start_thread,
 };
+use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::{self, c_expanded_image};
 use crate::components::sidebar::c_sidebar;
+use crate::components::start_chat::c_start_chat;
 use crate::parsing::get_html_preview;
 use crate::websockets::{WebsocketData, websocket_builder};
+use crate::widgets::centered_overlay::centered_overlay;
 use crate::widgets::selectable_text;
 
 const WINDOW_WIDTH: f32 = 1240.0;
@@ -74,8 +78,6 @@ const WINDOW_HEIGHT: f32 = 780.0;
 pub enum ChatBody {
     Messages,
     Members,
-    Add,
-    Start,
     Activity,
 }
 
@@ -150,6 +152,8 @@ struct Counter {
     just_opened_overlay: bool,
     more_menu_message_id: Option<String>,
     is_in_more_options: bool,
+    show_add_users: bool,
+    show_start_chat: bool,
 
     // Teams requested data
     me: Profile,
@@ -513,6 +517,8 @@ impl Counter {
             emoji_picker_message_id: None,
             is_in_emoji_picker: false,
             is_in_centered_overlay: false,
+            show_add_users: false,
+            show_start_chat: false,
         };
         (
             counter_self,
@@ -587,7 +593,6 @@ impl Counter {
                         )
                     }
                     View::Chat | _ => {
-                        // Only chat since login is handled earlier
                         let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id
                         {
                             Some(
@@ -639,11 +644,62 @@ impl Counter {
                     }
                 },
                 if let Some(expanded_image) = &self.expanded_image {
-                    Some(c_expanded_image(&expanded_image.0, &expanded_image.1))
+                    Some(centered_overlay(
+                        c_expanded_image(&expanded_image.0, &expanded_image.1),
+                        (self.window_width, self.window_height),
+                        0.94,
+                    ))
+                } else if self.show_add_users {
+                    let current_chat = self
+                        .page
+                        .current_chat_id
+                        .as_ref()
+                        .map(|current_chat_id| {
+                            self.chats
+                                .iter()
+                                .find(|chat| &chat.id == current_chat_id)
+                                .unwrap()
+                        })
+                        .unwrap();
+
+                    Some(centered_overlay(
+                        c_add_users(
+                            &self.theme,
+                            &current_chat,
+                            &self.users,
+                            &self.me,
+                            &self.add_users_checked,
+                            &self.search_users_input_value,
+                        ),
+                        (self.window_width, self.window_height),
+                        0.7,
+                    ))
+                } else if self.show_start_chat {
+                    let current_chat = self
+                        .page
+                        .current_chat_id
+                        .as_ref()
+                        .map(|current_chat_id| {
+                            self.chats
+                                .iter()
+                                .find(|chat| &chat.id == current_chat_id)
+                                .unwrap()
+                        })
+                        .unwrap();
+
+                    Some(centered_overlay(
+                        c_start_chat(
+                            &self.theme,
+                            &self.users,
+                            &self.me,
+                            &self.search_users_input_value,
+                        ),
+                        (self.window_width, self.window_height),
+                        0.7,
+                    ))
                 } else {
                     None
                 },
-                (self.window_width, self.window_height),
             ),
         }
     }
@@ -785,6 +841,14 @@ impl Counter {
                             {
                                 self.expanded_image = None;
                             }
+
+                            if self.show_add_users && !self.is_in_centered_overlay {
+                                self.show_add_users = false;
+                            }
+
+                            if self.show_start_chat && !self.is_in_centered_overlay {
+                                self.show_start_chat = false;
+                            }
                         }
                     }
                     Event::Keyboard(keyboard::Event::KeyPressed {
@@ -813,6 +877,10 @@ impl Counter {
                                 self.emoji_picker_message_id = None;
                             } else if let Some(_) = self.expanded_image {
                                 self.expanded_image = None;
+                            } else if self.show_add_users {
+                                self.show_add_users = false;
+                            } else if self.show_start_chat {
+                                self.show_start_chat = false;
                             }
                         }
                         Key::Named(Named::Shift) => self.shift_held_down = true,
@@ -834,6 +902,14 @@ impl Counter {
                         location: _,
                         modifiers: _,
                     }) => match key {
+                        // For some reason when pressing escape while focusing an input doesn't cause a KeyPressed event.
+                        Key::Named(Named::Escape) => {
+                            if self.show_add_users {
+                                self.show_add_users = false;
+                            } else if self.show_start_chat {
+                                self.show_start_chat = false;
+                            }
+                        }
                         Key::Named(Named::Shift) => self.shift_held_down = false,
                         Key::Named(Named::Control) => self.control_held_down = false,
 
@@ -1400,16 +1476,10 @@ impl Counter {
                 Task::none()
             }
             Message::ToggleNewChatMenu => {
-                self.add_users_checked.clear();
-                self.search_users_input_value = "".to_string();
-
-                if self.page.chat_body == ChatBody::Start {
-                    self.page.chat_body = ChatBody::Messages;
-                    Task::none()
-                } else {
-                    self.page.chat_body = ChatBody::Start;
-                    focus(Id::new("search_users_input"))
-                }
+                self.just_opened_overlay = true;
+                self.show_start_chat = !self.show_start_chat;
+                self.search_users_input_value = String::new();
+                focus(Id::new("search_users_input"))
             }
             Message::Reply(message_content, display_name, message_id) => {
                 if self.show_more_options && self.is_in_more_options {
@@ -1858,6 +1928,16 @@ impl Counter {
                 }
             }
             Message::StartChat(user_ids) => {
+                if self.show_add_users {
+                    self.show_add_users = false;
+                    self.is_in_centered_overlay = false;
+                }
+
+                if self.show_start_chat {
+                    self.show_start_chat = false;
+                    self.is_in_centered_overlay = false;
+                }
+
                 let mut user_ids = user_ids;
                 // Check if the one to one chat already exists
                 if user_ids.len() == 1 {
@@ -1991,6 +2071,11 @@ impl Counter {
                 .chain(snap_to(Id::new("conversation_column"), RelativeOffset::END))
             }
             Message::AddToGroupChat(chat_id, user_ids) => {
+                if self.show_add_users {
+                    self.show_add_users = false;
+                    self.is_in_centered_overlay = false;
+                }
+
                 // Handle if it is a draft
                 if chat_id.starts_with("draft:") {
                     self.chats
@@ -2251,22 +2336,10 @@ impl Counter {
                 }
             }
             Message::ToggleShowChatAdd => {
-                if self.page.chat_body != ChatBody::Add {
-                    self.page.chat_body = ChatBody::Add;
-                    Task::batch(vec![
-                        focus(Id::new("search_users_input")),
-                        snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 }),
-                    ])
-                } else {
-                    self.page.chat_body = ChatBody::Messages;
-                    snap_to(
-                        Id::new("conversation_column"),
-                        RelativeOffset {
-                            x: 0.0,
-                            y: self.scrollbar_percentage_scroll,
-                        },
-                    )
-                }
+                self.search_users_input_value = String::new();
+                self.just_opened_overlay = true;
+                self.show_add_users = !self.show_add_users;
+                focus(Id::new("search_users_input"))
             }
             Message::ToggleUserCheckbox(checked, id) => {
                 self.add_users_checked.insert(id, !checked);

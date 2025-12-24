@@ -91,7 +91,7 @@ impl<Message> Widget<Message, Theme, Renderer> for CenteredOverlay<'_, Message> 
         _viewport: &Rectangle,
         _renderer: &Renderer,
     ) -> mouse::Interaction {
-        mouse::Interaction::default()
+        mouse::Interaction::Idle
     }
 
     fn overlay<'b>(
@@ -235,14 +235,22 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
 
     fn mouse_interaction(
         &self,
-        _layout: Layout<'_>,
+        layout: Layout<'_>,
         cursor: mouse::Cursor,
-        _renderer: &Renderer,
+        renderer: &Renderer,
     ) -> iced::advanced::mouse::Interaction {
-        if cursor.is_over(self.viewport) {
-            iced::advanced::mouse::Interaction::Idle
+        if cursor.is_over(layout.bounds()) {
+            let inner = self.content.as_widget().mouse_interaction(
+                self.tree,
+                layout,
+                cursor,
+                &layout.bounds(),
+                renderer,
+            );
+
+            inner
         } else {
-            iced::advanced::mouse::Interaction::default()
+            mouse::Interaction::Idle
         }
     }
 
