@@ -61,6 +61,7 @@ use websockets::{
 use crate::api::{
     ChatMember, Conversation, Emotion, EmotionUser, add_member, message_property, start_thread,
 };
+use crate::components::expanded_image::{self, c_expanded_image};
 use crate::components::sidebar::c_sidebar;
 use crate::parsing::get_html_preview;
 use crate::websockets::{WebsocketData, websocket_builder};
@@ -113,7 +114,6 @@ struct Counter {
     window_width: f32,
     window_height: f32,
     mouse_position: (f32, f32),
-    last_mouse_position: (f32, f32),
     shift_held_down: bool,
     control_held_down: bool,
     scrollbar_scroll: u64,
@@ -145,6 +145,7 @@ struct Counter {
     show_plus_emoji_picker: bool,
     emoji_picker_message_id: Option<String>,
     is_in_emoji_picker: bool,
+    is_in_centered_overlay: bool,
     show_more_options: bool,
     just_opened_overlay: bool,
     more_menu_message_id: Option<String>,
@@ -239,6 +240,8 @@ pub enum Message {
     TogglePlusEmojiPicker(String),
     EnterEmojiPicker,
     ExitEmojiPicker,
+    EnterCenteredOverlay,
+    ExitCenteredOverlay,
     EmojiPickerSend(String, String),
     EmojiPickerReaction(String, String, String, String),
     EmotionClicked(String, Emotion),
@@ -489,7 +492,6 @@ impl Counter {
             window_width: WINDOW_WIDTH,
             window_height: WINDOW_HEIGHT,
             mouse_position: (0.0, 0.0),
-            last_mouse_position: (0.0, 0.0),
             access_tokens: access_tokens.clone(),
             users: user_profiles,
             me: profile,
@@ -510,6 +512,7 @@ impl Counter {
             show_plus_emoji_picker: false,
             emoji_picker_message_id: None,
             is_in_emoji_picker: false,
+            is_in_centered_overlay: false,
         };
         (
             counter_self,
@@ -635,6 +638,12 @@ impl Counter {
                         )
                     }
                 },
+                if let Some(expanded_image) = &self.expanded_image {
+                    Some(c_expanded_image(&expanded_image.0, &expanded_image.1))
+                } else {
+                    None
+                },
+                (self.window_width, self.window_height),
             ),
         }
     }
@@ -770,6 +779,12 @@ impl Counter {
                                 self.show_plus_emoji_picker = false;
                                 self.emoji_picker_message_id = None;
                             }
+
+                            if let Some(_) = self.expanded_image
+                                && !self.is_in_centered_overlay
+                            {
+                                self.expanded_image = None;
+                            }
                         }
                     }
                     Event::Keyboard(keyboard::Event::KeyPressed {
@@ -796,6 +811,8 @@ impl Counter {
                                 self.show_plus_emoji_picker = false;
                                 self.is_in_emoji_picker = false;
                                 self.emoji_picker_message_id = None;
+                            } else if let Some(_) = self.expanded_image {
+                                self.expanded_image = None;
                             }
                         }
                         Key::Named(Named::Shift) => self.shift_held_down = true,
@@ -1354,6 +1371,7 @@ impl Counter {
                 Task::none()
             }
             Message::ExpandImage(identifier, image_type) => {
+                self.just_opened_overlay = true;
                 self.expanded_image = Some((identifier, image_type));
                 Task::none()
             }
@@ -2340,7 +2358,14 @@ impl Counter {
                 self.is_in_emoji_picker = false;
                 Task::none()
             }
-
+            Message::EnterCenteredOverlay => {
+                self.is_in_centered_overlay = true;
+                Task::none()
+            }
+            Message::ExitCenteredOverlay => {
+                self.is_in_centered_overlay = false;
+                Task::none()
+            }
             Message::EmojiPickerSend(_emoji_id, emoji_unicode) => {
                 if self.show_message_area_emoji_picker && self.is_in_emoji_picker {
                     self.show_message_area_emoji_picker = false;
