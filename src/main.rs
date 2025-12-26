@@ -62,7 +62,7 @@ use crate::api::{
     ChatMember, Conversation, Emotion, EmotionUser, add_member, message_property, start_thread,
 };
 use crate::components::add_users::c_add_users;
-use crate::components::expanded_image::{self, c_expanded_image};
+use crate::components::expanded_image::c_expanded_image;
 use crate::components::sidebar::c_sidebar;
 use crate::components::start_chat::c_start_chat;
 use crate::parsing::get_html_preview;
@@ -975,7 +975,7 @@ impl Counter {
 
                                 let mut rng = StdRng::from_os_rng();
 
-                                let draft_id = format!("draft:{}", rng.random::<u64>()); // generate the temproary draft chat_id randomly
+                                let draft_id = format!("draft:{}", rng.random::<u64>()); // Generate the temproary draft chat_id randomly
 
                                 self.chats.insert(
                                     0,
@@ -1035,6 +1035,72 @@ impl Counter {
                                 self.show_start_chat = false;
                             }
                         }
+                        Key::Named(Named::ArrowDown) => {
+                            let search = self.search_users_input_value.to_lowercase();
+
+                            let filtered_user_ids: Vec<String> = self
+                                .users
+                                .iter()
+                                .filter(|(_, profile)| {
+                                    profile.surname.is_some() && profile.display_name.is_some()
+                                })
+                                .filter(|(_, profile)| {
+                                    profile
+                                        .display_name
+                                        .as_ref()
+                                        .map(|name| name.to_lowercase().starts_with(&search))
+                                        .unwrap_or(false)
+                                })
+                                .filter(|(id, _)| **id != self.me.id)
+                                .map(|(id, _)| id.clone())
+                                .collect();
+
+                            if self.start_chat_relevant_user.is_none() {
+                                self.start_chat_relevant_user = Some(filtered_user_ids[1].clone());
+                            } else if let Some(index) = filtered_user_ids.iter().position(|id| {
+                                id == self.start_chat_relevant_user.as_ref().unwrap()
+                            }) {
+                                let next_index = (index + 1) % filtered_user_ids.len(); // Wrap around
+                                self.start_chat_relevant_user =
+                                    Some(filtered_user_ids[next_index].clone())
+                            }
+                        }
+                        Key::Named(Named::ArrowUp) => {
+                            let search = self.search_users_input_value.to_lowercase();
+
+                            let filtered_user_ids: Vec<String> = self
+                                .users
+                                .iter()
+                                .filter(|(_, profile)| {
+                                    profile.surname.is_some() && profile.display_name.is_some()
+                                })
+                                .filter(|(_, profile)| {
+                                    profile
+                                        .display_name
+                                        .as_ref()
+                                        .map(|name| name.to_lowercase().starts_with(&search))
+                                        .unwrap_or(false)
+                                })
+                                .filter(|(id, _)| **id != self.me.id)
+                                .map(|(id, _)| id.clone())
+                                .collect();
+
+                            if self.start_chat_relevant_user.is_none() {
+                                self.start_chat_relevant_user =
+                                    Some(filtered_user_ids[filtered_user_ids.len() - 1].clone());
+                            } else if let Some(index) = filtered_user_ids.iter().position(|id| {
+                                id == self.start_chat_relevant_user.as_ref().unwrap()
+                            }) {
+                                let prev_index = if index == 0 {
+                                    filtered_user_ids.len() - 1
+                                } else {
+                                    index - 1
+                                };
+                                self.start_chat_relevant_user =
+                                    Some(filtered_user_ids[prev_index].clone())
+                            }
+                        }
+
                         Key::Named(Named::Shift) => self.shift_held_down = true,
                         Key::Named(Named::Control) => self.control_held_down = true,
 
@@ -1632,6 +1698,7 @@ impl Counter {
                 self.just_opened_overlay = true;
                 self.show_start_chat = !self.show_start_chat;
                 self.search_users_input_value = String::new();
+                self.start_chat_relevant_user = None;
                 focus(Id::new("search_users_input"))
             }
             Message::Reply(message_content, display_name, message_id) => {
