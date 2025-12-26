@@ -1,6 +1,6 @@
 use crate::{Message, style::Theme};
 use iced::{
-    Border, Element, Padding, border,
+    Border, Element, Padding,
     widget::{container, text},
 };
 

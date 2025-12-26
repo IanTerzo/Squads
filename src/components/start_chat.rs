@@ -13,6 +13,7 @@ pub fn c_start_chat<'a>(
     users: &'a HashMap<String, Profile>,
     me: &'a Profile,
     search_users_input_value: &String,
+    relevant_user: &'a Option<String>,
 ) -> Element<'a, Message> {
     let mut user_column = column![]
         .spacing(theme.features.list_spacing)
@@ -22,6 +23,8 @@ pub fn c_start_chat<'a>(
             top: 6.0,
             bottom: 6.0,
         });
+
+    let mut is_first_user = true;
 
     for user in users {
         // Hotfix, this removes all non "human" users
@@ -58,8 +61,16 @@ pub fn c_start_chat<'a>(
             .push(
                 mouse_area(
                     container(profile_row)
-                        .style(|_| container::Style {
-                            background: Some(theme.colors.foreground.into()),
+                        .style(move |_| container::Style {
+                            // If relevant user is none make the first user of users highlighted
+                            background: if *relevant_user.clone().unwrap_or("".to_string())
+                                == *user.0.clone()
+                                || (is_first_user && relevant_user.is_none())
+                            {
+                                Some(theme.colors.foreground_button_nobg_selected.into())
+                            } else {
+                                Some(theme.colors.foreground.into())
+                            },
                             border: border::rounded(4),
                             ..Default::default()
                         })
@@ -70,9 +81,13 @@ pub fn c_start_chat<'a>(
                             left: 6.0,
                         }),
                 )
+                .interaction(iced::mouse::Interaction::Pointer)
+                .on_enter(Message::SetStartChatRelevantUser(user.0.clone()))
                 .on_release(Message::StartChat(vec![user.0.clone()])),
             )
             .into();
+
+        is_first_user = false;
     }
 
     mouse_area(

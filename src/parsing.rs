@@ -17,7 +17,7 @@ use iced::padding;
 use iced::widget::mouse_area;
 use iced::widget::space;
 use iced::widget::span;
-use iced::widget::{Column, Container, Row, column, container, rich_text, row, text};
+use iced::widget::{Column, Container, Row, column, container, row, text};
 use iced::{Element, Font, font};
 use image::image_dimensions;
 use markdown_it::parser::block::{BlockRule, BlockState};

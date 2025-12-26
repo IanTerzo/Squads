@@ -4,7 +4,6 @@ mod components;
 mod parsing;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE;
-use iced::advanced::input_method;
 use iced::task::Handle;
 use iced::widget::Id;
 use iced::widget::operation::{focus, snap_to};
@@ -154,6 +153,7 @@ struct Counter {
     is_in_more_options: bool,
     show_add_users: bool,
     show_start_chat: bool,
+    start_chat_relevant_user: Option<String>,
 
     // Teams requested data
     me: Profile,
@@ -207,6 +207,7 @@ pub enum Message {
     ToggleShowMoreOptions(String),
     EnterMoreOptions,
     ExitMoreOptions,
+    SetStartChatRelevantUser(String),
 
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -519,6 +520,7 @@ impl Counter {
             is_in_centered_overlay: false,
             show_add_users: false,
             show_start_chat: false,
+            start_chat_relevant_user: None,
         };
         (
             counter_self,
@@ -616,7 +618,6 @@ impl Counter {
                             &self.theme,
                             current_chat,
                             &self.users_typing_timeouts,
-                            &self.add_users_checked,
                             &self.chats,
                             &conversation,
                             &self.chat_message_options,
@@ -627,7 +628,6 @@ impl Counter {
                             &self.user_presences,
                             &self.me,
                             self.search_chats_input_value.clone(),
-                            self.search_users_input_value.clone(),
                             &self.chat_message_area_content,
                             &self.chat_message_area_height,
                             &self.activities,
@@ -693,6 +693,7 @@ impl Counter {
                             &self.users,
                             &self.me,
                             &self.search_users_input_value,
+                            &self.start_chat_relevant_user,
                         ),
                         (self.window_width, self.window_height),
                         0.7,
@@ -860,6 +861,157 @@ impl Counter {
                         text: _,
                         repeat: _,
                     }) => match key {
+                        Key::Named(Named::Enter) => {
+                            if self.show_start_chat {
+                                self.show_start_chat = false;
+                                self.is_in_centered_overlay = false;
+
+                                let relevant_user = if let Some(start_chat_relevant_user) =
+                                    self.start_chat_relevant_user.clone()
+                                {
+                                    Some(start_chat_relevant_user)
+                                } else {
+                                    let search = self.search_users_input_value.to_lowercase();
+
+                                    // Exactly like the logic in c_start_chat, the vec matches the filtering from the search users input
+
+                                    let filtered_user_ids: Vec<String> = self
+                                        .users
+                                        .iter()
+                                        .filter(|(_, profile)| {
+                                            profile.surname.is_some()
+                                                && profile.display_name.is_some()
+                                        })
+                                        .filter(|(_, profile)| {
+                                            profile
+                                                .display_name
+                                                .as_ref()
+                                                .map(|name| {
+                                                    name.to_lowercase().starts_with(&search)
+                                                })
+                                                .unwrap_or(false)
+                                        })
+                                        .filter(|(id, _)| **id != self.me.id)
+                                        .map(|(id, _)| id.clone())
+                                        .collect();
+
+                                    // If empty return none
+
+                                    if filtered_user_ids.len() == 0 {
+                                        None
+                                    } else {
+                                        Some(filtered_user_ids[0].clone())
+                                    }
+                                };
+
+                                // Continue if none
+                                if relevant_user.is_none() {
+                                    return Task::none();
+                                }
+
+                                // Check if the chat already exists
+
+                                for chat in &self.chats {
+                                    if chat.members.len() == 2 {
+                                        if chat.members.iter().any(|member| {
+                                            member.mri.replace("8:orgid:", "")
+                                                == relevant_user.clone().unwrap()
+                                        }) {
+                                            let chat_id = chat.id.clone();
+
+                                            self.page.chat_body = ChatBody::Messages;
+                                            self.page.current_chat_id = Some(chat_id.clone());
+
+                                            let chat_id_clone = chat_id.clone();
+                                            let access_tokens_arc = self.access_tokens.clone();
+                                            let tenant = self.tenant.clone();
+
+                                            // Prefetch the chat in case it wasn't already fetched
+                                            return Task::batch(vec![
+                                                Task::perform(
+                                                    async move {
+                                                        let access_token = get_or_gen_token(
+                                                            access_tokens_arc,
+                                                            "https://ic3.teams.office.com/.default"
+                                                                .to_string(),
+                                                            &tenant,
+                                                        )
+                                                        .await;
+
+                                                        conversations(&access_token, chat_id, None)
+                                                            .await
+                                                            .unwrap()
+                                                    },
+                                                    move |result| {
+                                                        Message::GotChatConversations(
+                                                            chat_id_clone.clone(),
+                                                            result,
+                                                        )
+                                                    },
+                                                ),
+                                                snap_to(
+                                                    Id::new("conversation_column"),
+                                                    RelativeOffset::END,
+                                                ),
+                                            ]);
+                                        }
+                                    }
+                                }
+
+                                // Push yourself back to create the chat properly
+
+                                let user_ids = vec![relevant_user.unwrap(), self.me.id.clone()];
+
+                                let members: Vec<ChatMember> = user_ids
+                                    .iter()
+                                    .map(|user_id| ChatMember {
+                                        mri: format!("8:orgid:{}", user_id), // Users should all be of 8:orgid:
+                                        is_muted: None,
+                                        object_id: None,
+                                        is_identity_masked: None,
+                                        role: None,
+                                    })
+                                    .collect();
+
+                                let mut rng = StdRng::from_os_rng();
+
+                                let draft_id = format!("draft:{}", rng.random::<u64>()); // generate the temproary draft chat_id randomly
+
+                                self.chats.insert(
+                                    0,
+                                    Chat {
+                                        id: draft_id.clone(), // Signal that it isn't a real chat
+                                        members: members,
+                                        is_read: None,
+                                        is_high_importance: None,
+                                        is_one_on_one: if user_ids.len() > 2 {
+                                            Some(false)
+                                        } else {
+                                            Some(true)
+                                        },
+                                        is_conversation_deleted: None,
+                                        is_external: None,
+                                        is_messaging_disabled: None,
+                                        is_disabled: None,
+                                        title: None,
+                                        last_message: None,
+                                        is_last_message_from_me: None,
+                                        chat_sub_type: None,
+                                        last_join_at: None,
+                                        created_at: None,
+                                        creator: None,
+                                        hidden: None,
+                                        added_by: None,
+                                        chat_type: Some("draft".to_string()),
+                                        picture: None,
+                                    },
+                                );
+
+                                self.page.chat_body = ChatBody::Messages;
+
+                                self.page.current_chat_id = Some(draft_id);
+                            }
+                        }
                         Key::Named(Named::Escape) => {
                             if self.show_message_area_emoji_picker {
                                 self.show_message_area_emoji_picker = false
@@ -1464,6 +1616,7 @@ impl Counter {
                 Task::none()
             }
             Message::SearchUsersContentChanged(content) => {
+                self.start_chat_relevant_user = None;
                 self.search_users_input_value = content;
                 Task::none()
             }
@@ -1597,6 +1750,10 @@ impl Counter {
             }
             Message::ExitMoreOptions => {
                 self.is_in_more_options = false;
+                Task::none()
+            }
+            Message::SetStartChatRelevantUser(user_id) => {
+                self.start_chat_relevant_user = Some(user_id);
                 Task::none()
             }
 
@@ -2455,7 +2612,7 @@ impl Counter {
 
                 Task::none()
             }
-            Message::EmojiPickerReaction(emoji_id, emoji_unicode, message_id, thread_id) => {
+            Message::EmojiPickerReaction(emoji_id, _emoji_unicode, message_id, thread_id) => {
                 if self.show_message_emoji_picker && self.is_in_emoji_picker {
                     self.show_message_emoji_picker = false;
                     self.is_in_emoji_picker = false;
@@ -3013,7 +3170,7 @@ impl Counter {
                     WebsocketResponse::Connected(info) => Message::WSConnected(info),
                     WebsocketResponse::Message(value) => Message::GotWSMessage(value),
                     WebsocketResponse::Presences(value) => Message::GotWSPresences(value),
-                    WebsocketResponse::Other(value) => Message::DoNothing(()),
+                    WebsocketResponse::Other(_value) => Message::DoNothing(()),
                 },
             ))
         }

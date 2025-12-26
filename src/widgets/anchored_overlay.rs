@@ -23,6 +23,7 @@ pub fn anchored_overlay<'a, Message: 'a>(
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(dead_code)]
 pub enum Position {
     #[default]
     Top,

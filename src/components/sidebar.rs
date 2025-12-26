@@ -2,13 +2,12 @@ use std::collections::HashMap;
 
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::{MouseArea, column, container, mouse_area, row, scrollable, svg, text, tooltip};
-use iced::{Alignment, Border, Element, Length, Padding, border};
+use iced::{Alignment, Border, Element, Length, Padding};
 
 use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::components::toooltip::c_tooltip;
 use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
 use crate::{Message, Page};

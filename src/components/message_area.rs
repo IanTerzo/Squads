@@ -1,4 +1,3 @@
-use iced::time::milliseconds;
 use iced::widget::text_editor::Content;
 use iced::widget::{
     column, container, mouse_area, rich_text, row, space, span, svg, text, text_editor, text_input,
@@ -9,7 +8,7 @@ use indexmap::IndexMap;
 
 use crate::components::emoji_picker::c_emoji_picker;
 use crate::components::toooltip::c_tooltip;
-use crate::types::{Emoji, EmojiPickerAction, EmojiPickerLocation, MessageAreaAction};
+use crate::types::{Emoji, MessageAreaAction};
 use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{Message, View};
 use crate::{style, utils};

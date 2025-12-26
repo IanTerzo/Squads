@@ -3,11 +3,9 @@ use iced::advanced::mouse::Cursor;
 use iced::advanced::widget::{Tree, tree};
 use iced::advanced::{Clipboard, Layout, Shell, Widget, layout, renderer};
 use iced::border::Radius;
-use iced::widget::image::layout;
 use iced::{ContentFit, Element, Event, Length, Point, Rectangle, Rotation, Size, Vector, window};
 use image_rs::codecs::gif;
 use image_rs::{AnimationDecoder, Frame, Frames};
-use std::any::Any;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
@@ -24,6 +22,7 @@ struct Current {
     started: Instant,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct Gif {
     path: PathBuf,
@@ -243,7 +242,7 @@ where
         };
 
         // The uncropped size of the image when fit to the bounds above
-        let full_size = self.content_fit.fit(rotated_size, bounds);
+        let _full_size = self.content_fit.fit(rotated_size, bounds);
 
         // Shrink the widget to fit the resized image, if requested
         let final_size = Size {

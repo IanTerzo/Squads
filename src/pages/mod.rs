@@ -2,7 +2,6 @@ pub mod page_chat;
 pub mod page_login;
 pub mod page_team;
 use crate::Message;
-use crate::widgets::centered_overlay::centered_overlay;
 use iced::Element;
 use iced::widget::{container, row, stack};
 

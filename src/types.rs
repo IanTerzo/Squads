@@ -1,4 +1,3 @@
-use iced::widget::container;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -13,26 +12,6 @@ pub enum MessageAreaAction {
     Image,
     List,
     OrderedList,
-}
-
-#[derive(Debug, Clone)]
-pub struct EmojiPickerInfo {
-    pub action: EmojiPickerAction,
-    pub location: Option<EmojiPickerLocation>,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum EmojiPickerAction {
-    Send,
-    Reaction(String, String),
-    None,
-}
-
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum EmojiPickerLocation {
-    OverMessageArea,
-    ReactionContext,
-    ReactionAdd,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
