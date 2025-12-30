@@ -10,14 +10,14 @@ use crate::components::emoji_picker::c_emoji_picker;
 use crate::components::toooltip::c_tooltip;
 use crate::types::{Emoji, MessageAreaAction};
 use crate::widgets::anchored_overlay::anchored_overlay;
-use crate::{Message, View};
+use crate::{Message, Page};
 use crate::{style, utils};
 
 pub fn c_message_area<'a>(
     theme: &'a style::Theme,
     message_area_content: &'a Content,
     subject_input_content: &Option<String>,
-    view: View,
+    page: Page,
     message_area_height: &f32,
     show_emoji_picker: &bool,
     search_emojis_input_value: &String,
@@ -264,7 +264,7 @@ pub fn c_message_area<'a>(
                     .align_y(Alignment::Center)
                     .spacing(28),
                     container(row![
-                        if view == View::Team {
+                        if let Page::Team(_, _) = page {
                             if subject_input_content.is_none() {
                                 container(
                                     mouse_area(
@@ -306,7 +306,7 @@ pub fn c_message_area<'a>(
                         } else {
                             container(space())
                         },
-                        if view == View::Team {
+                        if let Page::Team(_, _) = page {
                             space().width(12)
                         } else {
                             space()

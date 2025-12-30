@@ -65,6 +65,7 @@ use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::c_expanded_image;
 use crate::components::sidebar::c_sidebar;
 use crate::components::start_chat::c_start_chat;
+use crate::pages::page_activity::activity;
 use crate::parsing::get_html_preview;
 use crate::websockets::{WebsocketData, websocket_builder};
 use crate::widgets::centered_overlay::centered_overlay;
@@ -77,24 +78,14 @@ const WINDOW_HEIGHT: f32 = 780.0;
 pub enum ChatBody {
     Messages,
     Members,
-    Activity,
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-enum View {
+enum Page {
     Login,
-    Team,
-    Chat,
-}
-
-// Any information needed to display the current page
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-struct Page {
-    view: View,
-    chat_body: ChatBody,
-    current_team_id: Option<String>,
-    current_channel_id: Option<String>,
-    current_chat_id: Option<String>,
+    Team(Option<String>, Option<String>), // current team id, current channel id
+    Chat(Option<String>, ChatBody),       // current chat id, chat body
+    Activity,
 }
 
 #[derive(Debug)]
@@ -108,8 +99,6 @@ struct Counter {
 
     // App info
     page: Page,
-    history: Vec<Page>,
-    history_index: usize,
     theme: style::Theme,
     emoji_map: IndexMap<String, Emoji>,
     window_width: f32,
@@ -121,6 +110,7 @@ struct Counter {
     scrollbar_percentage_scroll: f32,
     should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
+    last_opened_chat: Option<String>,
 
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
@@ -183,12 +173,9 @@ pub enum Message {
     OpenChat(String),
     ReadChat(String),
     OpenCurrentChat,
-    ToggleActivity,
     ToggleReplyOptions(String),
     ShowChatMessageOptions(String),
     StopShowChatMessageOptions(String),
-    HistoryBack,
-    HistoryForward,
     ExpandImage(String, String),
     StopExpandImage,
     SearchTeamsContentChanged(String),
@@ -215,6 +202,7 @@ pub enum Message {
     GotUserDetails(Vec<Team>, Vec<Chat>),
 
     // UI initiated
+    OpenActivity,
     ToggleExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
     PrefetchChat(String),
@@ -448,16 +436,10 @@ impl Counter {
         let first_chat = chats.get(0).map(|chat| chat.id.clone());
 
         let counter_self = Self {
-            page: Page {
-                view: if has_refresh_token {
-                    View::Chat
-                } else {
-                    View::Login
-                },
-                chat_body: ChatBody::Messages,
-                current_team_id: None,
-                current_channel_id: None,
-                current_chat_id: first_chat.clone(),
+            page: if has_refresh_token {
+                Page::Chat(first_chat.clone(), ChatBody::Messages)
+            } else {
+                Page::Login
             },
             theme: global_theme(),
             device_user_code: None,
@@ -475,19 +457,11 @@ impl Counter {
             chat_list_options: HashMap::new(),
             channel_list_options: HashMap::new(),
             users_typing_timeouts: HashMap::new(),
-            history: vec![Page {
-                view: View::Chat,
-                chat_body: ChatBody::Messages,
-                current_team_id: None,
-                current_channel_id: None,
-                current_chat_id: first_chat,
-            }],
             websockets_connection_info: None,
             user_presences: HashMap::new(),
             add_users_checked: HashMap::new(),
             expanded_image: None,
             should_send_typing: true,
-            history_index: 0,
             emoji_map: emojis,
             search_teams_input_value: "".to_string(),
             search_chats_input_value: "".to_string(),
@@ -521,6 +495,7 @@ impl Counter {
             show_add_users: false,
             show_start_chat: false,
             start_chat_relevant_user: None,
+            last_opened_chat: None,
         };
         (
             counter_self,
@@ -539,8 +514,8 @@ impl Counter {
         //println!("view called");
         //
 
-        match self.page.view {
-            View::Login => login(&self.theme, &self.device_user_code),
+        match &self.page {
+            Page::Login => login(&self.theme, &self.device_user_code),
             _ => app(
                 c_sidebar(
                     &self.theme,
@@ -549,9 +524,9 @@ impl Counter {
                     &self.me,
                     &self.user_presences,
                 ),
-                match self.page.view {
-                    View::Team => {
-                        let current_team_id = self.page.current_team_id.as_ref().unwrap();
+                match &self.page {
+                    Page::Team(current_team_id, current_channel_id) => {
+                        let current_team_id = current_team_id.as_ref().unwrap();
 
                         let mut current_team = self
                             .teams
@@ -560,7 +535,7 @@ impl Counter {
                             .unwrap()
                             .clone();
 
-                        let current_channel_id = self.page.current_channel_id.as_ref().unwrap();
+                        let current_channel_id = current_channel_id.as_ref().unwrap();
 
                         let current_channel = current_team
                             .channels
@@ -594,9 +569,8 @@ impl Counter {
                             &(self.window_width, self.window_height),
                         )
                     }
-                    View::Chat | _ => {
-                        let current_chat = if let Some(current_chat_id) = &self.page.current_chat_id
-                        {
+                    Page::Chat(current_chat_id, chat_body) => {
+                        let current_chat = if let Some(current_chat_id) = &current_chat_id {
                             Some(
                                 self.chats
                                     .iter()
@@ -607,8 +581,7 @@ impl Counter {
                             None
                         };
 
-                        let conversation = if let Some(current_chat_id) = &self.page.current_chat_id
-                        {
+                        let conversation = if let Some(current_chat_id) = &current_chat_id {
                             self.chat_conversations.get(current_chat_id)
                         } else {
                             None
@@ -630,9 +603,7 @@ impl Counter {
                             self.search_chats_input_value.clone(),
                             &self.chat_message_area_content,
                             &self.chat_message_area_height,
-                            &self.activities,
-                            &self.activity_expanded_conversations,
-                            &self.page.chat_body,
+                            &chat_body,
                             &self.show_more_options,
                             &self.more_menu_message_id,
                             &self.show_message_area_emoji_picker,
@@ -642,6 +613,23 @@ impl Counter {
                             &(self.window_width, self.window_height),
                         )
                     }
+                    Page::Activity => activity(
+                        &self.theme,
+                        &self.activities,
+                        &self.activity_expanded_conversations,
+                        &self.search_emojis_input_value,
+                        &self.emoji_map,
+                        &self.users,
+                        &self.user_presences,
+                        &self.me,
+                        &self.show_plus_emoji_picker,
+                        &self.emoji_picker_message_id,
+                        &(self.window_width, self.window_height),
+                    ),
+                    Page::Login => {
+                        // Can't happen
+                        panic!()
+                    }
                 },
                 if let Some(expanded_image) = &self.expanded_image {
                     Some(centered_overlay(
@@ -650,54 +638,60 @@ impl Counter {
                         0.94,
                     ))
                 } else if self.show_add_users {
-                    let current_chat = self
-                        .page
-                        .current_chat_id
-                        .as_ref()
-                        .map(|current_chat_id| {
-                            self.chats
-                                .iter()
-                                .find(|chat| &chat.id == current_chat_id)
-                                .unwrap()
-                        })
-                        .unwrap();
+                    match &self.page {
+                        Page::Chat(chat_id, _) => {
+                            let current_chat = chat_id
+                                .as_ref()
+                                .map(|current_chat_id| {
+                                    self.chats
+                                        .iter()
+                                        .find(|chat| &chat.id == current_chat_id)
+                                        .unwrap()
+                                })
+                                .unwrap();
 
-                    Some(centered_overlay(
-                        c_add_users(
-                            &self.theme,
-                            &current_chat,
-                            &self.users,
-                            &self.me,
-                            &self.add_users_checked,
-                            &self.search_users_input_value,
-                        ),
-                        (self.window_width, self.window_height),
-                        0.7,
-                    ))
+                            Some(centered_overlay(
+                                c_add_users(
+                                    &self.theme,
+                                    &current_chat,
+                                    &self.users,
+                                    &self.me,
+                                    &self.add_users_checked,
+                                    &self.search_users_input_value,
+                                ),
+                                (self.window_width, self.window_height),
+                                0.7,
+                            ))
+                        }
+                        _ => None,
+                    }
                 } else if self.show_start_chat {
-                    let current_chat = self
-                        .page
-                        .current_chat_id
-                        .as_ref()
-                        .map(|current_chat_id| {
-                            self.chats
-                                .iter()
-                                .find(|chat| &chat.id == current_chat_id)
-                                .unwrap()
-                        })
-                        .unwrap();
+                    match &self.page {
+                        Page::Chat(chat_id, _) => {
+                            let current_chat = chat_id
+                                .as_ref()
+                                .map(|current_chat_id| {
+                                    self.chats
+                                        .iter()
+                                        .find(|chat| &chat.id == current_chat_id)
+                                        .unwrap()
+                                })
+                                .unwrap();
 
-                    Some(centered_overlay(
-                        c_start_chat(
-                            &self.theme,
-                            &self.users,
-                            &self.me,
-                            &self.search_users_input_value,
-                            &self.start_chat_relevant_user,
-                        ),
-                        (self.window_width, self.window_height),
-                        0.7,
-                    ))
+                            Some(centered_overlay(
+                                c_start_chat(
+                                    &self.theme,
+                                    &self.users,
+                                    &self.me,
+                                    &self.search_users_input_value,
+                                    &self.start_chat_relevant_user,
+                                ),
+                                (self.window_width, self.window_height),
+                                0.7,
+                            ))
+                        }
+                        _ => None,
+                    }
                 } else {
                     None
                 },
@@ -765,7 +759,7 @@ impl Counter {
                 )
             }
             Message::Authorized(refresh_token) => {
-                self.page.view = View::Chat;
+                self.page = Page::Chat(None, ChatBody::Messages);
 
                 self.access_tokens
                     .write()
@@ -788,12 +782,12 @@ impl Counter {
                             self.team_message_area_height = max_area_height;
                         }
 
-                        let (message_area_content, message_area_height) = match self.page.view {
-                            View::Team => (
+                        let (message_area_content, message_area_height) = match self.page {
+                            Page::Team(_, _) => (
                                 &mut self.team_message_area_content,
                                 &mut self.team_message_area_height,
                             ),
-                            View::Chat => (
+                            Page::Chat(_, _) => (
                                 &mut self.chat_message_area_content,
                                 &mut self.chat_message_area_height,
                             ),
@@ -919,8 +913,10 @@ impl Counter {
                                         }) {
                                             let chat_id = chat.id.clone();
 
-                                            self.page.chat_body = ChatBody::Messages;
-                                            self.page.current_chat_id = Some(chat_id.clone());
+                                            self.page = Page::Chat(
+                                                Some(chat_id.clone()),
+                                                ChatBody::Messages,
+                                            );
 
                                             let chat_id_clone = chat_id.clone();
                                             let access_tokens_arc = self.access_tokens.clone();
@@ -1007,9 +1003,7 @@ impl Counter {
                                     },
                                 );
 
-                                self.page.chat_body = ChatBody::Messages;
-
-                                self.page.current_chat_id = Some(draft_id);
+                                self.page = Page::Chat(Some(draft_id), ChatBody::Messages);
                             }
                         }
                         Key::Named(Named::Escape) => {
@@ -1144,21 +1138,21 @@ impl Counter {
                 let max_area_height = 0.5 * self.window_height;
 
                 // Determine the current message area and height
-                let (message_area_content, message_area_height) = match self.page.view {
-                    View::Team => (
+                let (message_area_content, message_area_height) = match self.page {
+                    Page::Team(_, _) => (
                         &mut self.team_message_area_content,
                         &mut self.team_message_area_height,
                     ),
-                    View::Chat => (
+                    Page::Chat(_, _) => (
                         &mut self.chat_message_area_content,
                         &mut self.chat_message_area_height,
                     ),
                     _ => return Task::none(), // Should never happen
                 };
 
-                let conversation_id = match self.page.view {
-                    View::Team => self.page.current_channel_id.clone().unwrap(),
-                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                let conversation_id = match &self.page {
+                    Page::Team(_, current_channel_id) => current_channel_id.clone().unwrap(),
+                    Page::Chat(current_chat_id, _) => current_chat_id.clone().unwrap(),
                     _ => "".to_string(),
                 };
 
@@ -1198,15 +1192,15 @@ impl Counter {
                         } else if message_area_content.text() != "\n".to_string() {
                             // Post a message instead if the content is not empty
 
-                            let subject_text = if self.page.view == View::Team {
+                            let subject_text = if let Page::Team(_, _) = self.page {
                                 self.subject_input_value.clone()
                             } else {
                                 None
                             };
 
-                            match self.page.view {
-                                View::Team => self.team_message_area_content = Content::new(),
-                                View::Chat => self.chat_message_area_content = Content::new(),
+                            match self.page {
+                                Page::Team(_, _) => self.team_message_area_content = Content::new(),
+                                Page::Chat(_, _) => self.chat_message_area_content = Content::new(),
                                 _ => {}
                             }
 
@@ -1307,13 +1301,13 @@ impl Counter {
                     new_height
                 };
 
-                if self.page.view == View::Chat {
+                if let Page::Chat(current_chat_id, _) = &self.page {
                     if self.should_send_typing && !conversation_id.starts_with("draft:") {
                         self.should_send_typing = false;
 
                         let acess_tokens_arc = self.access_tokens.clone();
                         let tenant = self.tenant.clone();
-                        let conversation_id = self.page.current_chat_id.clone().unwrap();
+                        let conversation_id = current_chat_id.clone().unwrap();
 
                         return Task::batch(vec![
                             Task::perform(
@@ -1345,12 +1339,12 @@ impl Counter {
                 Task::none()
             }
             Message::MessageAreaAction(action) => {
-                let (content, message_area_height) = match self.page.view {
-                    View::Team => (
+                let (content, message_area_height) = match self.page {
+                    Page::Team(_, _) => (
                         &mut self.team_message_area_content,
                         &mut self.team_message_area_height,
                     ),
-                    View::Chat => (
+                    Page::Chat(_, _) => (
                         &mut self.chat_message_area_content,
                         &mut self.chat_message_area_height,
                     ),
@@ -1499,18 +1493,7 @@ impl Counter {
                 Task::none()
             }
             Message::OpenTeam(team_id, channel_id) => {
-                let team_page = Page {
-                    view: View::Team,
-                    chat_body: self.page.chat_body.clone(),
-                    current_team_id: Some(team_id),
-                    current_channel_id: Some(channel_id),
-                    current_chat_id: self.page.current_chat_id.clone(),
-                };
-
-                self.page = team_page.clone();
-                self.history.push(team_page);
-                self.history_index += 1;
-                self.history.truncate(self.history_index + 1);
+                self.page = Page::Team(Some(team_id), Some(channel_id));
 
                 snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
@@ -1518,18 +1501,8 @@ impl Counter {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                let chat_page = Page {
-                    view: View::Chat,
-                    chat_body: ChatBody::Messages,
-                    current_team_id: None,
-                    current_channel_id: None,
-                    current_chat_id: Some(thread_id.clone()),
-                };
-
-                self.page = chat_page.clone();
-                self.history.push(chat_page);
-                self.history_index += 1;
-                self.history.truncate(self.history_index + 1);
+                self.page = Page::Chat(Some(thread_id.clone()), ChatBody::Messages);
+                self.last_opened_chat = Some(thread_id.clone());
 
                 self.add_users_checked.clear();
                 self.search_users_input_value = "".to_string();
@@ -1567,26 +1540,14 @@ impl Counter {
                 };
             }
             Message::OpenCurrentChat => {
-                let chat_id = self.page.current_chat_id.clone();
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                let chat_page = Page {
-                    view: View::Chat,
-                    chat_body: ChatBody::Messages,
-                    current_team_id: None,
-                    current_channel_id: None,
-                    current_chat_id: chat_id.clone(),
-                };
-
-                self.page = chat_page.clone();
-                self.history.push(chat_page);
-                self.history_index += 1;
-                self.history.truncate(self.history_index + 1);
+                self.page = Page::Chat(self.last_opened_chat.clone(), ChatBody::Messages);
 
                 self.add_users_checked.clear();
 
-                if let Some(chat_id) = chat_id {
+                if let Some(chat_id) = self.last_opened_chat.clone() {
                     if !chat_id.starts_with("draft:") {
                         return Task::batch(vec![
                             snap_to(Id::new("conversation_column"), RelativeOffset::END),
@@ -1621,14 +1582,6 @@ impl Counter {
                 }
                 Task::none()
             }
-            Message::ToggleActivity => {
-                if self.page.chat_body == ChatBody::Activity {
-                    self.page.chat_body = ChatBody::Messages;
-                } else {
-                    self.page.chat_body = ChatBody::Activity;
-                }
-                Task::none()
-            }
             Message::ReadChat(thread_id) => {
                 if let Some(chat) = self.chats.iter_mut().find(|chat| chat.id == thread_id) {
                     chat.is_read = Some(true);
@@ -1648,20 +1601,6 @@ impl Counter {
             }
             Message::StopShowChatMessageOptions(message_id) => {
                 self.chat_message_options.insert(message_id, false);
-                Task::none()
-            }
-            Message::HistoryBack => {
-                if self.history_index != 0 {
-                    self.history_index -= 1;
-                    self.page = self.history[self.history_index].clone();
-                }
-                Task::none()
-            }
-            Message::HistoryForward => {
-                if self.history_index != self.history.len() - 1 {
-                    self.history_index += 1;
-                    self.page = self.history[self.history_index].clone();
-                }
                 Task::none()
             }
             Message::ExpandImage(identifier, image_type) => {
@@ -1887,6 +1826,10 @@ impl Counter {
                 Task::none()
             }
             // UI initiated
+            Message::OpenActivity => {
+                self.page = Page::Activity;
+                Task::none()
+            }
             Message::ToggleExpandActivity(thread_id, message_id, message_activity_id) => {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
@@ -1979,27 +1922,31 @@ impl Counter {
                 Task::none()
             }
             Message::PrefetchCurrentChat => {
-                if let Some(chat_id) = self.page.current_chat_id.clone() {
-                    let chat_id_clone = chat_id.clone();
-                    let access_tokens_arc = self.access_tokens.clone();
-                    let tenant = self.tenant.clone();
+                if let Page::Team(chat_id, _) = &self.page {
+                    if let Some(chat_id) = chat_id {
+                        let chat_id_clone = chat_id.clone();
+                        let chat_id_clone2 = chat_id.clone();
 
-                    if !chat_id.starts_with("draft:") {
-                        return Task::perform(
-                            async move {
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
-                                    &tenant,
-                                )
-                                .await;
+                        let access_tokens_arc = self.access_tokens.clone();
+                        let tenant = self.tenant.clone();
 
-                                conversations(&access_token, chat_id_clone, None)
-                                    .await
-                                    .unwrap()
-                            },
-                            move |result| Message::GotChatConversations(chat_id.clone(), result), // This calls a message
-                        );
+                        if !chat_id.starts_with("draft:") {
+                            return Task::perform(
+                                async move {
+                                    let access_token = get_or_gen_token(
+                                        access_tokens_arc,
+                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        &tenant,
+                                    )
+                                    .await;
+
+                                    conversations(&access_token, chat_id_clone, None)
+                                        .await
+                                        .unwrap()
+                                },
+                                move |result| Message::GotChatConversations(chat_id_clone2, result), // This calls a message
+                            );
+                        }
                     }
                 }
                 Task::none()
@@ -2049,19 +1996,19 @@ impl Counter {
                 Task::none()
             }
             Message::PostMessage => {
-                let (message_area_content, message_area_height) = match self.page.view {
-                    View::Team => (
+                let (message_area_content, message_area_height) = match self.page {
+                    Page::Team(_, _) => (
                         &mut self.team_message_area_content,
                         &mut self.team_message_area_height,
                     ),
-                    View::Chat => (
+                    Page::Chat(_, _) => (
                         &mut self.chat_message_area_content,
                         &mut self.chat_message_area_height,
                     ),
                     _ => return Task::none(), // Should never happen
                 };
 
-                let subject_text = if self.page.view == View::Team {
+                let subject_text = if let Page::Team(_, _) = self.page {
                     self.subject_input_value.clone()
                 } else {
                     None
@@ -2069,9 +2016,9 @@ impl Counter {
 
                 let message_area_text = message_area_content.text();
 
-                match self.page.view {
-                    View::Team => self.team_message_area_content = Content::new(),
-                    View::Chat => self.chat_message_area_content = Content::new(),
+                match self.page {
+                    Page::Team(_, _) => self.team_message_area_content = Content::new(),
+                    Page::Chat(_, _) => self.chat_message_area_content = Content::new(),
                     _ => {}
                 }
 
@@ -2079,9 +2026,9 @@ impl Counter {
 
                 self.subject_input_value = None;
 
-                let conversation_id = match self.page.view {
-                    View::Team => self.page.current_channel_id.clone().unwrap(),
-                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                let conversation_id = match &self.page {
+                    Page::Team(_, current_channel_id) => current_channel_id.clone().unwrap(),
+                    Page::Chat(current_chat_id, _) => current_chat_id.clone().unwrap(),
                     _ => "".to_string(),
                 };
 
@@ -2174,8 +2121,7 @@ impl Counter {
                             {
                                 let chat_id = chat.id.clone();
 
-                                self.page.chat_body = ChatBody::Messages;
-                                self.page.current_chat_id = Some(chat_id.clone());
+                                self.page = Page::Chat(Some(chat_id.clone()), ChatBody::Messages);
 
                                 let chat_id_clone = chat_id.clone();
                                 let access_tokens_arc = self.access_tokens.clone();
@@ -2257,9 +2203,7 @@ impl Counter {
                     },
                 );
 
-                self.page.chat_body = ChatBody::Messages;
-
-                self.page.current_chat_id = Some(draft_id);
+                self.page = Page::Chat(Some(draft_id), ChatBody::Messages);
 
                 Task::none()
             }
@@ -2281,7 +2225,7 @@ impl Counter {
 
                 self.chat_conversations.insert(chat_id.clone(), vec![]);
 
-                self.page.current_chat_id = Some(chat_id.clone());
+                self.page = Page::Chat(Some(chat_id.clone()), ChatBody::Messages);
 
                 post_message_task(
                     message,
@@ -2315,7 +2259,7 @@ impl Counter {
                             is_identity_masked: None,
                         }));
 
-                    self.page.chat_body = ChatBody::Messages;
+                    self.page = Page::Chat(Some(chat_id.clone()), ChatBody::Messages);
 
                     return Task::none();
                 }
@@ -2372,7 +2316,8 @@ impl Counter {
                     }
                 }
 
-                self.page.chat_body = ChatBody::Messages;
+                self.page = Page::Chat(Some(chat_id.clone()), ChatBody::Messages);
+
                 Task::none()
             }
             Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
@@ -2545,18 +2490,23 @@ impl Counter {
                 Task::none()
             }
             Message::ToggleShowChatMembers => {
-                if self.page.chat_body != ChatBody::Members {
-                    self.page.chat_body = ChatBody::Members;
-                    snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
+                if let Page::Chat(chat_id, chat_body) = &self.page {
+                    if *chat_body != ChatBody::Members {
+                        self.page = Page::Chat(chat_id.clone(), ChatBody::Members);
+                        snap_to(Id::new("members_column"), RelativeOffset { x: 0.0, y: 0.0 })
+                    } else {
+                        self.page = Page::Chat(chat_id.clone(), ChatBody::Messages);
+
+                        snap_to(
+                            Id::new("conversation_column"),
+                            RelativeOffset {
+                                x: 0.0,
+                                y: self.scrollbar_percentage_scroll,
+                            },
+                        )
+                    }
                 } else {
-                    self.page.chat_body = ChatBody::Messages;
-                    snap_to(
-                        Id::new("conversation_column"),
-                        RelativeOffset {
-                            x: 0.0,
-                            y: self.scrollbar_percentage_scroll,
-                        },
-                    )
+                    Task::none()
                 }
             }
             Message::ToggleShowChatAdd => {
@@ -2588,8 +2538,10 @@ impl Counter {
                 }
 
                 self.just_opened_overlay = true;
+                self.search_emojis_input_value = String::new();
                 self.show_message_area_emoji_picker = !self.show_message_area_emoji_picker;
-                Task::none()
+
+                focus(Id::new("search_emojis_input"))
             }
             Message::ToggleMessageEmojiPicker(message_id) => {
                 if self.show_more_options {
@@ -2669,9 +2621,9 @@ impl Counter {
                     self.is_in_emoji_picker = false;
                 }
 
-                let content = match self.page.view {
-                    View::Team => &mut self.team_message_area_content,
-                    View::Chat => &mut self.chat_message_area_content,
+                let content = match self.page {
+                    Page::Team(_, _) => &mut self.team_message_area_content,
+                    Page::Chat(_, _) => &mut self.chat_message_area_content,
                     _ => return Task::none(),
                 };
 
@@ -2781,14 +2733,14 @@ impl Counter {
                     emotion.key, time
                 );
 
-                let thread_id = match self.page.view {
-                    View::Team => self.page.current_team_id.clone().unwrap(),
-                    View::Chat => self.page.current_chat_id.clone().unwrap(),
+                let thread_id = match &self.page {
+                    Page::Team(current_team_id, _) => current_team_id.clone().unwrap(),
+                    Page::Chat(current_chat_id, _) => current_chat_id.clone().unwrap(),
                     _ => return Task::none(),
                 };
 
                 if self_has_reacted {
-                    if let Some(message) = if self.page.view == View::Chat {
+                    if let Some(message) = if let Page::Chat(_, _) = self.page {
                         self.chat_conversations
                             .get_mut(&thread_id)
                             .unwrap()
@@ -2851,7 +2803,7 @@ impl Counter {
                         Message::DoNothing,
                     )
                 } else {
-                    if let Some(message) = if self.page.view == View::Chat {
+                    if let Some(message) = if let Page::Chat(_, _) = self.page {
                         self.chat_conversations
                             .get_mut(&thread_id)
                             .unwrap()
@@ -3015,8 +2967,8 @@ impl Counter {
 
                         //handle.abort();
                     } else {
-                        match self.page.view {
-                            View::Chat => {
+                        match &self.page {
+                            Page::Chat(current_chat_id, _) => {
                                 let chat_id = message.conversation_link.clone().unwrap().replace(
                                     "https://notifications.skype.net/v1/users/ME/conversations/",
                                     "",
@@ -3036,7 +2988,7 @@ impl Counter {
                                     }
                                 }
 
-                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                if let Some(current_chat_id) = &current_chat_id {
                                     if let Some(pos) =
                                         self.chats.iter_mut().position(|chat| chat.id == chat_id)
                                     {
@@ -3068,7 +3020,7 @@ impl Counter {
 
                                 let mut tasks = vec![];
 
-                                if let Some(current_chat_id) = &self.page.current_chat_id {
+                                if let Some(current_chat_id) = &current_chat_id {
                                     if &chat_id == current_chat_id {
                                         if self.scrollbar_scroll < 60 {
                                             tasks.push(snap_to(
@@ -3104,7 +3056,7 @@ impl Counter {
 
                                 return Task::batch(tasks);
                             }
-                            View::Team => {
+                            Page::Team(_, _) => {
                                 let message_link_data = message
                                     .conversation_link
                                     .clone()

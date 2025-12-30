@@ -3,10 +3,8 @@ use std::str::FromStr;
 
 use crate::Message;
 use crate::api::{self, Chat, Profile};
-use crate::components::conversation::c_conversation;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
-use crate::components::preview_message::c_preview_message;
 use crate::components::toooltip::c_tooltip;
 use crate::components::{
     cached_image::c_cached_image, chat_message::c_chat_message, message_area::c_message_area,
@@ -151,8 +149,6 @@ pub fn chat<'a>(
     search_chats_input_value: String,
     message_area_content: &'a Content,
     message_area_height: &f32,
-    activities: &Vec<crate::api::Message>,
-    expanded_conversations: &HashMap<String, (bool, Vec<api::Message>)>,
     page_body: &'a ChatBody,
     show_more_options: &'a bool,
     more_menu_message_id: &'a Option<String>,
@@ -166,59 +162,7 @@ pub fn chat<'a>(
 
     // Side panel
 
-    let additionals = column![
-        container(column![
-            mouse_area(
-                container(
-                    row![
-                        svg(utils::get_image_dir().join("bell.svg"))
-                            .width(20)
-                            .height(20),
-                        text!("Activity")
-                    ]
-                    .spacing(8)
-                )
-                .width(190)
-                .padding(Padding {
-                    top: 4.0,
-                    bottom: 4.0,
-                    left: 8.0,
-                    right: 8.0,
-                })
-                .style(move |_| {
-                    container::Style {
-                        background: Some(theme.colors.foreground.into()),
-                        border: border::rounded(6),
-                        ..Default::default()
-                    }
-                })
-            )
-            .on_release(Message::ToggleActivity)
-            .interaction(iced::mouse::Interaction::Pointer)
-        ])
-        .padding(Padding {
-            top: 8.0,
-            bottom: 14.0,
-            left: 10.0,
-            right: 0.0,
-        }),
-        container(c_horizontal_line(theme, 210.into()))
-            .width(Length::Fill)
-            .align_x(Alignment::Center),
-        container(
-            text("Direct Messages")
-                .size(14)
-                .color(theme.colors.demo_text)
-        )
-        .padding(Padding {
-            top: 10.0,
-            bottom: 2.0,
-            right: 0.0,
-            left: 8.0
-        })
-    ];
-
-    let mut chats_column = column![additionals]
+    let mut chats_column = column![]
         .spacing(theme.features.list_spacing)
         .padding(Padding {
             right: 4.0,
@@ -291,7 +235,7 @@ pub fn chat<'a>(
             container(chat_items)
                 .style(move |_| {
                     if let Some(current_chat) = current_chat {
-                        if chat.id == current_chat.id && *page_body != ChatBody::Activity {
+                        if chat.id == current_chat.id {
                             container::Style {
                                 background: Some(
                                     theme.colors.foreground_button_nobg_selected.into(),
@@ -606,123 +550,6 @@ pub fn chat<'a>(
                 .padding(padding::right(3))
                 .height(Length::Fill)
             }
-            ChatBody::Activity => {
-                let mut activities_colum = column![].spacing(12).padding(Padding {
-                    left: 8.0,
-                    right: 8.0,
-                    top: 0.0,
-                    bottom: 0.0,
-                });
-
-                let activities_conversations: Vec<_> = activities.iter().rev().cloned().collect();
-
-                for message in activities_conversations {
-                    if let Some(activity) = message.properties.clone().unwrap().activity {
-                        let thread_id = activity.source_thread_id.clone();
-
-                        let message_id = activity
-                            .source_reply_chain_id
-                            .unwrap_or(activity.source_message_id);
-
-                        let message_activity_id = message.id.unwrap().to_string();
-
-                        if let Some(conversation) = expanded_conversations.get(&message_activity_id)
-                        {
-                            if conversation.0 {
-                                if conversation.1.len() > 0 {
-                                    let message = c_conversation(
-                                        theme,
-                                        conversation.1.iter().rev().cloned().collect(), // Can be optimized,
-                                        thread_id.clone(),
-                                        message_activity_id.clone(),
-                                        false,
-                                        emoji_map,
-                                        search_emojis_input_value,
-                                        users,
-                                        me,
-                                        user_presences,
-                                        show_plus_emoji_picker,
-                                        emoji_picker_message_id,
-                                        window_size,
-                                    );
-                                    if let Some(message) = message {
-                                        activities_colum =
-                                            activities_colum.push(mouse_area(message).on_release(
-                                                Message::ToggleExpandActivity(
-                                                    thread_id,
-                                                    message_id,
-                                                    message_activity_id,
-                                                ),
-                                            ));
-                                    }
-                                } else {
-                                    activities_colum = activities_colum.push(
-                                        mouse_area(text("Failed to load conversation."))
-                                            .on_release(Message::ToggleExpandActivity(
-                                                thread_id,
-                                                message_id,
-                                                message_activity_id,
-                                            )),
-                                    );
-                                }
-                            } else {
-                                activities_colum = activities_colum.push(
-                                    mouse_area(c_preview_message(
-                                        theme,
-                                        activity,
-                                        &window_size.0,
-                                        emoji_map,
-                                    ))
-                                    .on_release(
-                                        Message::ToggleExpandActivity(
-                                            thread_id,
-                                            message_id,
-                                            message_activity_id,
-                                        ),
-                                    ),
-                                );
-                            }
-                        } else {
-                            activities_colum = activities_colum.push(
-                                mouse_area(c_preview_message(
-                                    theme,
-                                    activity,
-                                    &window_size.0,
-                                    emoji_map,
-                                ))
-                                .on_release(
-                                    Message::ToggleExpandActivity(
-                                        thread_id,
-                                        message_id,
-                                        message_activity_id,
-                                    ),
-                                ),
-                            );
-                        }
-                    }
-                }
-
-                let activities_scrollbar = container(
-                    scrollable(activities_colum)
-                        .direction(scrollable::Direction::Vertical(
-                            scrollable::Scrollbar::new()
-                                .width(theme.features.scrollbar_width)
-                                .spacing(theme.features.scrollable_spacing)
-                                .scroller_width(theme.features.scrollbar_width),
-                        ))
-                        .anchor_bottom()
-                        .style(|_, _| theme.stylesheet.scrollable),
-                )
-                .padding(Padding {
-                    top: 8.0,
-                    right: 3.0,
-                    left: 0.0,
-                    bottom: 0.0,
-                })
-                .height(Length::Fill);
-
-                activities_scrollbar.into()
-            }
         };
 
         // Put together page content
@@ -775,7 +602,7 @@ pub fn chat<'a>(
             theme,
             message_area_content,
             &None,
-            crate::View::Chat,
+            crate::Page::Chat(None, page_body.clone()),
             message_area_height,
             show_message_area_emoji_picker,
             search_emojis_input_value,
@@ -789,9 +616,7 @@ pub fn chat<'a>(
             bottom: 6.0,
         });
 
-        if *page_body != ChatBody::Activity {
-            content_page = content_page.push(message_area);
-        }
+        content_page = content_page.push(message_area);
 
         page = page.push(content_page);
     }

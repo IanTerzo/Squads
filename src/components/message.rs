@@ -8,10 +8,11 @@ use crate::types::Emoji;
 use crate::websockets::Presence;
 use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{style, utils};
-use iced::widget::{column, container, mouse_area, row, svg, text};
+use iced::widget::{column, container, mouse_area, row, svg, text, tooltip};
 use iced::{Alignment, Border, Element, Font, Padding, border, font};
 use indexmap::IndexMap;
 use std::collections::HashMap;
+use std::time::Duration;
 
 const LOG_THREAD_ACTIVITY: bool = false;
 
@@ -230,40 +231,80 @@ pub fn c_message<'a>(
                         }
                     }
 
-                    let reaction_container = mouse_area(
-                        container(row![reaction_text, text(reacters)].spacing(4))
-                            .style(move |_| {
-                                if self_has_reacted {
-                                    container::Style {
-                                        background: Some(theme.colors.emotion_selected.into()),
-                                        border: Border {
-                                            color: theme.colors.emotion_selected_line,
-                                            width: 1.0,
-                                            radius: 4.0.into(),
-                                        },
-                                        ..Default::default()
+                    let reaction_string = reaction
+                        .users
+                        .iter()
+                        .filter_map(|reactor| {
+                            if let Some(reactor_id) = reactor.mri.split(":").nth(2) {
+                                users.get(reactor_id).map(|profile| {
+                                    profile
+                                        .display_name
+                                        .clone()
+                                        .unwrap_or("Unknown User".to_string())
+                                })
+                            } else {
+                                Some("Unknown User".to_string())
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join(", ");
+
+                    let reaction_container = tooltip(
+                        mouse_area(
+                            container(row![reaction_text, text(reacters)].spacing(4))
+                                .style(move |_| {
+                                    if self_has_reacted {
+                                        container::Style {
+                                            background: Some(theme.colors.emotion_selected.into()),
+                                            border: Border {
+                                                color: theme.colors.emotion_selected_line,
+                                                width: 1.0,
+                                                radius: 4.0.into(),
+                                            },
+                                            ..Default::default()
+                                        }
+                                    } else {
+                                        container::Style {
+                                            background: Some(
+                                                theme.colors.foreground_surface.into(),
+                                            ),
+                                            border: border::rounded(4),
+                                            ..Default::default()
+                                        }
                                     }
-                                } else {
-                                    container::Style {
-                                        background: Some(theme.colors.foreground_surface.into()),
-                                        border: border::rounded(4),
-                                        ..Default::default()
-                                    }
-                                }
-                            })
-                            .padding(Padding {
-                                top: 3.0,
-                                right: 3.0,
-                                bottom: 3.0,
-                                left: 5.0,
-                            })
-                            .align_y(Alignment::Center),
+                                })
+                                .padding(Padding {
+                                    top: 3.0,
+                                    right: 3.0,
+                                    bottom: 3.0,
+                                    left: 5.0,
+                                })
+                                .align_y(Alignment::Center),
+                        )
+                        .on_release(Message::EmotionClicked(
+                            message.id.clone().unwrap(),
+                            reaction.clone(),
+                        ))
+                        .interaction(iced::mouse::Interaction::Pointer),
+                        container(text(format!(
+                            "{} \"{}\" reacted by {}",
+                            reaction_val
+                                .map(|emoji| emoji.unicode.clone())
+                                .unwrap_or("(?)".to_string()),
+                            reaction.key.clone(),
+                            reaction_string
+                        )))
+                        .padding(12)
+                        .max_width(200)
+                        .style(|_| container::Style {
+                            background: Some(theme.colors.foreground_surface.into()),
+                            border: border::rounded(4),
+                            ..Default::default()
+                        }),
+                        tooltip::Position::Top,
                     )
-                    .on_release(Message::EmotionClicked(
-                        message.id.clone().unwrap(),
-                        reaction.clone(),
-                    ))
-                    .interaction(iced::mouse::Interaction::Pointer);
+                    .delay(Duration::from_millis(400));
+
                     reactions_row = reactions_row.push(reaction_container);
                 }
             }

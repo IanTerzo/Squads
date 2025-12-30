@@ -99,7 +99,7 @@ pub fn team<'a>(
         theme,
         message_area_content,
         subject_input_content,
-        crate::View::Team,
+        crate::Page::Team(None, None),
         message_area_height,
         show_message_area_emoji_picker,
         search_emojis_input_value,

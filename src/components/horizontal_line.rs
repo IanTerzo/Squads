@@ -1,9 +1,9 @@
 use iced::{
-    widget::{container, space},
     Element, Length,
+    widget::{container, space},
 };
 
-use crate::{style::Theme, Message};
+use crate::{Message, style::Theme};
 
 pub fn c_horizontal_line(theme: &Theme, lenght: Length) -> Element<'_, Message> {
     container(space().width(lenght).height(1))

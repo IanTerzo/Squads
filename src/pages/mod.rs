@@ -1,9 +1,10 @@
+pub mod page_activity;
 pub mod page_chat;
 pub mod page_login;
 pub mod page_team;
 use crate::Message;
 use iced::Element;
-use iced::widget::{container, row, stack};
+use iced::widget::{row, stack};
 
 pub fn app<'a>(
     sidebar: Element<'a, Message>,
@@ -11,8 +12,8 @@ pub fn app<'a>(
     overlay: Option<Element<'a, Message>>,
 ) -> Element<'a, Message> {
     if let Some(overlay) = overlay {
-        stack![row![sidebar, container(content)], overlay].into()
+        stack![row![sidebar, content], overlay].into()
     } else {
-        stack![row![sidebar, container(content)]].into()
+        stack![row![sidebar, content]].into()
     }
 }

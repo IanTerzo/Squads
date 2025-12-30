@@ -179,6 +179,7 @@ where
 
     let top_part = container(
         text_input("Find your emoji...", search_emojis_input_value)
+            .id(Id::new("search_emojis_input"))
             .on_input(Message::SearchEmojisContentChanged)
             .style(|_, _| theme.stylesheet.input),
     )
