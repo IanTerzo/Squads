@@ -123,9 +123,9 @@ pub fn activity<'a>(
         scrollable(activities_colum)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(theme.features.scrollbar_width)
-                    .spacing(theme.features.scrollable_spacing)
-                    .scroller_width(theme.features.scrollbar_width),
+                    .width(4)
+                    .spacing(0)
+                    .scroller_width(4),
             ))
             .anchor_bottom()
             .style(|_, _| theme.stylesheet.scrollable),

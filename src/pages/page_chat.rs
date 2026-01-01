@@ -158,18 +158,16 @@ pub fn chat<'a>(
     emoji_picker_message_id: &'a Option<String>,
     window_size: &(f32, f32),
 ) -> Element<'a, Message> {
-    let mut page = row![].spacing(theme.features.page_row_spacing);
+    let mut page = row![].spacing(0);
 
     // Side panel
 
-    let mut chats_column = column![]
-        .spacing(theme.features.list_spacing)
-        .padding(Padding {
-            right: 4.0,
-            left: 6.0,
-            top: 6.0,
-            bottom: 6.0,
-        });
+    let mut chats_column = column![].spacing(4).padding(Padding {
+        right: 4.0,
+        left: 6.0,
+        top: 6.0,
+        bottom: 6.0,
+    });
 
     for chat in chats {
         let chat_title = get_chat_title(&chat, &me.id, &users);
@@ -280,9 +278,9 @@ pub fn chat<'a>(
     let chats_scrollable = scrollable(chats_column)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
-                .width(theme.features.scrollbar_width)
-                .spacing(theme.features.scrollable_spacing)
-                .scroller_width(theme.features.scrollbar_width),
+                .width(4)
+                .spacing(0)
+                .scroller_width(4),
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
@@ -453,9 +451,9 @@ pub fn chat<'a>(
                     scrollable(message_column)
                         .direction(scrollable::Direction::Vertical(
                             scrollable::Scrollbar::new()
-                                .width(theme.features.scrollbar_width)
-                                .spacing(theme.features.scrollable_spacing)
-                                .scroller_width(theme.features.scrollbar_width),
+                                .width(4)
+                                .spacing(0)
+                                .scroller_width(4),
                         ))
                         .style(|_, _| theme.stylesheet.scrollable)
                         .id(Id::new("conversation_column"))
@@ -470,15 +468,12 @@ pub fn chat<'a>(
                 .height(Length::Fill)
             }
             ChatBody::Members => {
-                let mut members_column =
-                    column![]
-                        .spacing(theme.features.list_spacing)
-                        .padding(Padding {
-                            left: 8.0,
-                            right: 6.0,
-                            top: 6.0,
-                            bottom: 6.0,
-                        });
+                let mut members_column = column![].spacing(4).padding(Padding {
+                    left: 8.0,
+                    right: 6.0,
+                    top: 6.0,
+                    bottom: 6.0,
+                });
 
                 for member in &current_chat.members {
                     let member_id = member.mri.strip_prefix("8:orgid:").unwrap_or(&member.mri);
@@ -540,9 +535,9 @@ pub fn chat<'a>(
                     scrollable(members_column)
                         .direction(scrollable::Direction::Vertical(
                             scrollable::Scrollbar::new()
-                                .width(theme.features.scrollbar_width)
-                                .spacing(theme.features.scrollable_spacing)
-                                .scroller_width(theme.features.scrollbar_width),
+                                .width(4)
+                                .spacing(0)
+                                .scroller_width(4),
                         ))
                         .style(|_, _| theme.stylesheet.scrollable)
                         .id(Id::new("members_column")),

@@ -20,14 +20,12 @@ pub fn c_add_users<'a>(
     add_users_cheked: &HashMap<String, bool>,
     search_users_input_value: &String,
 ) -> Element<'a, Message> {
-    let mut user_column = column![]
-        .spacing(theme.features.list_spacing)
-        .padding(Padding {
-            left: 8.0,
-            right: 6.0,
-            top: 6.0,
-            bottom: 6.0,
-        });
+    let mut user_column = column![].spacing(4).padding(Padding {
+        left: 8.0,
+        right: 6.0,
+        top: 6.0,
+        bottom: 6.0,
+    });
 
     for user in users {
         // Hotfix, this removes all non "human" users
@@ -181,9 +179,9 @@ pub fn c_add_users<'a>(
                 scrollable(user_column)
                     .direction(scrollable::Direction::Vertical(
                         scrollable::Scrollbar::new()
-                            .width(theme.features.scrollbar_width)
-                            .spacing(theme.features.scrollable_spacing)
-                            .scroller_width(theme.features.scrollbar_width),
+                            .width(4)
+                            .spacing(0)
+                            .scroller_width(4),
                     ))
                     .style(|_, _| theme.stylesheet.scrollable)
                     .id(Id::new("members_column"))

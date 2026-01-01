@@ -84,9 +84,9 @@ pub fn team<'a>(
         scrollable(conversation_column)
             .direction(scrollable::Direction::Vertical(
                 scrollable::Scrollbar::new()
-                    .width(theme.features.scrollbar_width)
-                    .spacing(theme.features.scrollable_spacing)
-                    .scroller_width(theme.features.scrollbar_width),
+                    .width(4)
+                    .spacing(0)
+                    .scroller_width(4),
             ))
             .style(|_, _| theme.stylesheet.scrollable)
             .on_scroll(Message::OnScroll)
@@ -186,14 +186,12 @@ pub fn team<'a>(
     ]
     .width(200);
 
-    let mut channels_coloumn: Column<Message> = column![additionals]
-        .spacing(theme.features.list_spacing)
-        .padding(Padding {
-            right: 4.0,
-            left: 6.0,
-            top: 6.0,
-            bottom: 6.0,
-        });
+    let mut channels_coloumn: Column<Message> = column![additionals].spacing(4).padding(Padding {
+        right: 4.0,
+        left: 6.0,
+        top: 6.0,
+        bottom: 6.0,
+    });
 
     team.channels.sort_by_key(|item| item.id != team.id);
     for channel in team.channels.clone() {
@@ -246,9 +244,9 @@ pub fn team<'a>(
     let team_scrollbar = scrollable(channels_coloumn)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
-                .width(theme.features.scrollbar_width)
-                .spacing(theme.features.scrollable_spacing)
-                .scroller_width(theme.features.scrollbar_width),
+                .width(4)
+                .spacing(0)
+                .scroller_width(4),
         ))
         .style(|_, _| theme.stylesheet.scrollable);
 
@@ -259,7 +257,5 @@ pub fn team<'a>(
         })
         .height(Length::Fill);
 
-    row![team_info_column, content_page]
-        .spacing(theme.features.page_row_spacing)
-        .into()
+    row![team_info_column, content_page].spacing(0).into()
 }

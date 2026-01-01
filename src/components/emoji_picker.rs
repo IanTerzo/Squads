@@ -3,7 +3,7 @@ use crate::style::Theme;
 use crate::types::Emoji;
 use crate::{Message, utils};
 use iced::widget::{Id, column, container, mouse_area, row, scrollable, svg, text, text_input};
-use iced::{Border, Element, Length, Padding};
+use iced::{Border, Element, Length, Padding, border};
 use indexmap::IndexMap;
 
 pub fn c_emoji_picker<'a, F>(
@@ -95,9 +95,9 @@ where
         .height(400)
         .direction(scrollable::Direction::Vertical(
             scrollable::Scrollbar::new()
-                .width(theme.features.scrollbar_width)
-                .spacing(theme.features.scrollable_spacing)
-                .scroller_width(theme.features.scrollbar_width),
+                .width(4)
+                .spacing(0)
+                .scroller_width(4),
         ))
         .width(420)
         .id(Id::new("emoji_column"))
@@ -112,54 +112,63 @@ where
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.0)),
             mouse_area(
                 svg(utils::get_image_dir().join("smile.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.0)),
             mouse_area(
                 svg(utils::get_image_dir().join("user-round.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.1261)),
             mouse_area(
                 svg(utils::get_image_dir().join("leaf.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.342)),
             mouse_area(
                 svg(utils::get_image_dir().join("pizza.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.45)),
             mouse_area(
                 svg(utils::get_image_dir().join("gamepad-2.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.53)),
             mouse_area(
                 svg(utils::get_image_dir().join("bike.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.59)),
             mouse_area(
                 svg(utils::get_image_dir().join("lamp.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.734)),
             mouse_area(
                 svg(utils::get_image_dir().join("heart.svg"))
                     .width(24)
                     .height(24)
             )
+            .interaction(iced::mouse::Interaction::Pointer)
             .on_release(Message::EmojiPickerScrollTo(0.9)),
         ]
         .height(Length::Fill)
@@ -172,7 +181,7 @@ where
         bottom: 6.0,
     })
     .style(|_| container::Style {
-        background: Some(theme.colors.foreground.into()),
+        background: Some(theme.colors.background.into()),
 
         ..Default::default()
     });
@@ -180,8 +189,20 @@ where
     let top_part = container(
         text_input("Find your emoji...", search_emojis_input_value)
             .id(Id::new("search_emojis_input"))
+            .padding(8)
             .on_input(Message::SearchEmojisContentChanged)
-            .style(|_, _| theme.stylesheet.input),
+            .style(|_, _| text_input::Style {
+                background: theme.colors.background.into(),
+                border: Border {
+                    color: theme.colors.line,
+                    width: 1.0,
+                    radius: 6.into(),
+                },
+                icon: theme.colors.not_set,
+                placeholder: theme.colors.demo_text,
+                value: theme.colors.text,
+                selection: theme.colors.text_selection,
+            }),
     )
     .padding(12);
 
@@ -195,7 +216,7 @@ where
         .height(400)
         .padding(2)
         .style(|_| container::Style {
-            background: Some(theme.colors.foreground.into()),
+            background: Some(theme.colors.foreground_alt.into()),
             border: Border {
                 color: theme.colors.line,
                 width: 1.0,
@@ -206,5 +227,6 @@ where
     )
     .on_enter(Message::EnterEmojiPicker)
     .on_exit(Message::ExitEmojiPicker)
+    .interaction(iced::mouse::Interaction::Idle)
     .into()
 }

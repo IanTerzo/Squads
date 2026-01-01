@@ -137,42 +137,86 @@ pub fn c_sidebar<'a>(
         row![
             column![
                 column![
-                    container(
-                        mouse_area(
-                            svg(utils::get_image_dir().join("message-square.svg"))
-                                .width(23)
-                                .height(23),
+                    row![
+                        if let Page::Chat(_, _) = page {
+                            container(svg_selected(theme))
+                        } else {
+                            container(space().width(4).height(38))
+                        },
+                        tooltip(
+                            container(
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("message-square.svg"))
+                                        .width(23)
+                                        .height(23),
+                                )
+                                .on_enter(Message::PrefetchCurrentChat)
+                                .on_release(Message::OpenCurrentChat)
+                                .interaction(iced::mouse::Interaction::Pointer)
+                            ),
+                            container(text("Direct Messages"))
+                                .max_width(150)
+                                .style(|_| container::Style {
+                                    background: Some(theme.colors.tooltip.into()),
+                                    border: Border {
+                                        color: theme.colors.line,
+                                        width: 1.0,
+                                        radius: 4.0.into(),
+                                    },
+                                    ..Default::default()
+                                })
+                                .padding(Padding {
+                                    top: 8.0,
+                                    bottom: 10.0,
+                                    right: 10.0,
+                                    left: 8.0,
+                                }),
+                            tooltip::Position::Right,
                         )
-                        .on_enter(Message::PrefetchCurrentChat)
-                        .on_release(Message::OpenCurrentChat)
-                        .interaction(iced::mouse::Interaction::Pointer)
-                    )
-                    .padding(Padding {
-                        top: 11.0,
-                        bottom: 0.0,
-                        left: 0.0,
-                        right: 0.0
-                    }),
-                    container(
-                        mouse_area(
-                            svg(utils::get_image_dir().join("bell.svg"))
-                                .width(23)
-                                .height(23),
+                    ]
+                    .spacing(16)
+                    .align_y(Vertical::Center),
+                    row![
+                        if let Page::Activity = page {
+                            container(svg_selected(theme))
+                        } else {
+                            container(space().width(4).height(38))
+                        },
+                        tooltip(
+                            container(
+                                mouse_area(
+                                    svg(utils::get_image_dir().join("bell.svg"))
+                                        .width(23)
+                                        .height(23),
+                                )
+                                .on_release(Message::OpenActivity)
+                                .interaction(iced::mouse::Interaction::Pointer)
+                            ),
+                            container(text("Activity"))
+                                .max_width(150)
+                                .style(|_| container::Style {
+                                    background: Some(theme.colors.tooltip.into()),
+                                    border: Border {
+                                        color: theme.colors.line,
+                                        width: 1.0,
+                                        radius: 4.0.into(),
+                                    },
+                                    ..Default::default()
+                                })
+                                .padding(Padding {
+                                    top: 8.0,
+                                    bottom: 10.0,
+                                    right: 10.0,
+                                    left: 8.0,
+                                }),
+                            tooltip::Position::Right,
                         )
-                        .on_release(Message::OpenActivity)
-                        .interaction(iced::mouse::Interaction::Pointer)
-                    )
-                    .padding(Padding {
-                        top: 11.0,
-                        bottom: 7.0,
-                        left: 0.0,
-                        right: 0.0
-                    }),
-                    c_horizontal_line(&theme, 38.into())
-                ]
-                .spacing(6)
-                .align_x(Alignment::Center)
-                .padding(padding::left(6)),
+                    ]
+                    .spacing(16)
+                    .align_y(Vertical::Center),
+                    space().width(1).height(6),
+                    container(c_horizontal_line(&theme, 38.into())).padding(padding::left(13))
+                ],
                 team_scrollbar,
                 column![
                     c_horizontal_line(&theme, 38.into()),
@@ -185,10 +229,9 @@ pub fn c_sidebar<'a>(
                 ]
                 .spacing(6)
                 .align_x(Alignment::Center)
-                .padding(padding::left(6)),
+                .padding(padding::left(12)),
             ]
-            .spacing(6)
-            .align_x(Alignment::Center),
+            .spacing(6),
             c_vertical_line(theme, Length::Fill)
         ]
         .spacing(4),

@@ -209,6 +209,7 @@ pub enum Message {
     StopShowChatListOptions(String),
     PrefetchCurrentChat,
     GotChatConversations(String, Conversations), //callback
+    GotChatConversationsFirst(String, Conversations), //callback
     PrefetchTeam(String, String),
     StopShowChannelListOptions(String),
     GotConversations(String, TeamConversations), //callback
@@ -255,13 +256,16 @@ pub enum Message {
 fn init_tasks(
     access_tokens: std::sync::Arc<RwLock<HashMap<String, AccessToken>>>,
     tenant: String,
+    first_chat: Option<String>,
 ) -> Task<Message> {
     let access_tokens1 = Arc::clone(&access_tokens);
     let access_tokens2 = Arc::clone(&access_tokens);
     let access_tokens3 = Arc::clone(&access_tokens);
+    let access_tokens4 = Arc::clone(&access_tokens);
 
     let tenant1 = tenant.clone();
     let tenant2 = tenant.clone();
+    let tenant3 = tenant.clone();
 
     Task::batch(vec![
         Task::perform(
@@ -337,6 +341,24 @@ fn init_tasks(
             },
             |result| Message::GotUsers(result.0, result.1),
         ),
+        if let Some(thread_id) = first_chat {
+            let thread_id_clone = thread_id.clone();
+            Task::perform(
+                async move {
+                    let access_token = get_or_gen_token(
+                        access_tokens4,
+                        "https://ic3.teams.office.com/.default".to_string(),
+                        &tenant3,
+                    )
+                    .await;
+
+                    conversations(&access_token, thread_id, None).await.unwrap()
+                },
+                move |result| Message::GotChatConversationsFirst(thread_id_clone.clone(), result), // This calls a message
+            )
+        } else {
+            Task::none()
+        },
     ])
 }
 
@@ -495,12 +517,12 @@ impl Counter {
             show_add_users: false,
             show_start_chat: false,
             start_chat_relevant_user: None,
-            last_opened_chat: None,
+            last_opened_chat: first_chat.clone(),
         };
         (
             counter_self,
             if has_refresh_token {
-                init_tasks(access_tokens, tenant)
+                init_tasks(access_tokens, tenant, first_chat)
             } else {
                 Task::perform(
                     async move { api::gen_device_code(tenant).await.unwrap() },
@@ -766,7 +788,7 @@ impl Counter {
                     .unwrap()
                     .insert("refresh_token".to_string(), refresh_token);
                 self.is_authorized = true;
-                init_tasks(self.access_tokens.clone(), self.tenant.clone())
+                init_tasks(self.access_tokens.clone(), self.tenant.clone(), None)
             }
 
             // App actions
@@ -1823,6 +1845,35 @@ impl Counter {
             Message::GotUserDetails(teams, chats) => {
                 self.teams = teams;
                 self.chats = chats;
+
+                // For when logging in for the first time
+                if self.page == Page::Chat(None, ChatBody::Messages) {
+                    let first_chat = self.chats.get(0).map(|chat| chat.id.clone());
+
+                    if let Some(thread_id) = first_chat {
+                        let access_tokens_arc = self.access_tokens.clone();
+                        let tenant = self.tenant.clone();
+                        self.page = Page::Chat(Some(thread_id.clone()), ChatBody::Messages);
+                        self.last_opened_chat = Some(thread_id.clone());
+
+                        let thread_id_clone = thread_id.clone();
+                        return Task::perform(
+                            async move {
+                                let access_token = get_or_gen_token(
+                                    access_tokens_arc,
+                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    &tenant,
+                                )
+                                .await;
+
+                                conversations(&access_token, thread_id, None).await.unwrap()
+                            },
+                            move |result| {
+                                Message::GotChatConversationsFirst(thread_id_clone.clone(), result)
+                            }, // This calls a message
+                        );
+                    }
+                }
                 Task::none()
             }
             // UI initiated
@@ -1986,6 +2037,11 @@ impl Counter {
                 self.chat_conversations
                     .insert(thread_id, conversations.messages);
                 Task::none()
+            }
+            Message::GotChatConversationsFirst(thread_id, conversations) => {
+                self.chat_conversations
+                    .insert(thread_id, conversations.messages);
+                snap_to(Id::new("conversation_column"), RelativeOffset::END)
             }
             Message::OnScroll(viewport) => {
                 let max_scroll = viewport.content_bounds().height - viewport.bounds().height;
@@ -2541,7 +2597,7 @@ impl Counter {
                 self.search_emojis_input_value = String::new();
                 self.show_message_area_emoji_picker = !self.show_message_area_emoji_picker;
 
-                focus(Id::new("search_emojis_input"))
+                Task::none()
             }
             Message::ToggleMessageEmojiPicker(message_id) => {
                 if self.show_more_options {

@@ -37,7 +37,7 @@ pub fn c_message_area<'a>(
                             .on_input(Message::SubjectInputContentChanged)
                             .padding(6)
                             .style(|_, _| text_input::Style {
-                                background: theme.colors.foreground.into(),
+                                background: theme.colors.foreground_alt.into(),
                                 border: border::rounded(6),
                                 icon: theme.colors.not_set,
                                 placeholder: theme.colors.demo_text,
@@ -55,7 +55,7 @@ pub fn c_message_area<'a>(
                         .on_action(move |action| Message::MessageAreaEdit(action))
                         .placeholder("Type your message...")
                         .style(|_, _| text_editor::Style {
-                            background: theme.colors.foreground.into(),
+                            background: theme.colors.foreground_alt.into(),
                             border: border::rounded(4),
                             placeholder: theme.colors.demo_text,
                             value: theme.colors.text,
@@ -334,14 +334,14 @@ pub fn c_message_area<'a>(
                 .align_y(Alignment::Center)
             ]
             .padding(Padding {
-                top: 18.0,
-                right: 20.0,
-                bottom: 18.0,
-                left: 20.0,
+                top: 16.0,
+                right: 18.0,
+                bottom: 16.0,
+                left: 18.0,
             }),
         )
         .style(|_| container::Style {
-            background: Some(theme.colors.foreground.into()),
+            background: Some(theme.colors.foreground_alt.into()),
             border: Border {
                 color: theme.colors.line,
                 width: 1.0,

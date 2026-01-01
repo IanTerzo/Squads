@@ -24,6 +24,7 @@ pub struct Colors {
     pub foreground_button_nobg_hovered: Color,
     pub foreground_button_nobg_selected: Color,
     pub foreground_surface: Color,
+    pub foreground_alt: Color,
     pub line: Color,
     pub tooltip: Color,
     pub status_available: Color,
@@ -42,17 +43,8 @@ pub struct Colors {
 }
 
 #[derive(Debug)]
-pub struct Features {
-    pub scrollable_spacing: f32,
-    pub page_row_spacing: f32,
-    pub list_spacing: f32,
-    pub scrollbar_width: f32,
-}
-
-#[derive(Debug)]
 pub struct Theme {
     pub colors: Colors,
-    pub features: Features,
     pub stylesheet: Stylesheet,
 }
 
@@ -65,6 +57,7 @@ pub fn squads_dark() -> Theme {
         foreground_button_nobg_hovered: Color::from_str("#201F1F").expect("Color is invalid."),
         foreground_button_nobg_selected: Color::from_str("#323030").expect("Color is invalid."),
         foreground_surface: Color::from_str("#332E2E").expect("Color is invalid."),
+        foreground_alt: Color::from_str("#272525").expect("Color is invalid."),
         line: Color::from_str("#393939").expect("Color is invalid."),
         tooltip: Color::from_str("#29292A").expect("Color is invalid."),
         status_available: Color::from_str("#4db255").expect("Color is invalid."),
@@ -80,13 +73,6 @@ pub fn squads_dark() -> Theme {
         notification: Color::WHITE,
         emotion_selected: Color::from_str("#24323D").expect("Color is invalid."),
         emotion_selected_line: Color::from_str("#5057D7").expect("Color is invalid."),
-    };
-
-    let features = Features {
-        scrollable_spacing: 0.0,
-        page_row_spacing: 0.0,
-        list_spacing: 4.0,
-        scrollbar_width: 4.0,
     };
 
     let stylesheet = Stylesheet {
@@ -131,11 +117,7 @@ pub fn squads_dark() -> Theme {
         },
     };
 
-    Theme {
-        colors,
-        features,
-        stylesheet,
-    }
+    Theme { colors, stylesheet }
 }
 
 pub fn global_theme() -> Theme {
