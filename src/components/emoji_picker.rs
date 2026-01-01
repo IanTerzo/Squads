@@ -3,7 +3,7 @@ use crate::style::Theme;
 use crate::types::Emoji;
 use crate::{Message, utils};
 use iced::widget::{Id, column, container, mouse_area, row, scrollable, svg, text, text_input};
-use iced::{Border, Element, Length, Padding, border};
+use iced::{Border, Element, Length, Padding};
 use indexmap::IndexMap;
 
 pub fn c_emoji_picker<'a, F>(

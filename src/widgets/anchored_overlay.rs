@@ -8,7 +8,6 @@ pub fn anchored_overlay<'a, Message: 'a>(
     overlay: impl Into<Element<'a, Message>>,
     anchor: Position,
     offset: f32,
-    visible: bool,
     window_size: (f32, f32),
 ) -> Element<'a, Message> {
     AnchoredOverlay {
@@ -16,7 +15,6 @@ pub fn anchored_overlay<'a, Message: 'a>(
         overlay: overlay.into(),
         anchor,
         offset,
-        visible,
         window_size: window_size,
     }
     .into()
@@ -37,7 +35,6 @@ struct AnchoredOverlay<'a, Message> {
     overlay: Element<'a, Message>,
     anchor: Position,
     offset: f32,
-    visible: bool,
     window_size: (f32, f32),
 }
 
@@ -163,20 +160,16 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
             translation,
         );
 
-        let overlay = if self.visible {
-            Some(overlay::Element::new(Box::new(Overlay {
-                content: &mut self.overlay,
-                tree: &mut second[0],
-                anchor: self.anchor,
-                offset: self.offset,
-                base_layout: layout.bounds(),
-                position: layout.position() + translation,
-                viewport: *viewport,
-                window_size: self.window_size,
-            })))
-        } else {
-            None
-        };
+        let overlay = Some(overlay::Element::new(Box::new(Overlay {
+            content: &mut self.overlay,
+            tree: &mut second[0],
+            anchor: self.anchor,
+            offset: self.offset,
+            base_layout: layout.bounds(),
+            position: layout.position() + translation,
+            viewport: *viewport,
+            window_size: self.window_size,
+        })));
 
         if base.is_some() || overlay.is_some() {
             Some(overlay::Group::with_children(base.into_iter().chain(overlay).collect()).overlay())

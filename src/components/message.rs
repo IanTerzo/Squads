@@ -311,8 +311,8 @@ pub fn c_message<'a>(
         }
 
         let message_id_clone = message.id.clone().unwrap();
-        let add_reaction_container = anchored_overlay(
-            mouse_area(
+        let add_reaction_container = {
+            let content = mouse_area(
                 container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
                     .style(|_| container::Style {
                         background: Some(theme.colors.foreground_surface.into()),
@@ -323,25 +323,32 @@ pub fn c_message<'a>(
                     .align_y(Alignment::Center),
             )
             .on_release(Message::TogglePlusEmojiPicker(message.id.clone().unwrap()))
-            .interaction(iced::mouse::Interaction::Pointer),
-            c_emoji_picker(
-                theme,
-                search_emojis_input_value,
-                emoji_map,
-                move |emoji_id, emoji_unicode| {
-                    Message::EmojiPickerReaction(
-                        emoji_id,
-                        emoji_unicode,
-                        message_id_clone.clone(),
-                        source_thread_id.clone(),
-                    )
-                },
-            ),
-            crate::widgets::anchored_overlay::Position::Right,
-            5.0,
-            *show_plus_emoji_picker && *emoji_picker_message_id == message.id.clone(),
-            *window_size,
-        );
+            .interaction(iced::mouse::Interaction::Pointer);
+
+            if *show_plus_emoji_picker && *emoji_picker_message_id == message.id.clone() {
+                container(anchored_overlay(
+                    content,
+                    c_emoji_picker(
+                        theme,
+                        search_emojis_input_value,
+                        emoji_map,
+                        move |emoji_id, emoji_unicode| {
+                            Message::EmojiPickerReaction(
+                                emoji_id,
+                                emoji_unicode,
+                                message_id_clone.clone(),
+                                source_thread_id.clone(),
+                            )
+                        },
+                    ),
+                    crate::widgets::anchored_overlay::Position::Right,
+                    5.0,
+                    *window_size,
+                ))
+            } else {
+                container(content)
+            }
+        };
 
         reactions_row = reactions_row.push(add_reaction_container);
 

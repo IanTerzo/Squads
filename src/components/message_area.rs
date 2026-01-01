@@ -66,32 +66,37 @@ pub fn c_message_area<'a>(
                 row![
                     row![
                         row![
-                            anchored_overlay(
-                                tooltip(
+                            {
+                                let content = tooltip(
                                     mouse_area(
                                         svg(utils::get_image_dir().join("smile.svg"))
                                             .width(19)
-                                            .height(19)
+                                            .height(19),
                                     )
                                     .on_release(Message::ToggleMessageAreaEmojiPicker)
                                     .interaction(iced::mouse::Interaction::Pointer),
                                     c_tooltip(theme, "Emojis"),
-                                    tooltip::Position::Top
-                                ),
-                                c_emoji_picker(
-                                    theme,
-                                    search_emojis_input_value,
-                                    emoji_map,
-                                    |emoji_id, emoji_unicode| Message::EmojiPickerSend(
-                                        emoji_id,
-                                        emoji_unicode
-                                    )
-                                ),
-                                crate::widgets::anchored_overlay::Position::Top,
-                                *message_area_height + 28.0,
-                                *show_emoji_picker,
-                                *window_size
-                            ),
+                                    tooltip::Position::Top,
+                                );
+                                if *show_emoji_picker {
+                                    container(anchored_overlay(
+                                        content,
+                                        c_emoji_picker(
+                                            theme,
+                                            search_emojis_input_value,
+                                            emoji_map,
+                                            |emoji_id, emoji_unicode| {
+                                                Message::EmojiPickerSend(emoji_id, emoji_unicode)
+                                            },
+                                        ),
+                                        crate::widgets::anchored_overlay::Position::Top,
+                                        *message_area_height + 28.0,
+                                        *window_size,
+                                    ))
+                                } else {
+                                    container(content)
+                                }
+                            },
                             tooltip(
                                 mouse_area(
                                     svg(utils::get_image_dir().join("upload.svg"))
