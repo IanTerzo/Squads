@@ -213,6 +213,8 @@ pub struct Card {
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub content: Option<String>,
+    #[serde(alias = "clientmessageid")]
+    pub client_message_id: Option<String>,
     #[serde(deserialize_with = "strip_url")]
     // In some cases the id is displayed as a contacts url, https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/contacts/8:orgid:15de4241-3...
     pub from: Option<String>,

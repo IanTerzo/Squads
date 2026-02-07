@@ -4,9 +4,11 @@ mod components;
 mod parsing;
 use base64::Engine;
 use base64::prelude::BASE64_URL_SAFE;
+use chrono::Utc;
 use iced::task::Handle;
 use iced::widget::Id;
 use iced::widget::operation::{focus, snap_to};
+use image_rs::imageops::FilterType::Triangle;
 use indexmap::IndexMap;
 use parsing::parse_message_markdown;
 mod auth;
@@ -111,6 +113,7 @@ struct Counter {
     should_send_typing: bool,
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
     last_opened_chat: Option<String>,
+    present_messages: HashSet<String>,
 
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
@@ -370,11 +373,72 @@ fn post_message_task(
     me_id: String,
     me_display_name: Option<String>,
     subject: Option<String>,
+    present_messages: &mut HashSet<String>,
+    chat_conversations: &mut HashMap<String, Vec<api::Message>>,
+    team_conversations: &mut HashMap<String, TeamConversations>,
+    chats: &mut Vec<Chat>,
 ) -> Task<Message> {
+    // Update conversations
+    let html = parse_message_markdown(message_area_text);
+
+    let mut rng = StdRng::from_os_rng();
+    let message_client_id: u64 = rng.random(); // generate the message_id randomly
+    let message_client_id = message_client_id.to_string();
+
+    let timestamp = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    let prefetched_message = api::Message {
+        id: Some("-1".to_string()),
+        client_message_id: Some(message_client_id.clone()),
+        conversation_link: Some(format!("blah/{}", conversation_id)),
+        from: Some(format!("8:orgid:{}", me_id)),
+        compose_time: Some(timestamp.clone()),
+        original_arrival_time: Some(timestamp.clone()),
+        content: Some(html.clone()),
+        message_type: Some("RichText/Html".to_string()),
+        container_id: None,
+        im_display_name: me_display_name.clone(),
+        properties: Some(api::MessageProperties {
+            edittime: 0,
+            deletetime: 0,
+            systemdelete: false,
+            emotions: None,
+            is_read: Some(true),
+            activity: None,
+            subject: subject.clone(),
+            title: None,
+            cards: None,
+            files: None,
+        }),
+    };
+
+    if let Some(conversation) = chat_conversations.get_mut(&conversation_id) {
+        conversation.insert(0, prefetched_message.clone());
+    }
+
+    if let Some(conversation) = team_conversations.get_mut(&conversation_id) {
+        conversation.reply_chains.insert(
+            0,
+            Conversation {
+                messages: vec![prefetched_message.clone()],
+                container_id: prefetched_message.id.clone().unwrap(),
+                id: prefetched_message.id.clone().unwrap(),
+                latest_delivery_time: prefetched_message
+                    .original_arrival_time
+                    .unwrap_or("n/a".to_string()),
+            },
+        );
+    }
+
+    if let Some(pos) = chats.iter_mut().position(|chat| chat.id == conversation_id) {
+        let chat = chats.remove(pos);
+        chats.insert(0, chat);
+    }
+
+    present_messages.insert(message_client_id.clone());
+
     Task::perform(
         async move {
-            let html = parse_message_markdown(message_area_text);
-
             let access_token = get_or_gen_token(
                 acess_tokens_arc,
                 "https://ic3.teams.office.com/.default".to_string(),
@@ -382,22 +446,19 @@ fn post_message_task(
             )
             .await;
 
-            let mut rng = StdRng::from_os_rng();
-            let message_id: u64 = rng.random(); // generate the message_id randomly
-
             let message = TeamsMessage {
                 id: "-1",
                 msg_type: "Message",
                 conversationid: &conversation_id,
                 conversation_link: &format!("blah/{}", conversation_id),
                 from: &format!("8:orgid:{}", me_id),
-                composetime: "2025-03-06T11:04:18.265Z",
-                originalarrivaltime: "2025-03-06T11:04:18.265Z",
+                composetime: &timestamp,
+                originalarrivaltime: &timestamp,
                 content: &html,
                 messagetype: "RichText/Html",
                 contenttype: "Text",
                 imdisplayname: me_display_name.as_deref(),
-                clientmessageid: &message_id.to_string(),
+                clientmessageid: &message_client_id.to_string(),
                 call_id: "",
                 state: 0,
                 version: "0",
@@ -463,6 +524,7 @@ impl Counter {
             } else {
                 Page::Login
             },
+            present_messages: HashSet::new(),
             theme: global_theme(),
             device_user_code: None,
             device_code: "".to_string(),
@@ -1246,6 +1308,10 @@ impl Counter {
                                     me_id,
                                     me_display_name,
                                     subject_text,
+                                    &mut self.present_messages,
+                                    &mut self.chat_conversations,
+                                    &mut self.team_conversations,
+                                    &mut self.chats,
                                 );
                             } else {
                                 let current_chat = self
@@ -2102,6 +2168,10 @@ impl Counter {
                         me_id,
                         me_display_name,
                         subject_text,
+                        &mut self.present_messages,
+                        &mut self.chat_conversations,
+                        &mut self.team_conversations,
+                        &mut self.chats,
                     );
                 } else {
                     let current_chat = self
@@ -2291,6 +2361,10 @@ impl Counter {
                     self.me.id.clone(),
                     self.me.display_name.clone(),
                     None,
+                    &mut self.present_messages,
+                    &mut self.chat_conversations,
+                    &mut self.team_conversations,
+                    &mut self.chats,
                 )
                 .chain(snap_to(Id::new("conversation_column"), RelativeOffset::END))
             }
@@ -3032,7 +3106,20 @@ impl Counter {
 
                                 // Update conversations
 
-                                if let Some(conversation) =
+                                if let Some(client_message_id) = &message.client_message_id
+                                    && self.present_messages.contains(client_message_id)
+                                {
+                                    if let Some(conversation) =
+                                        self.chat_conversations.get_mut(&chat_id)
+                                    {
+                                        if let Some(pos) = conversation.iter().position(|item| {
+                                            item.client_message_id == message.client_message_id
+                                        }) {
+                                            conversation[pos] = message.clone();
+                                            self.present_messages.remove(client_message_id);
+                                        }
+                                    }
+                                } else if let Some(conversation) =
                                     self.chat_conversations.get_mut(&chat_id)
                                 {
                                     if let Some(pos) =
@@ -3147,7 +3234,29 @@ impl Counter {
                                 let mut reply_chain_exists = false;
                                 let mut reply_chain_message_exists = false;
 
-                                if let Some(conversation) =
+                                if let Some(client_message_id) = &message.client_message_id
+                                    && self.present_messages.contains(client_message_id)
+                                {
+                                    if let Some(conversation) =
+                                        self.team_conversations.get_mut(channel_id)
+                                    {
+                                        for conversation in &mut conversation.reply_chains {
+                                            for (pos, conversation_message) in
+                                                conversation.messages.iter_mut().enumerate()
+                                            {
+                                                if conversation_message.client_message_id
+                                                    == message.client_message_id
+                                                {
+                                                    // Edit
+                                                    conversation.messages[pos] = message.clone();
+                                                    self.present_messages.remove(client_message_id);
+
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else if let Some(conversation) =
                                     self.team_conversations.get_mut(channel_id)
                                 {
                                     for conversation in &mut conversation.reply_chains {

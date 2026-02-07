@@ -1,13 +1,13 @@
 use async_tungstenite::tokio::ConnectStream;
-use async_tungstenite::{tungstenite, WebSocketStream};
+use async_tungstenite::{WebSocketStream, tungstenite};
 use futures::sink::SinkExt;
 use futures::stream::{Stream, StreamExt};
 use iced::futures;
 use iced::futures::stream::{BoxStream, SplitStream};
 use iced::stream;
-use reqwest::{header::HeaderMap, Client};
+use reqwest::{Client, header::HeaderMap};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, RwLock};
