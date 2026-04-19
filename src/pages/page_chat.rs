@@ -189,14 +189,16 @@ pub fn chat<'a>(
         let picture = get_chat_picture(&chat, &me.id, &users);
 
         if chat.is_one_on_one.unwrap_or(false) {
-            let presence = user_presences.get(
-                &chat
-                    .members
-                    .iter()
-                    .find(|member| member.mri != format!("8:orgid:{}", me.id))
-                    .unwrap()
-                    .mri,
-            );
+            let my_mri = format!("8:orgid:{}", me.id);
+
+            let target_mri = chat
+                .members
+                .iter()
+                .find(|member| member.mri != my_mri)
+                .or_else(|| chat.members.iter().find(|member| member.mri == my_mri))
+                .map(|member| &member.mri);
+
+            let presence = target_mri.and_then(|mri| user_presences.get(mri));
 
             chat_items = chat_items.push(
                 container(c_picture_and_status(theme, picture, presence, (28.0, 28.0)))
