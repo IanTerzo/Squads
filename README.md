@@ -55,7 +55,7 @@ of the repository.
 
 - Squads uses icons from [Twemoji](https://github.com/twitter/twemoji). Twemoji is licensed under the MIT license.
 - Squads uses icons from [Lucide](https://lucide.dev/). Lucide is licensed under the ISC license.
-- Squads uses emoji keywords from [Emojilib](https://lucide.dev/). Emojilib is licensed under the MIT license.
+- Squads uses emoji keywords from [emojilib](https://github.com/muan/emojilib). Emojilib is licensed under the MIT license.
 - The ferris icon used is made by [Karen Rustad Tölva](https://rustacean.net/). (No license)
 
 ## Acknowledgments
