@@ -17,8 +17,9 @@ pub struct Stylesheet {
 
 #[derive(Debug)]
 pub struct Colors {
-    pub not_set: Color, // To be used as a palceholder for colors that are not yet choosen
+    pub not_set: Color, // To be used as a placeholder for colors that are not yet choosen
     pub background: Color,
+    pub background_button: Color,
     pub foreground: Color,
     pub foreground_button: Color,
     pub foreground_button_nobg_hovered: Color,
@@ -52,6 +53,7 @@ pub fn squads_dark() -> Theme {
     let colors = Colors {
         not_set: Color::from_rgb(1.0, 0.0, 0.0), // To be used as a palceholder for colors that are not yet choosen
         background: Color::from_str("#211F1F").expect("Color is invalid."),
+        background_button: Color::from_str("#2B2929").expect("Color is invalid."),
         foreground: Color::from_str("#1B1A1A").expect("Color is invalid."),
         foreground_button: Color::from_str("#232222").expect("Color is invalid."),
         foreground_button_nobg_hovered: Color::from_str("#201F1F").expect("Color is invalid."),

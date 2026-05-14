@@ -8,7 +8,6 @@ use chrono::Utc;
 use iced::task::Handle;
 use iced::widget::Id;
 use iced::widget::operation::{focus, snap_to};
-use image_rs::imageops::FilterType::Triangle;
 use indexmap::IndexMap;
 use parsing::parse_message_markdown;
 mod auth;
@@ -141,9 +140,11 @@ struct Counter {
     is_in_emoji_picker: bool,
     is_in_centered_overlay: bool,
     show_more_options: bool,
+    show_profile: bool,
     just_opened_overlay: bool,
     more_menu_message_id: Option<String>,
     is_in_more_options: bool,
+    is_in_profile: bool,
     show_add_users: bool,
     show_start_chat: bool,
     start_chat_relevant_user: Option<String>,
@@ -195,16 +196,8 @@ pub enum Message {
     AddSubject,
     RemoveSubject,
     ToggleShowMoreOptions(String),
-    EnterMoreOptions,
-    ExitMoreOptions,
+    ToggleShowProfile,
     SetStartChatRelevantUser(String),
-
-    // Teams requests
-    GotActivities(Vec<api::Message>),
-    GotUsers(HashMap<String, Profile>, Profile),
-    GotUserDetails(Vec<Team>, Vec<Chat>),
-
-    // UI initiated
     OpenActivity,
     ToggleExpandActivity(String, u64, String),
     GotExpandedActivity(String, Vec<api::Message>), //callback
@@ -237,12 +230,21 @@ pub enum Message {
     TogglePlusEmojiPicker(String),
     EnterEmojiPicker,
     ExitEmojiPicker,
+    EnterMoreOptions,
+    ExitMoreOptions,
+    EnterProfile,
+    ExitProfile,
     EnterCenteredOverlay,
     ExitCenteredOverlay,
     EmojiPickerSend(String, String),
     EmojiPickerReaction(String, String, String, String),
     EmotionClicked(String, Emotion),
     UploadFile,
+
+    // Teams requests
+    GotActivities(Vec<api::Message>),
+    GotUsers(HashMap<String, Profile>, Profile),
+    GotUserDetails(Vec<Team>, Vec<Chat>),
 
     // Websockets
     WSConnected(ConnectionInfo),
@@ -567,9 +569,11 @@ impl Counter {
             shift_held_down: false,
             control_held_down: false,
             show_more_options: false,
+            show_profile: false,
             just_opened_overlay: false,
             more_menu_message_id: None,
             is_in_more_options: false,
+            is_in_profile: false,
             show_message_area_emoji_picker: false,
             show_message_emoji_picker: false,
             show_plus_emoji_picker: false,
@@ -607,6 +611,8 @@ impl Counter {
                     &self.page,
                     &self.me,
                     &self.user_presences,
+                    &self.show_profile,
+                    &(self.window_width, self.window_height),
                 ),
                 match &self.page {
                     Page::Team(current_team_id, current_channel_id) => {
@@ -896,6 +902,10 @@ impl Counter {
                         if self.just_opened_overlay {
                             self.just_opened_overlay = false;
                         } else {
+                            if self.show_profile && !self.is_in_profile {
+                                self.show_profile = false;
+                            }
+
                             if self.show_more_options && !self.is_in_more_options {
                                 self.show_more_options = false;
                                 self.more_menu_message_id = None;
@@ -1812,6 +1822,11 @@ impl Counter {
             }
             Message::ToggleShowMoreOptions(message_id) => {
                 // We need to hide the other overlays.
+                if self.show_profile {
+                    self.show_profile = false;
+                    self.is_in_profile = false;
+                }
+
                 if self.show_message_emoji_picker {
                     self.show_message_emoji_picker = false;
                     self.is_in_emoji_picker = false;
@@ -1844,6 +1859,44 @@ impl Counter {
             }
             Message::ExitMoreOptions => {
                 self.is_in_more_options = false;
+                Task::none()
+            }
+            Message::ToggleShowProfile => {
+                // We need to hide the other overlays.
+                if self.show_more_options {
+                    self.show_more_options = false;
+                    self.is_in_more_options = false;
+                    self.more_menu_message_id = None;
+                }
+
+                if self.show_message_emoji_picker {
+                    self.show_message_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
+                if self.show_plus_emoji_picker {
+                    self.show_plus_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                    self.emoji_picker_message_id = None;
+                }
+
+                if self.show_message_area_emoji_picker {
+                    self.show_message_area_emoji_picker = false;
+                    self.is_in_emoji_picker = false;
+                }
+
+                self.just_opened_overlay = true;
+                self.show_profile = !self.show_profile;
+
+                Task::none()
+            }
+            Message::EnterProfile => {
+                self.is_in_profile = true;
+                Task::none()
+            }
+            Message::ExitProfile => {
+                self.is_in_profile = false;
                 Task::none()
             }
             Message::SetStartChatRelevantUser(user_id) => {
@@ -2650,6 +2703,11 @@ impl Counter {
                 Task::none()
             }
             Message::ToggleMessageAreaEmojiPicker => {
+                if self.show_profile {
+                    self.show_profile = false;
+                    self.is_in_profile = false;
+                }
+
                 if self.show_more_options {
                     self.show_more_options = false;
                     self.is_in_more_options = false;
@@ -2674,6 +2732,11 @@ impl Counter {
                 Task::none()
             }
             Message::ToggleMessageEmojiPicker(message_id) => {
+                if self.show_profile {
+                    self.show_profile = false;
+                    self.is_in_profile = false;
+                }
+
                 if self.show_more_options {
                     self.show_more_options = false;
                     self.is_in_more_options = false;
@@ -2702,6 +2765,11 @@ impl Counter {
                 Task::none()
             }
             Message::TogglePlusEmojiPicker(message_id) => {
+                if self.show_profile {
+                    self.show_profile = false;
+                    self.is_in_profile = false;
+                }
+
                 if self.show_more_options {
                     self.show_more_options = false;
                     self.is_in_more_options = false;

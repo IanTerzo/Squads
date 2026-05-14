@@ -11,8 +11,10 @@ use crate::api::{Profile, Team};
 use crate::components::cached_image::c_cached_image;
 use crate::components::horizontal_line::c_horizontal_line;
 use crate::components::picture_and_status::c_picture_and_status;
+use crate::components::profile::c_profile;
 use crate::components::vertical_line::c_vertical_line;
 use crate::websockets::Presence;
+use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{Message, Page};
 use crate::{style, utils};
 
@@ -41,6 +43,8 @@ pub fn c_sidebar<'a>(
     page: &'a Page,
     me: &Profile,
     user_presences: &'a HashMap<String, Presence>,
+    show_profile: &'a bool,
+    window_size: &(f32, f32),
 ) -> Element<'a, Message> {
     let mut teams_column = column![].spacing(14).padding(Padding {
         right: 8.0,
@@ -122,7 +126,7 @@ pub fn c_sidebar<'a>(
     let user_picture = c_cached_image(
         identifier.clone(),
         Message::FetchUserImage(
-            identifier,
+            identifier.clone(),
             me.id.clone(),
             me.display_name.as_ref().unwrap_or(&"".to_string()).clone(),
         ),
@@ -130,8 +134,8 @@ pub fn c_sidebar<'a>(
         28.0,
         4.0,
     );
+
     let presence = user_presences.get(&me.id);
-    let user_icon = c_picture_and_status(theme, user_picture, presence, (28.0, 28.0));
 
     container(
         row![
@@ -218,15 +222,36 @@ pub fn c_sidebar<'a>(
                     container(c_horizontal_line(&theme, 38.into())).padding(padding::left(13))
                 ],
                 team_scrollbar,
-                column![
-                    c_horizontal_line(&theme, 38.into()),
-                    container(user_icon).padding(Padding {
-                        top: 4.0,
-                        bottom: 4.0,
-                        left: 0.0,
-                        right: 0.0
-                    })
-                ]
+                column![c_horizontal_line(&theme, 38.into()), {
+                    let content = mouse_area(
+                        container(c_picture_and_status(
+                            theme,
+                            user_picture,
+                            presence,
+                            (28.0, 28.0),
+                        ))
+                        .padding(Padding {
+                            top: 4.0,
+                            bottom: 4.0,
+                            left: 0.0,
+                            right: 0.0,
+                        }),
+                    )
+                    .on_release(Message::ToggleShowProfile);
+
+                    if *show_profile {
+                        anchored_overlay(
+                            content,
+                            c_profile(theme, me, user_presences),
+                            crate::widgets::anchored_overlay::Position::Top,
+                            (-2.0, -1.0),
+                            false,
+                            *window_size,
+                        )
+                    } else {
+                        container(content).into()
+                    }
+                }]
                 .spacing(6)
                 .align_x(Alignment::Center)
                 .padding(padding::left(12)),

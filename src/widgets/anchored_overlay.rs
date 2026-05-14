@@ -7,7 +7,8 @@ pub fn anchored_overlay<'a, Message: 'a>(
     base: impl Into<Element<'a, Message>>,
     overlay: impl Into<Element<'a, Message>>,
     anchor: Position,
-    offset: f32,
+    offset: (f32, f32),
+    clamping: bool,
     window_size: (f32, f32),
 ) -> Element<'a, Message> {
     AnchoredOverlay {
@@ -15,11 +16,11 @@ pub fn anchored_overlay<'a, Message: 'a>(
         overlay: overlay.into(),
         anchor,
         offset,
-        window_size: window_size,
+        window_size,
+        clamping,
     }
     .into()
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 #[allow(dead_code)]
 pub enum Position {
@@ -34,7 +35,8 @@ struct AnchoredOverlay<'a, Message> {
     base: Element<'a, Message>,
     overlay: Element<'a, Message>,
     anchor: Position,
-    offset: f32,
+    offset: (f32, f32),
+    clamping: bool,
     window_size: (f32, f32),
 }
 
@@ -168,6 +170,7 @@ impl<Message> Widget<Message, Theme, Renderer> for AnchoredOverlay<'_, Message> 
             base_layout: layout.bounds(),
             position: layout.position() + translation,
             viewport: *viewport,
+            clamping: self.clamping,
             window_size: self.window_size,
         })));
 
@@ -192,10 +195,11 @@ struct Overlay<'a, 'b, Message> {
     content: &'b mut Element<'a, Message>,
     tree: &'b mut widget::Tree,
     anchor: Position,
-    offset: f32,
+    offset: (f32, f32),
     base_layout: Rectangle,
     position: Point,
     viewport: Rectangle,
+    clamping: bool,
     window_size: (f32, f32),
 }
 
@@ -206,27 +210,27 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
                 Size::ZERO,
                 Size {
                     width: bounds.width,
-                    height: self.position.y, // space above the base
+                    height: self.position.y,
                 },
             ),
             Position::Bottom => layout::Limits::new(
                 Size::ZERO,
                 Size {
                     width: bounds.width,
-                    height: bounds.height - self.position.y - self.base_layout.height, // space below
+                    height: bounds.height - self.position.y - self.base_layout.height,
                 },
             ),
             Position::Left => layout::Limits::new(
                 Size::ZERO,
                 Size {
-                    width: self.position.x, // space to the left
+                    width: self.position.x,
                     height: bounds.height,
                 },
             ),
             Position::Right => layout::Limits::new(
                 Size::ZERO,
                 Size {
-                    width: bounds.width - self.position.x - self.base_layout.width, // space to the right
+                    width: bounds.width - self.position.x - self.base_layout.width,
                     height: bounds.height,
                 },
             ),
@@ -237,28 +241,29 @@ impl<Message> overlay::Overlay<Message, Theme, Renderer> for Overlay<'_, '_, Mes
             .as_widget_mut()
             .layout(self.tree, renderer, &limits);
 
+        let (offset_x, offset_y) = self.offset;
+
         let translation = match self.anchor {
-            Position::Top => Vector::new(0.0, -(node.size().height + self.offset)),
-            Position::Bottom => Vector::new(0.0, self.base_layout.height + self.offset),
-            Position::Left => Vector::new(-(node.size().width + self.offset), 0.0),
-            Position::Right => Vector::new(self.base_layout.width + self.offset, 0.0),
+            Position::Top => Vector::new(offset_x, -(node.size().height + offset_y)),
+            Position::Bottom => Vector::new(offset_x, self.base_layout.height + offset_y),
+            Position::Left => Vector::new(-(node.size().width + offset_x), offset_y),
+            Position::Right => Vector::new(self.base_layout.width + offset_x, offset_y),
         };
 
         let mut desired = self.position + translation;
 
-        let (window_width, window_height) = self.window_size;
-        let padding = 20.0;
+        if self.clamping {
+            let (window_width, window_height) = self.window_size;
+            let padding = 20.0;
 
-        // Compute padded window bounds
-        let min_x = padding;
-        let min_y = padding;
+            let min_x = padding;
+            let min_y = padding;
+            let max_x = (window_width - node.size().width - padding).max(min_x);
+            let max_y = (window_height - node.size().height - padding).max(min_y);
 
-        let max_x = (window_width - node.size().width - padding).max(min_x);
-        let max_y = (window_height - node.size().height - padding).max(min_y);
-
-        // Clamp to padded window
-        desired.x = desired.x.clamp(min_x, max_x);
-        desired.y = desired.y.clamp(min_y, max_y);
+            desired.x = desired.x.clamp(min_x, max_x);
+            desired.y = desired.y.clamp(min_y, max_y);
+        }
 
         node.move_to(desired)
     }

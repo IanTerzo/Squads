@@ -90,7 +90,8 @@ pub fn c_message_area<'a>(
                                             },
                                         ),
                                         crate::widgets::anchored_overlay::Position::Top,
-                                        *message_area_height + 28.0,
+                                        (0.0, *message_area_height + 28.0),
+                                        true,
                                         *window_size,
                                     ))
                                 } else {

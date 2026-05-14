@@ -376,7 +376,8 @@ pub fn c_chat_message<'a>(
                         },
                     ),
                     crate::widgets::anchored_overlay::Position::Right,
-                    5.0,
+                    (5.0, 0.0),
+                    true,
                     *window_size,
                 ))
             } else {
@@ -474,7 +475,8 @@ pub fn c_chat_message<'a>(
                                         },
                                     ),
                                     crate::widgets::anchored_overlay::Position::Left,
-                                    5.0,
+                                    (5.0, 0.0),
+                                    true,
                                     *window_size,
                                 ))
                             } else {
@@ -600,7 +602,8 @@ pub fn c_chat_message<'a>(
                                     .on_enter(Message::EnterMoreOptions)
                                     .on_exit(Message::ExitMoreOptions),
                                     crate::widgets::anchored_overlay::Position::Left,
-                                    2.0,
+                                    (2.0, 0.0),
+                                    true,
                                     *window_size,
                                 ))
                             } else {

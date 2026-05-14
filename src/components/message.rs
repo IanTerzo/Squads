@@ -342,7 +342,8 @@ pub fn c_message<'a>(
                         },
                     ),
                     crate::widgets::anchored_overlay::Position::Right,
-                    5.0,
+                    (5.0, 0.0),
+                    true,
                     *window_size,
                 ))
             } else {
