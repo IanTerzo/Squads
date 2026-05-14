@@ -1540,7 +1540,7 @@ pub async fn send_message(
     }
 }
 
-async fn delete_message(
+pub async fn delete_message(
     token: &AccessToken,
     conversation_id: &str,
     message_id: &str,

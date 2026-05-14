@@ -503,7 +503,7 @@ pub fn c_chat_message<'a>(
                                 container(anchored_overlay(
                                     content,
                                     mouse_area(
-                                        container(
+                                        container(column![
                                             column![
                                                 mouse_area(
                                                     row![
@@ -521,14 +521,6 @@ pub fn c_chat_message<'a>(
                                                     message.id.clone().unwrap()
                                                 )),
                                                 c_horizontal_line(theme, 200.into()),
-                                                row![
-                                                    svg(utils::get_image_dir().join("pencil.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                    text("Edit message")
-                                                ]
-                                                .align_y(Vertical::Center)
-                                                .spacing(8),
                                                 mouse_area(
                                                     row![
                                                         svg(utils::get_image_dir()
@@ -548,11 +540,11 @@ pub fn c_chat_message<'a>(
                                                 )),
                                                 mouse_area(
                                                     row![
-                                                svg(utils::get_image_dir().join("copy.svg"))
-                                                    .width(19)
-                                                    .height(19),
-                                                text("Copy Text")
-                                            ]
+                                                    svg(utils::get_image_dir().join("copy.svg"))
+                                                        .width(19)
+                                                        .height(19),
+                                                    text("Copy Text")
+                                                ]
                                                     .align_y(Vertical::Center)
                                                     .spacing(8)
                                                 )
@@ -574,18 +566,42 @@ pub fn c_chat_message<'a>(
                                                         "".to_string()
                                                     }
                                                 )),
-                                                c_horizontal_line(theme, 200.into()),
-                                                row![
-                                                    svg(utils::get_image_dir().join("trash.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                    text("Delete Message")
-                                                ]
-                                                .align_y(Vertical::Center)
-                                                .spacing(8)
                                             ]
                                             .spacing(12),
-                                        )
+                                            if message.from.clone().unwrap_or("none".to_string())
+                                                == format!("8:orgid:{}", me.id)
+                                            {
+                                                column![
+                                                    space(),
+                                                    c_horizontal_line(theme, 200.into()),
+                                                    row![
+                                                        svg(utils::get_image_dir()
+                                                            .join("pencil.svg"))
+                                                        .width(19)
+                                                        .height(19),
+                                                        text("Edit message")
+                                                    ]
+                                                    .align_y(Vertical::Center)
+                                                    .spacing(8),
+                                                    mouse_area(
+                                                        row![
+                                                            svg(utils::get_image_dir()
+                                                                .join("trash.svg"))
+                                                            .width(19)
+                                                            .height(19),
+                                                            text("Delete Message")
+                                                        ]
+                                                        .align_y(Vertical::Center)
+                                                        .spacing(8)
+                                                    )
+                                                    .interaction(iced::mouse::Interaction::Pointer)
+                                                    .on_release(Message::Delete(message.id.clone()))
+                                                ]
+                                                .spacing(12)
+                                            } else {
+                                                column![]
+                                            }
+                                        ])
                                         .padding(15)
                                         .style(|_| {
                                             container::Style {

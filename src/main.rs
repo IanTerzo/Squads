@@ -60,7 +60,8 @@ use websockets::{
 };
 
 use crate::api::{
-    ChatMember, Conversation, Emotion, EmotionUser, add_member, message_property, start_thread,
+    ChatMember, Conversation, Emotion, EmotionUser, add_member, delete_message, message_property,
+    start_thread,
 };
 use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::c_expanded_image;
@@ -191,6 +192,7 @@ pub enum Message {
     ToggleNewChatMenu,
     Reply(Option<String>, Option<String>, Option<String>),
     CopyText(String),
+    Delete(Option<String>),
     EmojiPickerScrollTo(f32),
     CopySelected(Vec<(f32, String)>),
     AddSubject,
@@ -1791,6 +1793,41 @@ impl Counter {
                     self.more_menu_message_id = None;
                 }
                 clipboard::write(text)
+            }
+            Message::Delete(message_id) => {
+                // Probably impossible
+                let Some(message_id) = message_id else {
+                    return Task::none();
+                };
+
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
+                if self.show_more_options && self.is_in_more_options {
+                    self.show_more_options = false;
+                    self.is_in_more_options = false;
+                    self.more_menu_message_id = None;
+                }
+
+                let conversation_id = match &self.page {
+                    Page::Chat(current_chat_id, _) => current_chat_id.clone().unwrap(),
+                    _ => unreachable!(),
+                };
+
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                        )
+                        .await;
+                        delete_message(&access_token, &conversation_id, &message_id)
+                            .await
+                            .unwrap();
+                    },
+                    Message::DoNothing,
+                )
             }
             Message::EmojiPickerScrollTo(height) => snap_to(
                 Id::new("emoji_column"),
