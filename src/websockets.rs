@@ -406,7 +406,7 @@ pub fn connect(
                     State::Disconnected => {
                         let access_token = get_or_gen_token(
                             access_tokens.clone(),
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
                         .await;

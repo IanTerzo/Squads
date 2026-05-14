@@ -1,9 +1,9 @@
 pub use crate::api_types::*; // expose the type
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use bytes::Bytes;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, LOCATION};
 use reqwest::{Client, Method, StatusCode};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,7 +18,7 @@ fn get_epoch_s() -> u64 {
 }
 
 pub async fn gen_device_code(
-    tenant_id: String,
+    tenant_id: &str,
 ) -> Result<DeviceCodeInfo, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/devicecode",
@@ -93,8 +93,8 @@ pub async fn gen_device_code(
 }
 
 pub async fn gen_refresh_token_from_device_code(
-    device_code: String,
-    tenant_id: String,
+    device_code: &str,
+    tenant_id: &str,
 ) -> Result<AccessToken, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/token",
@@ -165,9 +165,9 @@ pub async fn gen_refresh_token_from_device_code(
 }
 
 pub async fn gen_refresh_token_from_code(
-    code: String,
-    code_verifier: String,
-    tenant_id: String,
+    code: &str,
+    code_verifier: &str,
+    tenant_id: &str,
 ) -> Result<AccessToken, Box<dyn std::error::Error>> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
@@ -227,7 +227,7 @@ pub async fn gen_refresh_token_from_code(
 
 pub async fn renew_refresh_token(
     refresh_token: &AccessToken,
-    tenant_id: String,
+    tenant_id: &str,
 ) -> Result<AccessToken, String> {
     let url = format!(
         "https://login.microsoftonline.com/{}/oauth2/v2.0/token",
@@ -293,8 +293,8 @@ pub async fn renew_refresh_token(
 
 pub async fn gen_token(
     refresh_token: &AccessToken,
-    scope: String,
-    tenant_id: String,
+    scope: &str,
+    tenant_id: &str,
 ) -> Result<AccessToken, String> {
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -357,7 +357,7 @@ pub async fn gen_token(
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
 async fn user_aggregate_settings(
     token: &AccessToken,
-    json_body: HashMap<String, bool>,
+    json_body: &HashMap<String, bool>,
 ) -> Result<HashMap<String, Value>, anyhow::Error> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/useraggregatesettings";
     if LOG_REQUESTS {
@@ -428,8 +428,8 @@ async fn user_aggregate_settings(
 // Scope: format!("{}/.default", web_url)
 async fn gen_spoidcrl(
     token: &AccessToken,
-    section: String,
-    web_url: Value,
+    section: &str,
+    web_url: &Value,
 ) -> Result<AccessToken, anyhow::Error> {
     let url = format!(
         "{}/sites/{}/_api/SP.OAuth.NativeClient/Authenticate",
@@ -657,13 +657,13 @@ pub async fn properties(token: &AccessToken) -> Result<UserProperties, Box<dyn s
 // Scope: https://ic3.teams.office.com/.default
 pub async fn conversations(
     token: &AccessToken,
-    thread_id: String,
-    message_id: Option<u64>,
+    thread_id: &str,
+    message_id: &Option<u64>,
 ) -> Result<Conversations, Box<dyn std::error::Error>> {
     let thread_part = if let Some(msg_id) = message_id {
         format!("{};messageid={}", thread_id, msg_id)
     } else {
-        thread_id.clone()
+        thread_id.to_string()
     };
 
     let url = format!(
@@ -765,7 +765,7 @@ pub async fn message_property(
 // Scope: https://ic3.teams.office.com/.default
 pub async fn consumption_horizon(
     token: &AccessToken,
-    thread_id: String,
+    thread_id: &str,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(
@@ -805,7 +805,7 @@ pub async fn consumption_horizon(
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub async fn fetch_short_profile(
     token: &AccessToken,
-    user_ids: Vec<String>,
+    user_ids: &Vec<String>,
 ) -> Result<FetchShortProfile, Box<dyn std::error::Error>> {
     let url = "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/fetchShortProfile";
     if LOG_REQUESTS {
@@ -992,8 +992,8 @@ pub async fn users(
 // Scope: https://graph.microsoft.com/.default
 pub async fn site_info(
     token: &AccessToken,
-    web_url: String,
-    site_name: String,
+    web_url: &str,
+    site_name: &str,
 ) -> Result<SharepointSiteInfo, Box<dyn std::error::Error>> {
     let url = format!(
         "https://graph.microsoft.com/v1.0/sites/{}:/sites/{}",
@@ -1055,7 +1055,7 @@ pub async fn site_info(
 // Scope: https://graph.microsoft.com/.default
 pub async fn sharepoint_download_file(
     token: &AccessToken,
-    url: String,
+    url: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -1096,8 +1096,8 @@ pub async fn sharepoint_download_file(
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub async fn team_conversations(
     token: &AccessToken,
-    team_id: String,
-    topic_id: String,
+    team_id: &str,
+    topic_id: &str,
 ) -> Result<TeamConversations, Box<dyn std::error::Error>> {
     let url = format!(
         "https://teams.microsoft.com/api/csa/emea/api/v2/teams/{}/channels/{}",
@@ -1153,8 +1153,8 @@ pub async fn team_conversations(
 // Scope: https://graph.microsoft.com/.default
 async fn team_channel_info(
     token: &AccessToken,
-    group_id: String,
-    topic_id: String,
+    group_id: &str,
+    topic_id: &str,
 ) -> Result<HashMap<String, Value>, String> {
     let url = format!(
         "https://graph.microsoft.com/beta/teams/{}/channels/{}",
@@ -1192,8 +1192,8 @@ async fn team_channel_info(
 // Scope: https://api.spaces.skype.com/.default
 async fn document_libraries(
     token: &AccessToken,
-    skype_token: AccessToken,
-    topic_id: String,
+    skype_token: &AccessToken,
+    topic_id: &str,
 ) -> Result<Vec<Value>, String> {
     let url = format!(
         "https://teams.microsoft.com/api/mt/part/emea-02/beta/channels/{}/documentlibraries",
@@ -1232,9 +1232,9 @@ async fn document_libraries(
 // Scope: SPOIDCRL
 async fn render_list_data_as_stream(
     token: &AccessToken,
-    web_url: String,
-    section: String,
-    files_relative_path: String,
+    web_url: &str,
+    section: &str,
+    files_relative_path: &str,
 ) -> Result<HashMap<String, Value>, String> {
     let url = format!(
         "{}/sites/{}/_api/web/GetListUsingPath(DecodedUrl=@a1)/RenderListDataAsStream?@a1='{}'&RootFolder={}&TryNewExperienceSingle=TRUE",
@@ -1290,14 +1290,14 @@ async fn render_list_data_as_stream(
 // Scope: https://chatsvcagg.teams.microsoft.com/.default
 pub async fn authorize_team_picture(
     token: &AccessToken,
-    group_id: String,
-    etag: String,
-    display_name: String,
+    group_id: &str,
+    etag: &str,
+    display_name: &str,
 ) -> Result<Bytes, Box<dyn std::error::Error>> {
     let url = format!(
-            "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/{}",
-            group_id
-	);
+        "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/15de4241-e9be-4910-a60f-3f37dd8652b8/profilepicturev2/teams/{}",
+        group_id
+    );
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
@@ -1348,8 +1348,8 @@ pub async fn authorize_team_picture(
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
 pub async fn authorize_profile_picture(
     token: &AccessToken,
-    user_id: String,
-    display_name: String,
+    user_id: &str,
+    display_name: &str,
 ) -> Result<Bytes, Box<dyn std::error::Error>> {
     let url = format!(
         "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{}/profilepicturev2",
@@ -1375,10 +1375,7 @@ pub async fn authorize_profile_picture(
         )?,
     );
 
-    let params = [
-        ("displayname", display_name),
-        ("size", "HR64x64".to_string()),
-    ];
+    let params = [("displayname", display_name), ("size", "HR64x64")];
 
     let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
@@ -1409,7 +1406,7 @@ pub async fn authorize_profile_picture(
 // Supports: https://eu-prod.asyncgw.teams.microsoft.com/v1/objects/, https://eu-api.asm.skype.com/v1/objects/
 pub async fn authorize_image(
     token: &AccessToken,
-    url: String,
+    url: &str,
 ) -> Result<Bytes, Box<dyn std::error::Error>> {
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
@@ -1446,10 +1443,12 @@ pub async fn authorize_image(
 // Scope: Skype
 pub async fn authorize_merged_profile_picture(
     token: &AccessToken,
-    users: Vec<(String, String)>,
-    user_id: String,
+    users: &Vec<(String, String)>,
+    user_id: &str,
 ) -> Result<Bytes, Box<dyn std::error::Error>> {
-    let url = format!("https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{user_id}/mergedProfilePicturev2");
+    let url = format!(
+        "https://teams.microsoft.com/api/mt/part/emea-02/beta/users/{user_id}/mergedProfilePicturev2"
+    );
     if LOG_REQUESTS {
         println!("Log: GET {}", url);
     }
@@ -1504,7 +1503,7 @@ pub async fn authorize_merged_profile_picture(
 // Scope: https://ic3.teams.office.com/.default
 pub async fn send_message(
     token: &AccessToken,
-    conversation_id: String,
+    conversation_id: &str,
     body: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let url = format!(
@@ -1527,6 +1526,45 @@ pub async fn send_message(
         .build()?;
 
     let res = client.post(url).body(body).headers(headers).send().await?;
+
+    if res.status().is_success() {
+        let body = res.text().await?;
+        Ok(body)
+    } else {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        Err(error_message.into())
+    }
+}
+
+async fn delete_message(
+    token: &AccessToken,
+    conversation_id: &str,
+    message_id: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let url = format!(
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}",
+        conversation_id, message_id,
+    );
+    if LOG_REQUESTS {
+        println!("Log: DELETE {}", url);
+    }
+    let access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&access_token)?,
+    );
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.delete(url).headers(headers).send().await?;
 
     if res.status().is_success() {
         let body = res.text().await?;
@@ -1584,7 +1622,7 @@ pub async fn start_thread(
 // Scope: https://ic3.teams.office.com/.default
 pub async fn add_member(
     token: &AccessToken,
-    thread_id: String,
+    thread_id: &str,
     body: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let url = format!(

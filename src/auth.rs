@@ -1,4 +1,4 @@
-use crate::api::{gen_skype_token, gen_token, renew_refresh_token, AccessToken};
+use crate::api::{AccessToken, gen_skype_token, gen_token, renew_refresh_token};
 use crate::utils::{get_epoch_s, save_to_cache};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -27,8 +27,8 @@ struct AuthorizationInfo {
 
 pub async fn get_or_gen_token(
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
-    scope: String,
-    tenant: &String,
+    scope: &str,
+    tenant: &str,
 ) -> AccessToken {
     let refresh_token = {
         let tokens = access_tokens.read().unwrap();
@@ -36,9 +36,7 @@ pub async fn get_or_gen_token(
     };
 
     let refresh_token = if refresh_token.expires < get_epoch_s() {
-        let new_token = renew_refresh_token(&refresh_token, tenant.clone())
-            .await
-            .unwrap();
+        let new_token = renew_refresh_token(&refresh_token, tenant).await.unwrap();
 
         {
             let mut tokens = access_tokens.write().unwrap();
@@ -52,7 +50,7 @@ pub async fn get_or_gen_token(
 
     let maybe_token = {
         let tokens = access_tokens.read().unwrap();
-        tokens.get(&scope).cloned()
+        tokens.get(scope).cloned()
     };
 
     if let Some(token) = maybe_token {
@@ -61,13 +59,11 @@ pub async fn get_or_gen_token(
         }
     }
 
-    let new_token = gen_token(&refresh_token, scope.clone(), tenant.clone())
-        .await
-        .unwrap();
+    let new_token = gen_token(&refresh_token, &scope, tenant).await.unwrap();
 
     {
         let mut tokens = access_tokens.write().unwrap();
-        tokens.insert(scope.clone(), new_token.clone());
+        tokens.insert(scope.to_string(), new_token.clone());
     }
 
     save_to_cache("access_tokens.json", &*access_tokens.read().unwrap());

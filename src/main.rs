@@ -277,14 +277,13 @@ fn init_tasks(
             async move {
                 let access_token_ic3 = get_or_gen_token(
                     access_tokens1,
-                    "https://ic3.teams.office.com/.default".to_string(),
+                    "https://ic3.teams.office.com/.default",
                     &tenant,
                 )
                 .await;
-                let activity_messages =
-                    conversations(&access_token_ic3, "48:notifications".to_string(), None)
-                        .await
-                        .unwrap();
+                let activity_messages = conversations(&access_token_ic3, "48:notifications", &None)
+                    .await
+                    .unwrap();
 
                 activity_messages.messages
             },
@@ -294,7 +293,7 @@ fn init_tasks(
             async move {
                 let access_token_chatsvcagg = get_or_gen_token(
                     access_tokens2,
-                    "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                    "https://chatsvcagg.teams.microsoft.com/.default",
                     &tenant1,
                 )
                 .await;
@@ -315,7 +314,7 @@ fn init_tasks(
             async move {
                 let access_token_graph = get_or_gen_token(
                     access_tokens3,
-                    "https://graph.microsoft.com/.default".to_string(),
+                    "https://graph.microsoft.com/.default",
                     &tenant2,
                 )
                 .await;
@@ -352,12 +351,14 @@ fn init_tasks(
                 async move {
                     let access_token = get_or_gen_token(
                         access_tokens4,
-                        "https://ic3.teams.office.com/.default".to_string(),
+                        "https://ic3.teams.office.com/.default",
                         &tenant3,
                     )
                     .await;
 
-                    conversations(&access_token, thread_id, None).await.unwrap()
+                    conversations(&access_token, &thread_id, &None)
+                        .await
+                        .unwrap()
                 },
                 move |result| Message::GotChatConversationsFirst(thread_id_clone.clone(), result), // This calls a message
             )
@@ -443,7 +444,7 @@ fn post_message_task(
         async move {
             let access_token = get_or_gen_token(
                 acess_tokens_arc,
-                "https://ic3.teams.office.com/.default".to_string(),
+                "https://ic3.teams.office.com/.default",
                 &tenant,
             )
             .await;
@@ -484,7 +485,7 @@ fn post_message_task(
             // Convert the struct into a JSON string
             let body = serde_json::to_string_pretty(&message).unwrap();
 
-            send_message(&access_token, conversation_id, body)
+            send_message(&access_token, &conversation_id, body)
                 .await
                 .unwrap();
         },
@@ -591,7 +592,7 @@ impl Counter {
                 init_tasks(access_tokens, tenant, first_chat)
             } else {
                 Task::perform(
-                    async move { api::gen_device_code(tenant).await.unwrap() },
+                    async move { api::gen_device_code(&tenant).await.unwrap() },
                     Message::GotDeviceCodeInfo,
                 )
             },
@@ -795,15 +796,16 @@ impl Counter {
             Message::GotDeviceCodeInfo(device_code_info) => {
                 self.device_user_code = Some(device_code_info.user_code);
                 self.device_code = device_code_info.device_code.clone();
+
                 let tenant = self.tenant.clone();
                 Task::perform(
-                    async {
+                    async move {
                         thread::sleep(Duration::new(1, 0));
 
                         let mut refresh_token: Option<AccessToken> = None;
                         let result = gen_refresh_token_from_device_code(
-                            device_code_info.device_code,
-                            tenant,
+                            &device_code_info.device_code,
+                            &tenant,
                         )
                         .await;
                         if let Ok(access_token) = result {
@@ -826,11 +828,12 @@ impl Counter {
                 let device_code = self.device_code.clone();
                 let tenant = self.tenant.clone();
                 Task::perform(
-                    async {
+                    async move {
                         thread::sleep(Duration::new(1, 0));
 
                         let mut refresh_token: Option<AccessToken> = None;
-                        let result = gen_refresh_token_from_device_code(device_code, tenant).await;
+                        let result =
+                            gen_refresh_token_from_device_code(&device_code, &tenant).await;
                         // TODO: log non re-poll errors
                         if let Ok(access_token) = result {
                             refresh_token = Some(access_token);
@@ -1022,15 +1025,18 @@ impl Counter {
                                                     async move {
                                                         let access_token = get_or_gen_token(
                                                             access_tokens_arc,
-                                                            "https://ic3.teams.office.com/.default"
-                                                                .to_string(),
+                                                            "https://ic3.teams.office.com/.default",
                                                             &tenant,
                                                         )
                                                         .await;
 
-                                                        conversations(&access_token, chat_id, None)
-                                                            .await
-                                                            .unwrap()
+                                                        conversations(
+                                                            &access_token,
+                                                            &chat_id,
+                                                            &None,
+                                                        )
+                                                        .await
+                                                        .unwrap()
                                                     },
                                                     move |result| {
                                                         Message::GotChatConversations(
@@ -1364,7 +1370,7 @@ impl Counter {
                                     async move {
                                         let access_token = get_or_gen_token(
                                             acess_tokens_arc,
-                                            "https://ic3.teams.office.com/.default".to_string(),
+                                            "https://ic3.teams.office.com/.default",
                                             &tenant,
                                         )
                                         .await;
@@ -1412,14 +1418,14 @@ impl Counter {
                                 async move {
                                     let access_token = get_or_gen_token(
                                         acess_tokens_arc,
-                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        "https://ic3.teams.office.com/.default",
                                         &tenant,
                                     )
                                     .await;
 
                                     let body = "{\"content\":\"\",\"contenttype\":\"Application/Message\",\"messagetype\":\"Control/Typing\"}";
 
-                                    send_message(&access_token, conversation_id, body.to_string())
+                                    send_message(&access_token, &conversation_id, body.to_string())
                                         .await
                                         .unwrap();
                                 },
@@ -1619,12 +1625,12 @@ impl Counter {
 
                                 let access_token = get_or_gen_token(
                                     access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    "https://ic3.teams.office.com/.default",
                                     &tenant,
                                 )
                                 .await;
 
-                                consumption_horizon(&access_token, thread_id.clone(), body)
+                                consumption_horizon(&access_token, &thread_id, body)
                                     .await
                                     .unwrap();
 
@@ -1660,12 +1666,12 @@ impl Counter {
 
                                     let access_token = get_or_gen_token(
                                         access_tokens_arc,
-                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        "https://ic3.teams.office.com/.default",
                                         &tenant,
                                     )
                                     .await;
 
-                                    consumption_horizon(&access_token, chat_id.clone(), body)
+                                    consumption_horizon(&access_token, &chat_id, body)
                                         .await
                                         .unwrap();
 
@@ -1929,15 +1935,15 @@ impl Counter {
                             async move {
                                 let access_token = get_or_gen_token(
                                     access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    "https://ic3.teams.office.com/.default",
                                     &tenant,
                                 )
                                 .await;
 
                                 let conversation = conversations(
                                     &access_token,
-                                    activity.source_thread_id.clone(),
-                                    Some(
+                                    &activity.source_thread_id,
+                                    &Some(
                                         activity
                                             .source_reply_chain_id
                                             .unwrap_or(activity.source_message_id),
@@ -1980,12 +1986,14 @@ impl Counter {
                             async move {
                                 let access_token = get_or_gen_token(
                                     access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    "https://ic3.teams.office.com/.default",
                                     &tenant,
                                 )
                                 .await;
 
-                                conversations(&access_token, thread_id, None).await.unwrap()
+                                conversations(&access_token, &thread_id, &None)
+                                    .await
+                                    .unwrap()
                             },
                             move |result| {
                                 Message::GotChatConversationsFirst(thread_id_clone.clone(), result)
@@ -2013,7 +2021,7 @@ impl Counter {
                             async move {
                                 let access_token = get_or_gen_token(
                                     access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default".to_string(),
+                                    "https://ic3.teams.office.com/.default",
                                     &tenant,
                                 )
                                 .await;
@@ -2040,13 +2048,13 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             access_tokens_arc,
-                            "https://ic3.teams.office.com/.default".to_string(),
+                            "https://ic3.teams.office.com/.default",
                             &tenant,
                         )
                         .await;
 
                         let conversation =
-                            conversations(&access_token, thread_id.clone(), Some(message_id))
+                            conversations(&access_token, &thread_id.clone(), &Some(message_id))
                                 .await
                                 .unwrap();
 
@@ -2072,12 +2080,14 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 access_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
+                                "https://ic3.teams.office.com/.default",
                                 &tenant,
                             )
                             .await;
 
-                            conversations(&access_token, thread_id, None).await.unwrap()
+                            conversations(&access_token, &thread_id, &None)
+                                .await
+                                .unwrap()
                         },
                         move |result| {
                             Message::GotChatConversations(thread_id_clone.clone(), result)
@@ -2105,12 +2115,12 @@ impl Counter {
                                 async move {
                                     let access_token = get_or_gen_token(
                                         access_tokens_arc,
-                                        "https://ic3.teams.office.com/.default".to_string(),
+                                        "https://ic3.teams.office.com/.default",
                                         &tenant,
                                     )
                                     .await;
 
-                                    conversations(&access_token, chat_id_clone, None)
+                                    conversations(&access_token, &chat_id_clone, &None)
                                         .await
                                         .unwrap()
                                 },
@@ -2132,12 +2142,12 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://chatsvcagg.teams.microsoft.com/.default".to_string(),
+                            "https://chatsvcagg.teams.microsoft.com/.default",
                             &tenant,
                         )
                         .await;
 
-                        team_conversations(&access_token, team_id, channel_id)
+                        team_conversations(&access_token, &team_id, &channel_id)
                             .await
                             .unwrap()
                     },
@@ -2258,7 +2268,7 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 acess_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
+                                "https://ic3.teams.office.com/.default",
                                 &tenant,
                             )
                             .await;
@@ -2312,12 +2322,12 @@ impl Counter {
                                         async move {
                                             let access_token = get_or_gen_token(
                                                 access_tokens_arc,
-                                                "https://ic3.teams.office.com/.default".to_string(),
+                                                "https://ic3.teams.office.com/.default",
                                                 &tenant,
                                             )
                                             .await;
 
-                                            conversations(&access_token, chat_id, None)
+                                            conversations(&access_token, &chat_id, &None)
                                                 .await
                                                 .unwrap()
                                         },
@@ -2470,12 +2480,12 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://ic3.teams.office.com/.default".to_string(),
+                            "https://ic3.teams.office.com/.default",
                             &tenant,
                         )
                         .await;
 
-                        add_member(&access_token, chat_id.clone(), body)
+                        add_member(&access_token, &chat_id.clone(), body)
                             .await
                             .unwrap();
 
@@ -2510,7 +2520,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
                         .await;
@@ -2519,9 +2529,9 @@ impl Counter {
 
                         let bytes = authorize_team_picture(
                             &access_token,
-                            group_id,
-                            picture_e_tag.clone(),
-                            display_name,
+                            &group_id,
+                            &picture_e_tag,
+                            &display_name,
                         )
                         .await
                         .unwrap();
@@ -2538,7 +2548,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
                         .await;
@@ -2546,7 +2556,7 @@ impl Counter {
                         let user_id = user_id;
 
                         let bytes =
-                            authorize_profile_picture(&access_token, user_id.clone(), display_name)
+                            authorize_profile_picture(&access_token, &user_id, &display_name)
                                 .await
                                 .unwrap();
 
@@ -2563,14 +2573,15 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
                         .await;
 
-                        let bytes = authorize_merged_profile_picture(&access_token, users, user_id)
-                            .await
-                            .unwrap();
+                        let bytes =
+                            authorize_merged_profile_picture(&access_token, &users, &user_id)
+                                .await
+                                .unwrap();
 
                         save_cached_image(identifier, "jpeg", bytes);
                     },
@@ -2584,7 +2595,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             acess_tokens_arc.clone(),
-                            "https://api.spaces.skype.com/Authorization.ReadWrite".to_string(),
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
                         .await;
@@ -2592,7 +2603,7 @@ impl Counter {
                         let skype_token =
                             get_or_gen_skype_token(acess_tokens_arc, access_token).await;
 
-                        let bytes = authorize_image(&skype_token, url.clone()).await.unwrap();
+                        let bytes = authorize_image(&skype_token, &url).await.unwrap();
 
                         save_cached_image(identifier, "jpeg", bytes);
                     },
@@ -2620,7 +2631,7 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 acess_tokens_arc.clone(),
-                                "https://graph.microsoft.com/.default".to_string(),
+                                "https://graph.microsoft.com/.default",
                                 &tenant,
                             )
                             .await;
@@ -2630,7 +2641,7 @@ impl Counter {
                                 share_id
                             );
 
-                            sharepoint_download_file(&access_token, url).await.unwrap()
+                            sharepoint_download_file(&access_token, &url).await.unwrap()
                         },
                         Message::DownloadedFile,
                     );
@@ -2644,12 +2655,12 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 acess_tokens_arc.clone(),
-                                "https://graph.microsoft.com/.default".to_string(),
+                                "https://graph.microsoft.com/.default",
                                 &tenant,
                             )
                             .await;
 
-                            let site_id = site_info(&access_token, web_url, site_path)
+                            let site_id = site_info(&access_token, &web_url, &site_path)
                                 .await
                                 .unwrap()
                                 .id;
@@ -2659,7 +2670,7 @@ impl Counter {
                                 site_id, item_id
                             );
 
-                            sharepoint_download_file(&access_token, url).await.unwrap()
+                            sharepoint_download_file(&access_token, &url).await.unwrap()
                         },
                         Message::DownloadedFile,
                     );
@@ -2891,7 +2902,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             access_tokens_arc,
-                            "https://ic3.teams.office.com/.default".to_string(),
+                            "https://ic3.teams.office.com/.default",
                             &tenant,
                         )
                         .await;
@@ -2982,7 +2993,7 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 access_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
+                                "https://ic3.teams.office.com/.default",
                                 &tenant,
                             )
                             .await;
@@ -3037,7 +3048,7 @@ impl Counter {
                         async move {
                             let access_token = get_or_gen_token(
                                 access_tokens_arc,
-                                "https://ic3.teams.office.com/.default".to_string(),
+                                "https://ic3.teams.office.com/.default",
                                 &tenant,
                             )
                             .await;
@@ -3109,7 +3120,7 @@ impl Counter {
                     async move {
                         let access_token = get_or_gen_token(
                             access_tokens_arc,
-                            "https://presence.teams.microsoft.com/.default".to_string(),
+                            "https://presence.teams.microsoft.com/.default",
                             &tenant,
                         )
                         .await;
@@ -3250,13 +3261,12 @@ impl Counter {
 
                                                 let access_token = get_or_gen_token(
                                                     access_tokens_arc,
-                                                    "https://ic3.teams.office.com/.default"
-                                                        .to_string(),
+                                                    "https://ic3.teams.office.com/.default",
                                                     &tenant,
                                                 )
                                                 .await;
 
-                                                consumption_horizon(&access_token, chat_id, body)
+                                                consumption_horizon(&access_token, &chat_id, body)
                                                     .await
                                                     .unwrap();
                                             },
