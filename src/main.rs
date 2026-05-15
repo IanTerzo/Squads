@@ -193,6 +193,7 @@ pub enum Message {
     Reply(Option<String>, Option<String>, Option<String>),
     CopyText(String),
     Delete(Option<String>),
+    Restore(Option<String>),
     EmojiPickerScrollTo(f32),
     CopySelected(Vec<(f32, String)>),
     AddSubject,
@@ -1825,6 +1826,48 @@ impl Counter {
                         delete_message(&access_token, &conversation_id, &message_id)
                             .await
                             .unwrap();
+                    },
+                    Message::DoNothing,
+                )
+            }
+            Message::Restore(message_id) => {
+                // Probably impossible
+                let Some(message_id) = message_id else {
+                    return Task::none();
+                };
+
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
+                if self.show_more_options && self.is_in_more_options {
+                    self.show_more_options = false;
+                    self.is_in_more_options = false;
+                    self.more_menu_message_id = None;
+                }
+
+                let conversation_id = match &self.page {
+                    Page::Chat(current_chat_id, _) => current_chat_id.clone().unwrap(),
+                    _ => unreachable!(),
+                };
+
+                Task::perform(
+                    async move {
+                        let access_token = get_or_gen_token(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                        )
+                        .await;
+                        message_property(
+                            &access_token,
+                            Method::DELETE,
+                            "deletetime",
+                            &conversation_id,
+                            &message_id,
+                            "{\"deletetime\":null}".to_string(),
+                        )
+                        .await
+                        .unwrap();
                     },
                     Message::DoNothing,
                 )

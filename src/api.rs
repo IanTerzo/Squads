@@ -1546,7 +1546,7 @@ pub async fn delete_message(
     message_id: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let url = format!(
-        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}",
+        "https://teams.microsoft.com/api/chatsvc/emea/v1/users/ME/conversations/{}/messages/{}?behavior=softDelete",
         conversation_id, message_id,
     );
     if LOG_REQUESTS {

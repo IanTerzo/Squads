@@ -7,6 +7,7 @@ pub mod expanded_image;
 pub mod horizontal_line;
 pub mod message;
 pub mod message_area;
+pub mod more_options;
 pub mod picture_and_status;
 pub mod preview_message;
 pub mod profile;

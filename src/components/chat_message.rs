@@ -2,10 +2,10 @@ use crate::Message;
 use crate::api::Profile;
 use crate::components::cached_image::c_cached_image;
 use crate::components::emoji_picker::c_emoji_picker;
-use crate::components::horizontal_line::c_horizontal_line;
+use crate::components::more_options::c_more_options;
 use crate::components::picture_and_status::c_picture_and_status;
 use crate::components::toooltip::c_tooltip;
-use crate::parsing::{get_html_preview, parse_card_html, parse_message_html};
+use crate::parsing::{parse_card_html, parse_message_html};
 use crate::style;
 use crate::types::Emoji;
 use crate::utils;
@@ -110,7 +110,7 @@ pub fn c_chat_message<'a>(
         }
     }
 
-    if let Some(arrival_time) = message.original_arrival_time {
+    if let Some(ref arrival_time) = message.original_arrival_time {
         let parsed_time: Vec<&str> = arrival_time.split("T").collect();
         let date = parsed_time[0].replace("-", "/");
         let time_chunks: Vec<&str> = parsed_time[1].split(":").collect();
@@ -502,121 +502,7 @@ pub fn c_chat_message<'a>(
                             if *show_more_options {
                                 container(anchored_overlay(
                                     content,
-                                    mouse_area(
-                                        container(column![
-                                            column![
-                                                mouse_area(
-                                                    row![
-                                                        svg(utils::get_image_dir()
-                                                            .join("smile.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                        text("Add reaction")
-                                                    ]
-                                                    .align_y(Vertical::Center)
-                                                    .spacing(8)
-                                                )
-                                                .interaction(iced::mouse::Interaction::Pointer)
-                                                .on_release(Message::ToggleMessageEmojiPicker(
-                                                    message.id.clone().unwrap()
-                                                )),
-                                                c_horizontal_line(theme, 200.into()),
-                                                mouse_area(
-                                                    row![
-                                                        svg(utils::get_image_dir()
-                                                            .join("reply.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                        text("Reply")
-                                                    ]
-                                                    .align_y(Vertical::Center)
-                                                    .spacing(8)
-                                                )
-                                                .interaction(iced::mouse::Interaction::Pointer)
-                                                .on_release(Message::Reply(
-                                                    message.content.clone(),
-                                                    message.im_display_name.clone(),
-                                                    message.id.clone(),
-                                                )),
-                                                mouse_area(
-                                                    row![
-                                                    svg(utils::get_image_dir().join("copy.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                    text("Copy Text")
-                                                ]
-                                                    .align_y(Vertical::Center)
-                                                    .spacing(8)
-                                                )
-                                                .interaction(iced::mouse::Interaction::Pointer)
-                                                .on_release(Message::CopyText(
-                                                    if let Some(content) = message.content.clone() {
-                                                        if let Some(message_type) =
-                                                            message.message_type.clone()
-                                                        {
-                                                            if message_type == "RichText/Html" {
-                                                                get_html_preview(&content)
-                                                            } else {
-                                                                content
-                                                            }
-                                                        } else {
-                                                            content
-                                                        }
-                                                    } else {
-                                                        "".to_string()
-                                                    }
-                                                )),
-                                            ]
-                                            .spacing(12),
-                                            if message.from.clone().unwrap_or("none".to_string())
-                                                == format!("8:orgid:{}", me.id)
-                                            {
-                                                column![
-                                                    space(),
-                                                    c_horizontal_line(theme, 200.into()),
-                                                    row![
-                                                        svg(utils::get_image_dir()
-                                                            .join("pencil.svg"))
-                                                        .width(19)
-                                                        .height(19),
-                                                        text("Edit message")
-                                                    ]
-                                                    .align_y(Vertical::Center)
-                                                    .spacing(8),
-                                                    mouse_area(
-                                                        row![
-                                                            svg(utils::get_image_dir()
-                                                                .join("trash.svg"))
-                                                            .width(19)
-                                                            .height(19),
-                                                            text("Delete Message")
-                                                        ]
-                                                        .align_y(Vertical::Center)
-                                                        .spacing(8)
-                                                    )
-                                                    .interaction(iced::mouse::Interaction::Pointer)
-                                                    .on_release(Message::Delete(message.id.clone()))
-                                                ]
-                                                .spacing(12)
-                                            } else {
-                                                column![]
-                                            }
-                                        ])
-                                        .padding(15)
-                                        .style(|_| {
-                                            container::Style {
-                                                background: Some(theme.colors.tooltip.into()),
-                                                border: Border {
-                                                    color: theme.colors.line,
-                                                    width: 1.0,
-                                                    radius: 4.into(),
-                                                },
-                                                ..Default::default()
-                                            }
-                                        }),
-                                    )
-                                    .on_enter(Message::EnterMoreOptions)
-                                    .on_exit(Message::ExitMoreOptions),
+                                    c_more_options(theme, message.clone(), &me),
                                     crate::widgets::anchored_overlay::Position::Left,
                                     (2.0, 0.0),
                                     true,
@@ -673,7 +559,9 @@ pub fn c_chat_message<'a>(
                 })
         )
         .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
-        .on_exit(Message::StopShowChatMessageOptions(message.id.unwrap())),
+        .on_exit(Message::StopShowChatMessageOptions(
+            message.id.clone().unwrap()
+        )),
         action_container
     );
 
