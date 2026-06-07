@@ -18,8 +18,3 @@ Some important things that need to be done, not in any particular order. Items t
 - Show in chat if a message has been seen.
 - File uploading.
 - Message area preview tab.
-- Emoji picker.
-- Rounded images.
-
-
-
