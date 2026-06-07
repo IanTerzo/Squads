@@ -91,7 +91,7 @@ pub fn c_more_options<'a>(
                     {
                         mouse_area(
                             row![
-                                svg(utils::get_image_dir().join("trash.svg"))
+                                svg(utils::get_image_dir().join("rotate-ccw.svg"))
                                     .width(19)
                                     .height(19),
                                 text("Restore Message")
