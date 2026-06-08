@@ -54,6 +54,13 @@ pub fn get_cache<T: DeserializeOwned>(filename: &str) -> Option<T> {
     }
 }
 
+pub fn delete_cache(filename: &str) {
+    if let Some(project_dirs) = ProjectDirs::from("", "ianterzo", "squads") {
+        let cache_path = project_dirs.cache_dir().join(filename);
+        let _ = fs::remove_file(cache_path);
+    }
+}
+
 pub fn get_epoch_s() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

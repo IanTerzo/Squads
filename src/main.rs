@@ -23,7 +23,7 @@ use api::{
     authorize_team_picture, consumption_horizon, conversations, gen_refresh_token_from_device_code,
     me, send_message, sharepoint_download_file, site_info, team_conversations, teams_me, users,
 };
-use auth::{get_or_gen_skype_token, get_or_gen_token};
+use auth::{AuthError, authenticated_task, get_or_gen_skype_token};
 use components::cached_image::save_cached_image;
 use iced::clipboard;
 use iced::keyboard::Key;
@@ -52,7 +52,8 @@ use std::{collections::HashMap, fs};
 use style::global_theme;
 use tokio::time::sleep;
 use types::*;
-use utils::{get_cache, get_epoch_ms, save_to_cache};
+use std::future::Future;
+use utils::{delete_cache, get_cache, get_epoch_ms, save_to_cache};
 use webbrowser;
 use websockets::{
     ConnectionInfo, Presence, Presences, WebsocketMessage, WebsocketResponse,
@@ -95,6 +96,7 @@ struct Counter {
     // Authorization info
     access_tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
     is_authorized: bool,
+    session_expired: bool,
     device_code: String, // Only used when signing in for the first time
     device_user_code: Option<String>, // Only used when signing in for the first time
     tenant: String,
@@ -166,6 +168,7 @@ pub enum Message {
     GotDeviceCodeInfo(DeviceCodeInfo),
     PollDeviceCode,
     Authorized(AccessToken),
+    AuthExpired,
 
     // App events
     EventOccurred(Event),
@@ -261,114 +264,94 @@ pub enum Message {
     Hello(String), // For testing
 }
 
+fn authed_task<T, F, Fut>(
+    tokens: Arc<RwLock<HashMap<String, AccessToken>>>,
+    scope: &str,
+    tenant: &str,
+    action: F,
+    on_success: impl FnOnce(T) -> Message + Send + 'static,
+) -> Task<Message>
+where
+    F: FnOnce(AccessToken) -> Fut + Send + 'static,
+    Fut: Future<Output = T> + Send,
+    T: Send + 'static,
+{
+    authenticated_task(tokens, scope, tenant, action, move |result| match result {
+        Ok(val) => on_success(val),
+        Err(AuthError::TokenExpired(_)) => Message::AuthExpired,
+        Err(AuthError::Other(_)) => Message::DoNothing(()),
+    })
+}
+
 fn init_tasks(
     access_tokens: std::sync::Arc<RwLock<HashMap<String, AccessToken>>>,
     tenant: String,
     first_chat: Option<String>,
 ) -> Task<Message> {
-    let access_tokens1 = Arc::clone(&access_tokens);
-    let access_tokens2 = Arc::clone(&access_tokens);
-    let access_tokens3 = Arc::clone(&access_tokens);
-    let access_tokens4 = Arc::clone(&access_tokens);
-
-    let tenant1 = tenant.clone();
-    let tenant2 = tenant.clone();
-    let tenant3 = tenant.clone();
-
-    Task::batch(vec![
-        Task::perform(
-            async move {
-                let access_token_ic3 = get_or_gen_token(
-                    access_tokens1,
-                    "https://ic3.teams.office.com/.default",
-                    &tenant,
-                )
-                .await;
-                let activity_messages = conversations(&access_token_ic3, "48:notifications", &None)
+    let mut tasks = vec![
+        authed_task(
+            Arc::clone(&access_tokens),
+            "https://ic3.teams.office.com/.default",
+            &tenant,
+            |token| async move {
+                conversations(&token, "48:notifications", &None)
                     .await
-                    .unwrap();
-
-                activity_messages.messages
+                    .unwrap()
+                    .messages
             },
             Message::GotActivities,
         ),
-        Task::perform(
-            async move {
-                let access_token_chatsvcagg = get_or_gen_token(
-                    access_tokens2,
-                    "https://chatsvcagg.teams.microsoft.com/.default",
-                    &tenant1,
-                )
-                .await;
-
-                let user_details = teams_me(&access_token_chatsvcagg).await.unwrap();
-
-                let teams = user_details.teams;
-                let chats = user_details.chats;
-
-                save_to_cache("teams.json", &teams);
-                save_to_cache("chats.json", &chats);
-
-                (teams, chats)
+        authed_task(
+            Arc::clone(&access_tokens),
+            "https://chatsvcagg.teams.microsoft.com/.default",
+            &tenant,
+            |token| async move {
+                let user_details = teams_me(&token).await.unwrap();
+                save_to_cache("teams.json", &user_details.teams);
+                save_to_cache("chats.json", &user_details.chats);
+                (user_details.teams, user_details.chats)
             },
             |result| Message::GotUserDetails(result.0, result.1),
         ),
-        Task::perform(
-            async move {
-                let access_token_graph = get_or_gen_token(
-                    access_tokens3,
-                    "https://graph.microsoft.com/.default",
-                    &tenant2,
-                )
-                .await;
-
+        authed_task(
+            Arc::clone(&access_tokens),
+            "https://graph.microsoft.com/.default",
+            &tenant,
+            |token| async move {
                 let mut profile_map = HashMap::new();
                 let mut next_link_params = Some("$top=555".to_string());
-
-                // Iterate while there is a next_link
-
                 while let Some(params) = next_link_params.take() {
-                    let users_value = users(&access_token_graph, &params).await.unwrap();
-
+                    let users_value = users(&token, &params).await.unwrap();
                     for profile in users_value.value {
                         profile_map.insert(profile.id.clone(), profile);
                     }
-
                     next_link_params = users_value
                         .next_link
                         .map(|url| url.replace("https://graph.microsoft.com/v1.0/users?", ""));
                 }
-
-                let profile = me(&access_token_graph).await.unwrap();
-
+                let profile = me(&token).await.unwrap();
                 save_to_cache("users.json", &profile_map.to_owned());
                 save_to_cache("me.json", &profile.to_owned());
-
                 (profile_map, profile)
             },
             |result| Message::GotUsers(result.0, result.1),
         ),
-        if let Some(thread_id) = first_chat {
-            let thread_id_clone = thread_id.clone();
-            Task::perform(
-                async move {
-                    let access_token = get_or_gen_token(
-                        access_tokens4,
-                        "https://ic3.teams.office.com/.default",
-                        &tenant3,
-                    )
-                    .await;
+    ];
 
-                    conversations(&access_token, &thread_id, &None)
-                        .await
-                        .unwrap()
-                },
-                move |result| Message::GotChatConversationsFirst(thread_id_clone.clone(), result), // This calls a message
-            )
-        } else {
-            Task::none()
-        },
-    ])
+    if let Some(thread_id) = first_chat {
+        let thread_id_clone = thread_id.clone();
+        tasks.push(authed_task(
+            access_tokens,
+            "https://ic3.teams.office.com/.default",
+            &tenant,
+            move |token| async move {
+                conversations(&token, &thread_id, &None).await.unwrap()
+            },
+            move |result| Message::GotChatConversationsFirst(thread_id_clone, result),
+        ));
+    }
+
+    Task::batch(tasks)
 }
 
 fn post_message_task(
@@ -443,15 +426,11 @@ fn post_message_task(
 
     present_messages.insert(message_client_id.clone());
 
-    Task::perform(
-        async move {
-            let access_token = get_or_gen_token(
-                acess_tokens_arc,
-                "https://ic3.teams.office.com/.default",
-                &tenant,
-            )
-            .await;
-
+    authed_task(
+        acess_tokens_arc,
+        "https://ic3.teams.office.com/.default",
+        &tenant,
+        move |token| async move {
             let message = TeamsMessage {
                 id: "-1",
                 msg_type: "Message",
@@ -485,10 +464,9 @@ fn post_message_task(
                 cross_post_channels: vec![],
             };
 
-            // Convert the struct into a JSON string
             let body = serde_json::to_string_pretty(&message).unwrap();
 
-            send_message(&access_token, &conversation_id, body)
+            send_message(&token, &conversation_id, body)
                 .await
                 .unwrap();
         },
@@ -536,6 +514,7 @@ impl Counter {
             device_code: "".to_string(),
             tenant: tenant.clone(),
             is_authorized: has_refresh_token,
+            session_expired: false,
             team_message_area_content: Content::new(),
             team_message_area_height: 54.0,
             chat_message_area_content: Content::new(),
@@ -607,7 +586,7 @@ impl Counter {
         //
 
         match &self.page {
-            Page::Login => login(&self.theme, &self.device_user_code),
+            Page::Login => login(&self.theme, &self.device_user_code, self.session_expired),
             _ => app(
                 c_sidebar(
                     &self.theme,
@@ -862,7 +841,26 @@ impl Counter {
                     .unwrap()
                     .insert("refresh_token".to_string(), refresh_token);
                 self.is_authorized = true;
+                self.session_expired = false;
                 init_tasks(self.access_tokens.clone(), self.tenant.clone(), None)
+            }
+            Message::AuthExpired => {
+                if self.page == Page::Login {
+                    return Task::none();
+                }
+                eprintln!("Authentication expired. Redirecting to login.");
+                delete_cache("access_tokens.json");
+                self.access_tokens.write().unwrap().clear();
+                self.is_authorized = false;
+                self.session_expired = true;
+                self.page = Page::Login;
+                self.device_user_code = None;
+                self.device_code = String::new();
+                let tenant = self.tenant.clone();
+                Task::perform(
+                    async move { api::gen_device_code(&tenant).await.unwrap() },
+                    Message::GotDeviceCodeInfo,
+                )
             }
 
             // App actions
@@ -1024,22 +1022,14 @@ impl Counter {
 
                                             // Prefetch the chat in case it wasn't already fetched
                                             return Task::batch(vec![
-                                                Task::perform(
-                                                    async move {
-                                                        let access_token = get_or_gen_token(
-                                                            access_tokens_arc,
-                                                            "https://ic3.teams.office.com/.default",
-                                                            &tenant,
-                                                        )
-                                                        .await;
-
-                                                        conversations(
-                                                            &access_token,
-                                                            &chat_id,
-                                                            &None,
-                                                        )
-                                                        .await
-                                                        .unwrap()
+                                                authed_task(
+                                                    access_tokens_arc,
+                                                    "https://ic3.teams.office.com/.default",
+                                                    &tenant,
+                                                    move |token| async move {
+                                                        conversations(&token, &chat_id, &None)
+                                                            .await
+                                                            .unwrap()
                                                     },
                                                     move |result| {
                                                         Message::GotChatConversations(
@@ -1369,18 +1359,13 @@ impl Counter {
 
                                 let body = serde_json::to_string(&new_thread).unwrap();
 
-                                return Task::perform(
-                                    async move {
-                                        let access_token = get_or_gen_token(
-                                            acess_tokens_arc,
-                                            "https://ic3.teams.office.com/.default",
-                                            &tenant,
-                                        )
-                                        .await;
-
+                                return authed_task(
+                                    acess_tokens_arc,
+                                    "https://ic3.teams.office.com/.default",
+                                    &tenant,
+                                    move |token| async move {
                                         let thread_link =
-                                            start_thread(&access_token, body).await.unwrap();
-
+                                            start_thread(&token, body).await.unwrap();
                                         (conversation_id, thread_link)
                                     },
                                     move |(conversation_id, thread_link)| {
@@ -1417,18 +1402,13 @@ impl Counter {
                         let conversation_id = current_chat_id.clone().unwrap();
 
                         return Task::batch(vec![
-                            Task::perform(
-                                async move {
-                                    let access_token = get_or_gen_token(
-                                        acess_tokens_arc,
-                                        "https://ic3.teams.office.com/.default",
-                                        &tenant,
-                                    )
-                                    .await;
-
+                            authed_task(
+                                acess_tokens_arc,
+                                "https://ic3.teams.office.com/.default",
+                                &tenant,
+                                move |token| async move {
                                     let body = "{\"content\":\"\",\"contenttype\":\"Application/Message\",\"messagetype\":\"Control/Typing\"}";
-
-                                    send_message(&access_token, &conversation_id, body.to_string())
+                                    send_message(&token, &conversation_id, body.to_string())
                                         .await
                                         .unwrap();
                                 },
@@ -1617,26 +1597,19 @@ impl Counter {
                 if !thread_id.starts_with("draft:") {
                     return Task::batch(vec![
                         snap_to(Id::new("conversation_column"), RelativeOffset::END),
-                        Task::perform(
-                            async move {
+                        authed_task(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                            move |token| async move {
                                 let time = get_epoch_ms();
-
                                 let body = format!(
                                     "{{\"consumptionhorizon\":\"{};{};{}\"}}",
                                     time, time, time
                                 );
-
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default",
-                                    &tenant,
-                                )
-                                .await;
-
-                                consumption_horizon(&access_token, &thread_id, body)
+                                consumption_horizon(&token, &thread_id, body)
                                     .await
                                     .unwrap();
-
                                 thread_id
                             },
                             Message::ReadChat,
@@ -1658,26 +1631,19 @@ impl Counter {
                     if !chat_id.starts_with("draft:") {
                         return Task::batch(vec![
                             snap_to(Id::new("conversation_column"), RelativeOffset::END),
-                            Task::perform(
-                                async move {
+                            authed_task(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default",
+                                &tenant,
+                                move |token| async move {
                                     let time = get_epoch_ms();
-
                                     let body = format!(
                                         "{{\"consumptionhorizon\":\"{};{};{}\"}}",
                                         time, time, time
                                     );
-
-                                    let access_token = get_or_gen_token(
-                                        access_tokens_arc,
-                                        "https://ic3.teams.office.com/.default",
-                                        &tenant,
-                                    )
-                                    .await;
-
-                                    consumption_horizon(&access_token, &chat_id, body)
+                                    consumption_horizon(&token, &chat_id, body)
                                         .await
                                         .unwrap();
-
                                     chat_id
                                 },
                                 Message::ReadChat,
@@ -1815,15 +1781,12 @@ impl Counter {
                     _ => unreachable!(),
                 };
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://ic3.teams.office.com/.default",
-                            &tenant,
-                        )
-                        .await;
-                        delete_message(&access_token, &conversation_id, &message_id)
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        delete_message(&token, &conversation_id, &message_id)
                             .await
                             .unwrap();
                     },
@@ -1850,16 +1813,13 @@ impl Counter {
                     _ => unreachable!(),
                 };
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://ic3.teams.office.com/.default",
-                            &tenant,
-                        )
-                        .await;
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
                         message_property(
-                            &access_token,
+                            &token,
                             Method::DELETE,
                             "deletetime",
                             &conversation_id,
@@ -2011,17 +1971,13 @@ impl Counter {
                     if let Some(activity) = activity_message.properties.clone().unwrap().activity {
                         let access_tokens_arc = self.access_tokens.clone();
                         let tenant = self.tenant.clone();
-                        tasks.push(Task::perform(
-                            async move {
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default",
-                                    &tenant,
-                                )
-                                .await;
-
+                        tasks.push(authed_task(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                            move |token| async move {
                                 let conversation = conversations(
-                                    &access_token,
+                                    &token,
                                     &activity.source_thread_id,
                                     &Some(
                                         activity
@@ -2029,12 +1985,16 @@ impl Counter {
                                             .unwrap_or(activity.source_message_id),
                                     ),
                                 )
-                                .await
-                                .unwrap();
-
-                                (message_activity_id, conversation.messages)
+                                .await;
+                                match conversation {
+                                    Ok(c) => Some((message_activity_id, c.messages)),
+                                    Err(_) => None,
+                                }
                             },
-                            |result| Message::GotExpandedActivity(result.0, result.1),
+                            |result| match result {
+                                Some((id, msgs)) => Message::GotExpandedActivity(id, msgs),
+                                None => Message::DoNothing(()),
+                            },
                         ));
                     }
                 }
@@ -2062,22 +2022,16 @@ impl Counter {
                         self.last_opened_chat = Some(thread_id.clone());
 
                         let thread_id_clone = thread_id.clone();
-                        return Task::perform(
-                            async move {
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default",
-                                    &tenant,
-                                )
-                                .await;
-
-                                conversations(&access_token, &thread_id, &None)
-                                    .await
-                                    .unwrap()
+                        return authed_task(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                            move |token| async move {
+                                conversations(&token, &thread_id, &None).await.unwrap()
                             },
                             move |result| {
-                                Message::GotChatConversationsFirst(thread_id_clone.clone(), result)
-                            }, // This calls a message
+                                Message::GotChatConversationsFirst(thread_id_clone, result)
+                            },
                         );
                     }
                 }
@@ -2097,16 +2051,13 @@ impl Counter {
                 {
                     if activity.0 {
                         activity.0 = false;
-                        return Task::perform(
-                            async move {
-                                let access_token = get_or_gen_token(
-                                    access_tokens_arc,
-                                    "https://ic3.teams.office.com/.default",
-                                    &tenant,
-                                )
-                                .await;
+                        return authed_task(
+                            access_tokens_arc,
+                            "https://ic3.teams.office.com/.default",
+                            &tenant,
+                            move |token| async move {
                                 message_property(
-                                    &access_token,
+                                    &token,
                                     Method::PUT,
                                     "isread",
                                     "48:notifications",
@@ -2124,20 +2075,15 @@ impl Counter {
                     }
                 }
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://ic3.teams.office.com/.default",
-                            &tenant,
-                        )
-                        .await;
-
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
                         let conversation =
-                            conversations(&access_token, &thread_id.clone(), &Some(message_id))
+                            conversations(&token, &thread_id, &Some(message_id))
                                 .await
                                 .unwrap();
-
                         (message_activity_id, conversation.messages)
                     },
                     |result| Message::GotExpandedActivity(result.0, result.1),
@@ -2156,16 +2102,12 @@ impl Counter {
                 self.chat_list_options.insert(thread_id.clone(), true);
 
                 if !thread_id.starts_with("draft:") {
-                    Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                access_tokens_arc,
-                                "https://ic3.teams.office.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
-                            conversations(&access_token, &thread_id, &None)
+                    authed_task(
+                        access_tokens_arc,
+                        "https://ic3.teams.office.com/.default",
+                        &tenant,
+                        move |token| async move {
+                            conversations(&token, &thread_id, &None)
                                 .await
                                 .unwrap()
                         },
@@ -2191,16 +2133,12 @@ impl Counter {
                         let tenant = self.tenant.clone();
 
                         if !chat_id.starts_with("draft:") {
-                            return Task::perform(
-                                async move {
-                                    let access_token = get_or_gen_token(
-                                        access_tokens_arc,
-                                        "https://ic3.teams.office.com/.default",
-                                        &tenant,
-                                    )
-                                    .await;
-
-                                    conversations(&access_token, &chat_id_clone, &None)
+                            return authed_task(
+                                access_tokens_arc,
+                                "https://ic3.teams.office.com/.default",
+                                &tenant,
+                                move |token| async move {
+                                    conversations(&token, &chat_id_clone, &None)
                                         .await
                                         .unwrap()
                                 },
@@ -2218,16 +2156,12 @@ impl Counter {
 
                 self.channel_list_options.insert(channel_id.clone(), true);
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc,
-                            "https://chatsvcagg.teams.microsoft.com/.default",
-                            &tenant,
-                        )
-                        .await;
-
-                        team_conversations(&access_token, &team_id, &channel_id)
+                authed_task(
+                    acess_tokens_arc,
+                    "https://chatsvcagg.teams.microsoft.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        team_conversations(&token, &team_id, &channel_id)
                             .await
                             .unwrap()
                     },
@@ -2344,16 +2278,12 @@ impl Counter {
 
                     let body = serde_json::to_string(&new_thread).unwrap();
 
-                    return Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                acess_tokens_arc,
-                                "https://ic3.teams.office.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
-                            let thread_link = start_thread(&access_token, body).await.unwrap();
+                    return authed_task(
+                        acess_tokens_arc,
+                        "https://ic3.teams.office.com/.default",
+                        &tenant,
+                        move |token| async move {
+                            let thread_link = start_thread(&token, body).await.unwrap();
 
                             (conversation_id, thread_link)
                         },
@@ -2398,16 +2328,12 @@ impl Counter {
 
                                 // Prefetch the chat in case it wasn't already fetched
                                 return Task::batch(vec![
-                                    Task::perform(
-                                        async move {
-                                            let access_token = get_or_gen_token(
-                                                access_tokens_arc,
-                                                "https://ic3.teams.office.com/.default",
-                                                &tenant,
-                                            )
-                                            .await;
-
-                                            conversations(&access_token, &chat_id, &None)
+                                    authed_task(
+                                        access_tokens_arc,
+                                        "https://ic3.teams.office.com/.default",
+                                        &tenant,
+                                        move |token| async move {
+                                            conversations(&token, &chat_id, &None)
                                                 .await
                                                 .unwrap()
                                         },
@@ -2556,16 +2482,12 @@ impl Counter {
 
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc,
-                            "https://ic3.teams.office.com/.default",
-                            &tenant,
-                        )
-                        .await;
-
-                        add_member(&access_token, &chat_id.clone(), body)
+                authed_task(
+                    acess_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        add_member(&token, &chat_id.clone(), body)
                             .await
                             .unwrap();
 
@@ -2596,19 +2518,15 @@ impl Counter {
             Message::FetchTeamImage(identifier, picture_e_tag, group_id, display_name) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite",
-                            &tenant,
-                        )
-                        .await;
-
+                authed_task(
+                    acess_tokens_arc,
+                    "https://api.spaces.skype.com/Authorization.ReadWrite",
+                    &tenant,
+                    move |token| async move {
                         let picture_e_tag = picture_e_tag;
 
                         let bytes = authorize_team_picture(
-                            &access_token,
+                            &token,
                             &group_id,
                             &picture_e_tag,
                             &display_name,
@@ -2624,19 +2542,15 @@ impl Counter {
             Message::FetchUserImage(identifier, user_id, display_name) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite",
-                            &tenant,
-                        )
-                        .await;
-
+                authed_task(
+                    acess_tokens_arc,
+                    "https://api.spaces.skype.com/Authorization.ReadWrite",
+                    &tenant,
+                    move |token| async move {
                         let user_id = user_id;
 
                         let bytes =
-                            authorize_profile_picture(&access_token, &user_id, &display_name)
+                            authorize_profile_picture(&token, &user_id, &display_name)
                                 .await
                                 .unwrap();
 
@@ -2649,17 +2563,13 @@ impl Counter {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
                 let user_id = self.me.id.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc,
-                            "https://api.spaces.skype.com/Authorization.ReadWrite",
-                            &tenant,
-                        )
-                        .await;
-
+                authed_task(
+                    acess_tokens_arc,
+                    "https://api.spaces.skype.com/Authorization.ReadWrite",
+                    &tenant,
+                    move |token| async move {
                         let bytes =
-                            authorize_merged_profile_picture(&access_token, &users, &user_id)
+                            authorize_merged_profile_picture(&token, &users, &user_id)
                                 .await
                                 .unwrap();
 
@@ -2671,21 +2581,17 @@ impl Counter {
             Message::AuthorizeImage(url, identifier) => {
                 let acess_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            acess_tokens_arc.clone(),
-                            "https://api.spaces.skype.com/Authorization.ReadWrite",
-                            &tenant,
-                        )
-                        .await;
-
-                        let skype_token =
-                            get_or_gen_skype_token(acess_tokens_arc, access_token).await;
-
-                        let bytes = authorize_image(&skype_token, &url).await.unwrap();
-
-                        save_cached_image(identifier, "jpeg", bytes);
+                authed_task(
+                    acess_tokens_arc.clone(),
+                    "https://api.spaces.skype.com/Authorization.ReadWrite",
+                    &tenant,
+                    move |token| async move {
+                        if let Ok(skype_token) =
+                            get_or_gen_skype_token(acess_tokens_arc, token).await
+                        {
+                            let bytes = authorize_image(&skype_token, &url).await.unwrap();
+                            save_cached_image(identifier, "jpeg", bytes);
+                        }
                     },
                     Message::DoNothing,
                 )
@@ -2707,21 +2613,17 @@ impl Counter {
                 if let Some(share_url) = file.file_info.share_url {
                     let share_id = BASE64_URL_SAFE.encode(share_url);
 
-                    return Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                acess_tokens_arc.clone(),
-                                "https://graph.microsoft.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
+                    return authed_task(
+                        acess_tokens_arc.clone(),
+                        "https://graph.microsoft.com/.default",
+                        &tenant,
+                        move |token| async move {
                             let url = format!(
                                 "https://graph.microsoft.com/v1.0/shares/u!{}/driveItem/content",
                                 share_id
                             );
 
-                            sharepoint_download_file(&access_token, &url).await.unwrap()
+                            sharepoint_download_file(&token, &url).await.unwrap()
                         },
                         Message::DownloadedFile,
                     );
@@ -2731,16 +2633,12 @@ impl Counter {
                         site_url.replace(format!("https://{}/sites/", web_url).as_str(), "");
                     let item_id = file.item_id.unwrap().to_string();
 
-                    return Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                acess_tokens_arc.clone(),
-                                "https://graph.microsoft.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
-                            let site_id = site_info(&access_token, &web_url, &site_path)
+                    return authed_task(
+                        acess_tokens_arc.clone(),
+                        "https://graph.microsoft.com/.default",
+                        &tenant,
+                        move |token| async move {
+                            let site_id = site_info(&token, &web_url, &site_path)
                                 .await
                                 .unwrap()
                                 .id;
@@ -2750,7 +2648,7 @@ impl Counter {
                                 site_id, item_id
                             );
 
-                            sharepoint_download_file(&access_token, &url).await.unwrap()
+                            sharepoint_download_file(&token, &url).await.unwrap()
                         },
                         Message::DownloadedFile,
                     );
@@ -2978,17 +2876,13 @@ impl Counter {
                     }
                 };
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://ic3.teams.office.com/.default",
-                            &tenant,
-                        )
-                        .await;
-
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
                         message_property(
-                            &access_token,
+                            &token,
                             Method::PUT,
                             "emotions",
                             &thread_id,
@@ -3069,17 +2963,13 @@ impl Counter {
                         }
                     };
 
-                    Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                access_tokens_arc,
-                                "https://ic3.teams.office.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
+                    authed_task(
+                        access_tokens_arc,
+                        "https://ic3.teams.office.com/.default",
+                        &tenant,
+                        move |token| async move {
                             message_property(
-                                &access_token,
+                                &token,
                                 Method::DELETE,
                                 "emotions",
                                 &thread_id,
@@ -3124,17 +3014,13 @@ impl Counter {
                             }
                         }
                     };
-                    Task::perform(
-                        async move {
-                            let access_token = get_or_gen_token(
-                                access_tokens_arc,
-                                "https://ic3.teams.office.com/.default",
-                                &tenant,
-                            )
-                            .await;
-
+                    authed_task(
+                        access_tokens_arc,
+                        "https://ic3.teams.office.com/.default",
+                        &tenant,
+                        move |token| async move {
                             message_property(
-                                &access_token,
+                                &token,
                                 Method::PUT,
                                 "emotions",
                                 &thread_id,
@@ -3196,16 +3082,12 @@ impl Counter {
                     surl, subscriptions
                 );
 
-                Task::perform(
-                    async move {
-                        let access_token = get_or_gen_token(
-                            access_tokens_arc,
-                            "https://presence.teams.microsoft.com/.default",
-                            &tenant,
-                        )
-                        .await;
-
-                        websockets_subscription(&access_token, &endpoint, &surl, body)
+                authed_task(
+                    access_tokens_arc,
+                    "https://presence.teams.microsoft.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        websockets_subscription(&token, &endpoint, &surl, body)
                             .await
                             .unwrap();
                     },
@@ -3330,23 +3212,17 @@ impl Counter {
                                                 RelativeOffset::END,
                                             ))
                                         }
-                                        tasks.push(Task::perform(
-                                            async move {
+                                        tasks.push(authed_task(
+                                            access_tokens_arc,
+                                            "https://ic3.teams.office.com/.default",
+                                            &tenant,
+                                            move |token| async move {
                                                 let time = get_epoch_ms();
-
                                                 let body = format!(
                                                     "{{\"consumptionhorizon\":\"{};{};{}\"}}",
                                                     time, time, time
                                                 );
-
-                                                let access_token = get_or_gen_token(
-                                                    access_tokens_arc,
-                                                    "https://ic3.teams.office.com/.default",
-                                                    &tenant,
-                                                )
-                                                .await;
-
-                                                consumption_horizon(&access_token, &chat_id, body)
+                                                consumption_horizon(&token, &chat_id, body)
                                                     .await
                                                     .unwrap();
                                             },
@@ -3512,6 +3388,7 @@ impl Counter {
                     WebsocketResponse::Connected(info) => Message::WSConnected(info),
                     WebsocketResponse::Message(value) => Message::GotWSMessage(value),
                     WebsocketResponse::Presences(value) => Message::GotWSPresences(value),
+                    WebsocketResponse::AuthExpired => Message::AuthExpired,
                     WebsocketResponse::Other(_value) => Message::DoNothing(()),
                 },
             ))
