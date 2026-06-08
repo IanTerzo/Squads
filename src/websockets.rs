@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock};
 use urlencoding::encode;
 
 use crate::api::{self, AccessToken};
-use crate::auth::{get_or_gen_skype_token, get_or_gen_token};
+use crate::auth::{AuthError, get_or_gen_skype_token, get_or_gen_token};
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -34,6 +34,7 @@ pub enum WebsocketResponse {
     Connected(ConnectionInfo),
     Message(WebsocketMessage),
     Presences(Presences),
+    AuthExpired,
     Other(String),
 }
 
@@ -404,14 +405,39 @@ pub fn connect(
             loop {
                 match &mut state {
                     State::Disconnected => {
-                        let access_token = get_or_gen_token(
+                        let access_token = match get_or_gen_token(
                             access_tokens.clone(),
                             "https://api.spaces.skype.com/Authorization.ReadWrite",
                             &tenant,
                         )
-                        .await;
-                        let skype_token =
-                            get_or_gen_skype_token(access_tokens.clone(), access_token).await;
+                        .await
+                        {
+                            Ok(token) => token,
+                            Err(AuthError::TokenExpired(e)) => {
+                                eprintln!("Auth expired in websocket: {}", e);
+                                let _ = output.send(WebsocketResponse::AuthExpired).await;
+                                tokio::time::sleep(tokio::time::Duration::from_secs(60)).await;
+                                continue;
+                            }
+                            Err(AuthError::Other(e)) => {
+                                eprintln!("Auth error in websocket: {}", e);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                                continue;
+                            }
+                        };
+                        let skype_token = match get_or_gen_skype_token(
+                            access_tokens.clone(),
+                            access_token,
+                        )
+                        .await
+                        {
+                            Ok(token) => token,
+                            Err(e) => {
+                                eprintln!("Skype token error in websocket: {:?}", e);
+                                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                                continue;
+                            }
+                        };
 
                         let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29";
 
