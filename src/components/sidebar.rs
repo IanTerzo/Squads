@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use iced::alignment::Vertical;
 use iced::widget::svg::Handle;
+use crate::widgets::click_area::{ClickArea, click_area};
 use iced::widget::{
-    MouseArea, column, container, mouse_area, row, scrollable, space, svg, text, tooltip,
+    column, container, row, scrollable, space, svg, text, tooltip,
 };
 use iced::{Alignment, Border, Element, Length, Padding, padding};
 
@@ -64,7 +65,7 @@ pub fn c_sidebar<'a>(
                 container(space().width(4).height(38))
             },
             tooltip(
-                MouseArea::new(c_cached_image(
+                ClickArea::new(c_cached_image(
                     team.picture_e_tag
                         .clone()
                         .unwrap_or(team.display_name.clone()),
@@ -80,7 +81,7 @@ pub fn c_sidebar<'a>(
                     36.0,
                     4.0,
                 ))
-                .on_release(Message::OpenTeam(team.id.clone(), team.id.clone()))
+                .on_press(Message::OpenTeam(team.id.clone(), team.id.clone()))
                 .on_enter(Message::PrefetchTeam(team.id.clone(), team.id.clone()))
                 .interaction(iced::mouse::Interaction::Pointer),
                 container(text(&team.display_name).wrapping(text::Wrapping::WordOrGlyph))
@@ -149,13 +150,13 @@ pub fn c_sidebar<'a>(
                         },
                         tooltip(
                             container(
-                                mouse_area(
+                                click_area(
                                     svg(utils::get_image_dir().join("message-square.svg"))
                                         .width(23)
                                         .height(23),
                                 )
                                 .on_enter(Message::PrefetchCurrentChat)
-                                .on_release(Message::OpenCurrentChat)
+                                .on_press(Message::OpenCurrentChat)
                                 .interaction(iced::mouse::Interaction::Pointer)
                             ),
                             container(text("Direct Messages"))
@@ -188,12 +189,12 @@ pub fn c_sidebar<'a>(
                         },
                         tooltip(
                             container(
-                                mouse_area(
+                                click_area(
                                     svg(utils::get_image_dir().join("bell.svg"))
                                         .width(23)
                                         .height(23),
                                 )
-                                .on_release(Message::OpenActivity)
+                                .on_press(Message::OpenActivity)
                                 .interaction(iced::mouse::Interaction::Pointer)
                             ),
                             container(text("Activity"))
@@ -223,7 +224,7 @@ pub fn c_sidebar<'a>(
                 ],
                 team_scrollbar,
                 column![c_horizontal_line(&theme, 38.into()), {
-                    let content = mouse_area(
+                    let content = click_area(
                         container(c_picture_and_status(
                             theme,
                             user_picture,
@@ -237,7 +238,7 @@ pub fn c_sidebar<'a>(
                             right: 0.0,
                         }),
                     )
-                    .on_release(Message::ToggleShowProfile);
+                    .on_press(Message::ToggleShowProfile);
 
                     if *show_profile {
                         anchored_overlay(

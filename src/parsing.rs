@@ -14,7 +14,7 @@ use iced::Color;
 use iced::border;
 use iced::mouse;
 use iced::padding;
-use iced::widget::mouse_area;
+use crate::widgets::click_area::click_area;
 use iced::widget::space;
 use iced::widget::span;
 use iced::widget::{Column, Container, Row, column, container, row, text};
@@ -368,14 +368,14 @@ fn transform_html<'a>(
                             image_width = image_width * factor;
                         }
 
-                        let team_picture = mouse_area(c_cached_image(
+                        let team_picture = click_area(c_cached_image(
                             identifier.clone(),
                             Message::AuthorizeImage(image_url, identifier.clone()),
                             image_width,
                             image_height,
                             8.0,
                         ))
-                        .on_release(Message::ExpandImage(identifier, "jpeg".to_string()))
+                        .on_press(Message::ExpandImage(identifier, "jpeg".to_string()))
                         .interaction(mouse::Interaction::Pointer);
 
                         dynamic_container = dynamic_container.push(team_picture.into());
@@ -395,13 +395,13 @@ fn transform_html<'a>(
                                 let height = height.parse().unwrap();
                                 image_height = height;
                             }
-                            let team_picture = mouse_area(c_cached_gif(
+                            let team_picture = click_area(c_cached_gif(
                                 identifier.clone(),
                                 Message::DownloadImage(image_url.to_string(), identifier.clone()),
                                 image_width,
                                 image_height,
                             ))
-                            .on_release(Message::ExpandImage(identifier, "gif".to_string()))
+                            .on_press(Message::ExpandImage(identifier, "gif".to_string()))
                             .interaction(mouse::Interaction::Pointer);
                             dynamic_container = dynamic_container.push(team_picture.into());
                         } else {

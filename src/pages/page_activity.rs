@@ -11,8 +11,8 @@ use crate::websockets::Presence;
 use iced::Element;
 use iced::Length;
 use iced::Padding;
+use crate::widgets::click_area::click_area;
 use iced::widget::container;
-use iced::widget::mouse_area;
 use iced::widget::{column, scrollable, text};
 use indexmap::IndexMap;
 
@@ -68,7 +68,7 @@ pub fn activity<'a>(
                         );
                         if let Some(message) = message {
                             activities_colum = activities_colum.push(
-                                mouse_area(message).on_release(Message::ToggleExpandActivity(
+                                click_area(message).on_press(Message::ToggleExpandActivity(
                                     thread_id,
                                     message_id,
                                     message_activity_id,
@@ -77,7 +77,7 @@ pub fn activity<'a>(
                         }
                     } else {
                         activities_colum = activities_colum.push(
-                            mouse_area(text("Failed to load conversation.")).on_release(
+                            click_area(text("Failed to load conversation.")).on_press(
                                 Message::ToggleExpandActivity(
                                     thread_id,
                                     message_id,
@@ -88,13 +88,13 @@ pub fn activity<'a>(
                     }
                 } else {
                     activities_colum = activities_colum.push(
-                        mouse_area(c_preview_message(
+                        click_area(c_preview_message(
                             theme,
                             activity,
                             &window_size.0,
                             emoji_map,
                         ))
-                        .on_release(Message::ToggleExpandActivity(
+                        .on_press(Message::ToggleExpandActivity(
                             thread_id,
                             message_id,
                             message_activity_id,
@@ -103,13 +103,13 @@ pub fn activity<'a>(
                 }
             } else {
                 activities_colum = activities_colum.push(
-                    mouse_area(c_preview_message(
+                    click_area(c_preview_message(
                         theme,
                         activity,
                         &window_size.0,
                         emoji_map,
                     ))
-                    .on_release(Message::ToggleExpandActivity(
+                    .on_press(Message::ToggleExpandActivity(
                         thread_id,
                         message_id,
                         message_activity_id,
