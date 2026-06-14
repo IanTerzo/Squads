@@ -1,6 +1,6 @@
 # TODO
 
-Some important things that need to be done, not in any particular order. Items tagged with (1.0) are todos that need to be compled before the 1.0 release.
+Some things that need to be done, not in any particular order. Items tagged with (1.0) are todos that need to be compled before the 1.0 release. If you are working on a todo or part of one add it to in-progress section.
 
 ### Todo
 
