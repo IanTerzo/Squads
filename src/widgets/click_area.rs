@@ -175,7 +175,6 @@ where
                         if cursor.is_over(bounds) {
                             shell.publish(on_press.clone());
                         }
-                        shell.capture_event();
                     }
                 }
             }

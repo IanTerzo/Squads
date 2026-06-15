@@ -535,8 +535,8 @@ pub fn c_chat_message<'a>(
     }
 
     let message_id_clone = message.id.clone();
-    let message_stack = stack!(
-        click_area(
+    let message_stack = click_area(
+        stack!(
             container(message_row)
                 .style(move |_| container::Style {
                     background: if (is_hovered
@@ -557,14 +557,14 @@ pub fn c_chat_message<'a>(
                     right: 1.0,
                     bottom: 4.0,
                     left: 3.0,
-                })
+                }),
+            action_container
         )
-        .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
-        .on_exit(Message::StopShowChatMessageOptions(
-            message.id.clone().unwrap()
-        )),
-        action_container
-    );
+    )
+    .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
+    .on_exit(Message::StopShowChatMessageOptions(
+        message.id.clone().unwrap()
+    ));
 
     return Some(message_stack.into());
 }
