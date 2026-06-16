@@ -425,21 +425,18 @@ pub fn connect(
                                 continue;
                             }
                         };
-                        let skype_token = match get_or_gen_skype_token(
-                            access_tokens.clone(),
-                            access_token,
-                        )
-                        .await
-                        {
-                            Ok(token) => token,
-                            Err(e) => {
-                                eprintln!("Skype token error in websocket: {:?}", e);
-                                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-                                continue;
-                            }
-                        };
+                        let skype_token =
+                            match get_or_gen_skype_token(access_tokens.clone(), access_token).await
+                            {
+                                Ok(token) => token,
+                                Err(e) => {
+                                    eprintln!("Skype token error in websocket: {:?}", e);
+                                    tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                                    continue;
+                                }
+                            };
 
-                        let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29";
+                        let endpoint = "3feae13d-a16c-48f1-b52a-d417ebd07a29"; // TODO: Generate this
 
                         let (url, surl) = begin_websockets(&skype_token.value, endpoint).await;
                         match async_tungstenite::tokio::connect_async(url).await {

@@ -32,6 +32,14 @@ pub struct DeviceCodeResponse {
     pub access_token: String,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct RegionGtms {
+    #[serde(rename = "calling_conversationServiceUrl")]
+    pub conversation_service_url: Option<String>,
+    #[serde(rename = "calling_potentialCallRequestUrl")]
+    pub potential_call_request_url: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct AccessToken {
     pub value: String,

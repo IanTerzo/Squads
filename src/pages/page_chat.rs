@@ -356,6 +356,17 @@ pub fn chat<'a>(
                 row![
                     tooltip(
                         mouse_area(
+                            svg(utils::get_image_dir().join("lamp.svg"))
+                                .width(19)
+                                .height(19)
+                        )
+                        .on_release(Message::StartVoiceCall(current_chat.id.clone()))
+                        .interaction(iced::mouse::Interaction::Pointer),
+                        c_tooltip(theme, "Call"),
+                        tooltip::Position::Bottom
+                    ),
+                    tooltip(
+                        mouse_area(
                             svg(utils::get_image_dir().join("users-round.svg"))
                                 .width(19)
                                 .height(19)

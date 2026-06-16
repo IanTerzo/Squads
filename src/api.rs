@@ -492,6 +492,58 @@ async fn gen_spoidcrl(
 
 // Api: Authsvc v1
 // Scope: https://api.spaces.skype.com/Authorization.ReadWrite
+pub async fn gen_region_gtms(
+    token: &AccessToken,
+) -> Result<RegionGtms, Box<dyn std::error::Error>> {
+    let url = "https://teams.microsoft.com/api/authsvc/v1.0/authz";
+    if LOG_REQUESTS {
+        println!("Log: POST {}", url);
+    }
+
+    let req_access_token = format!("Bearer {}", token.value);
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        HeaderName::from_static("authorization"),
+        HeaderValue::from_str(&req_access_token)?,
+    );
+    headers.insert("Content-Length", "0".parse()?);
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let res = client.post(url).headers(headers).send().await?;
+
+    if !res.status().is_success() {
+        let error_message = format!(
+            "Status code: {}, Response body: {}",
+            res.status(),
+            res.text().await?
+        );
+        return Err(error_message.into());
+    }
+
+    let token_data: HashMap<String, Value> = res.json().await?;
+
+    if let Some(region_gtms) = token_data.get("regionGtms") {
+        let result: Result<RegionGtms, serde_json::Error> =
+            serde_json::from_value(region_gtms.clone());
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                eprintln!("Error occurred while serializing: {}", err);
+                Err(err.into())
+            }
+        }
+    } else {
+        Err("Response doesn't include region_gtms".into())
+    }
+}
+
+// Api: Authsvc v1
+// Scope: https://api.spaces.skype.com/Authorization.ReadWrite
 pub async fn gen_skype_token(
     token: &AccessToken,
 ) -> Result<AccessToken, Box<dyn std::error::Error>> {
@@ -539,7 +591,7 @@ pub async fn gen_skype_token(
             Err("Response does not have a token or a expiration.".into())
         }
     } else {
-        Err("Response include tokens".into())
+        Err("Response doesn't include tokens".into())
     }
 }
 

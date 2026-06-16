@@ -1,17 +1,10 @@
 mod api;
 mod api_types;
-mod components;
-mod parsing;
-use base64::Engine;
-use base64::prelude::BASE64_URL_SAFE;
-use chrono::Utc;
-use iced::task::Handle;
-use iced::widget::Id;
-use iced::widget::operation::{focus, snap_to};
-use indexmap::IndexMap;
-use parsing::parse_message_markdown;
 mod auth;
+mod calling;
+mod components;
 mod pages;
+mod parsing;
 mod style;
 mod types;
 mod utils;
@@ -24,19 +17,27 @@ use api::{
     me, send_message, sharepoint_download_file, site_info, team_conversations, teams_me, users,
 };
 use auth::{AuthError, authenticated_task, get_or_gen_skype_token};
+use base64::Engine;
+use base64::prelude::BASE64_URL_SAFE;
+use chrono::Utc;
 use components::cached_image::save_cached_image;
 use iced::clipboard;
 use iced::keyboard::Key;
 use iced::keyboard::key::Named;
+use iced::task::Handle;
+use iced::widget::Id;
+use iced::widget::operation::{focus, snap_to};
 use iced::widget::scrollable::{RelativeOffset, Viewport};
 use iced::widget::text_editor::{self, Action, Content, Edit};
 use iced::{
     Color, Element, Event, Font, Size, Subscription, Task, Theme, event, keyboard, mouse, window,
 };
+use indexmap::IndexMap;
 use pages::app;
 use pages::page_chat::chat;
 use pages::page_login::login;
 use pages::page_team::team;
+use parsing::parse_message_markdown;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use regex::Regex;
@@ -45,6 +46,7 @@ use rfd::AsyncFileDialog;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::env::home_dir;
+use std::future::Future;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -52,8 +54,8 @@ use std::{collections::HashMap, fs};
 use style::global_theme;
 use tokio::time::sleep;
 use types::*;
-use std::future::Future;
 use utils::{delete_cache, get_cache, get_epoch_ms, save_to_cache};
+use uuid::Uuid;
 use webbrowser;
 use websockets::{
     ConnectionInfo, Presence, Presences, WebsocketMessage, WebsocketResponse,
@@ -61,8 +63,14 @@ use websockets::{
 };
 
 use crate::api::{
-    ChatMember, Conversation, Emotion, EmotionUser, add_member, delete_message, message_property,
-    start_thread,
+    ChatMember, Conversation, Emotion, EmotionUser, RegionGtms, add_member, delete_message,
+    gen_region_gtms, message_property, start_thread,
+};
+use crate::auth::get_or_gen_token;
+use crate::calling::{
+    AvSdpParams, CandidateType, IceCandidate, Transport, create_1to1_call, derive_epconv_url,
+    gather_srflx_candidate, generate_av_sdp_offer, generate_ice_pwd, generate_ice_ufrag,
+    generate_ssrc,
 };
 use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::c_expanded_image;
@@ -70,6 +78,7 @@ use crate::components::sidebar::c_sidebar;
 use crate::components::start_chat::c_start_chat;
 use crate::pages::page_activity::activity;
 use crate::parsing::get_html_preview;
+use crate::utils::get_local_ip;
 use crate::websockets::{WebsocketData, websocket_builder};
 use crate::widgets::centered_overlay::centered_overlay;
 use crate::widgets::selectable_text;
@@ -159,6 +168,7 @@ struct Counter {
     teams: Vec<Team>,
     chats: Vec<Chat>,
     activities: Vec<api::Message>,
+    region_gtms: Option<RegionGtms>,
     websockets_connection_info: Option<ConnectionInfo>,
 }
 
@@ -246,6 +256,7 @@ pub enum Message {
     EmojiPickerReaction(String, String, String, String),
     EmotionClicked(String, Emotion),
     UploadFile,
+    StartVoiceCall(String),
 
     // Teams requests
     GotActivities(Vec<api::Message>),
@@ -344,9 +355,7 @@ fn init_tasks(
             access_tokens,
             "https://ic3.teams.office.com/.default",
             &tenant,
-            move |token| async move {
-                conversations(&token, &thread_id, &None).await.unwrap()
-            },
+            move |token| async move { conversations(&token, &thread_id, &None).await.unwrap() },
             move |result| Message::GotChatConversationsFirst(thread_id_clone, result),
         ));
     }
@@ -466,9 +475,7 @@ fn post_message_task(
 
             let body = serde_json::to_string_pretty(&message).unwrap();
 
-            send_message(&token, &conversation_id, body)
-                .await
-                .unwrap();
+            send_message(&token, &conversation_id, body).await.unwrap();
         },
         Message::DoNothing,
     )
@@ -567,6 +574,7 @@ impl Counter {
             show_start_chat: false,
             start_chat_relevant_user: None,
             last_opened_chat: first_chat.clone(),
+            region_gtms: None,
         };
         (
             counter_self,
@@ -1364,8 +1372,7 @@ impl Counter {
                                     "https://ic3.teams.office.com/.default",
                                     &tenant,
                                     move |token| async move {
-                                        let thread_link =
-                                            start_thread(&token, body).await.unwrap();
+                                        let thread_link = start_thread(&token, body).await.unwrap();
                                         (conversation_id, thread_link)
                                     },
                                     move |(conversation_id, thread_link)| {
@@ -1607,9 +1614,7 @@ impl Counter {
                                     "{{\"consumptionhorizon\":\"{};{};{}\"}}",
                                     time, time, time
                                 );
-                                consumption_horizon(&token, &thread_id, body)
-                                    .await
-                                    .unwrap();
+                                consumption_horizon(&token, &thread_id, body).await.unwrap();
                                 thread_id
                             },
                             Message::ReadChat,
@@ -1641,9 +1646,7 @@ impl Counter {
                                         "{{\"consumptionhorizon\":\"{};{};{}\"}}",
                                         time, time, time
                                     );
-                                    consumption_horizon(&token, &chat_id, body)
-                                        .await
-                                        .unwrap();
+                                    consumption_horizon(&token, &chat_id, body).await.unwrap();
                                     chat_id
                                 },
                                 Message::ReadChat,
@@ -2080,10 +2083,9 @@ impl Counter {
                     "https://ic3.teams.office.com/.default",
                     &tenant,
                     move |token| async move {
-                        let conversation =
-                            conversations(&token, &thread_id, &Some(message_id))
-                                .await
-                                .unwrap();
+                        let conversation = conversations(&token, &thread_id, &Some(message_id))
+                            .await
+                            .unwrap();
                         (message_activity_id, conversation.messages)
                     },
                     |result| Message::GotExpandedActivity(result.0, result.1),
@@ -2107,9 +2109,7 @@ impl Counter {
                         "https://ic3.teams.office.com/.default",
                         &tenant,
                         move |token| async move {
-                            conversations(&token, &thread_id, &None)
-                                .await
-                                .unwrap()
+                            conversations(&token, &thread_id, &None).await.unwrap()
                         },
                         move |result| {
                             Message::GotChatConversations(thread_id_clone.clone(), result)
@@ -2138,9 +2138,7 @@ impl Counter {
                                 "https://ic3.teams.office.com/.default",
                                 &tenant,
                                 move |token| async move {
-                                    conversations(&token, &chat_id_clone, &None)
-                                        .await
-                                        .unwrap()
+                                    conversations(&token, &chat_id_clone, &None).await.unwrap()
                                 },
                                 move |result| Message::GotChatConversations(chat_id_clone2, result), // This calls a message
                             );
@@ -2333,9 +2331,7 @@ impl Counter {
                                         "https://ic3.teams.office.com/.default",
                                         &tenant,
                                         move |token| async move {
-                                            conversations(&token, &chat_id, &None)
-                                                .await
-                                                .unwrap()
+                                            conversations(&token, &chat_id, &None).await.unwrap()
                                         },
                                         move |result| {
                                             Message::GotChatConversations(
@@ -2487,9 +2483,7 @@ impl Counter {
                     "https://ic3.teams.office.com/.default",
                     &tenant,
                     move |token| async move {
-                        add_member(&token, &chat_id.clone(), body)
-                            .await
-                            .unwrap();
+                        add_member(&token, &chat_id.clone(), body).await.unwrap();
 
                         (chat_id, user_ids)
                     },
@@ -2549,10 +2543,9 @@ impl Counter {
                     move |token| async move {
                         let user_id = user_id;
 
-                        let bytes =
-                            authorize_profile_picture(&token, &user_id, &display_name)
-                                .await
-                                .unwrap();
+                        let bytes = authorize_profile_picture(&token, &user_id, &display_name)
+                            .await
+                            .unwrap();
 
                         save_cached_image(identifier, "jpeg", bytes);
                     },
@@ -2568,10 +2561,9 @@ impl Counter {
                     "https://api.spaces.skype.com/Authorization.ReadWrite",
                     &tenant,
                     move |token| async move {
-                        let bytes =
-                            authorize_merged_profile_picture(&token, &users, &user_id)
-                                .await
-                                .unwrap();
+                        let bytes = authorize_merged_profile_picture(&token, &users, &user_id)
+                            .await
+                            .unwrap();
 
                         save_cached_image(identifier, "jpeg", bytes);
                     },
@@ -2638,10 +2630,7 @@ impl Counter {
                         "https://graph.microsoft.com/.default",
                         &tenant,
                         move |token| async move {
-                            let site_id = site_info(&token, &web_url, &site_path)
-                                .await
-                                .unwrap()
-                                .id;
+                            let site_id = site_info(&token, &web_url, &site_path).await.unwrap().id;
 
                             let url = format!(
                                 "https://graph.microsoft.com/v1.0/sites/{}/drive/items/{}/content",
@@ -3046,13 +3035,132 @@ impl Counter {
                 },
                 Message::DoNothing,
             ),
+            Message::StartVoiceCall(thread_id) => {
+                // In case the app hasn't fully loaded yet
+                if self.websockets_connection_info.is_none() {
+                    return Task::none();
+                }
+
+                let access_tokens_arc = self.access_tokens.clone();
+                let access_tokens_arc_clone = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+                let tenant_clone = self.tenant.clone();
+
+                let endpoint_id = Uuid::new_v4().to_string();
+                let participant_id = Uuid::new_v4().to_string();
+                let chain_id = Uuid::new_v4().to_string();
+                let message_id = Uuid::new_v4().to_string();
+
+                let conv_params = calling::ConversationCallParams {
+                    trouter_surl: self
+                        .websockets_connection_info
+                        .as_ref()
+                        .unwrap()
+                        .surl
+                        .clone(),
+                    caller_mri: format!("8:orgid:{}", self.me.id),
+                    caller_display_name: self.me.display_name.clone().unwrap_or(String::new()),
+                    endpoint_id: endpoint_id,
+                    participant_id: participant_id,
+                    thread_id: thread_id,
+                    chain_id: chain_id,
+                    message_id: message_id,
+                    caller_oid: "".to_string(), // Not needed for acknowledgement,
+                    tenant_id: tenant.clone(),
+                };
+
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        // TODO: This needs to be improved (for starters: region_gtms should be stored somewhere)
+
+                        let access_token_skype = get_or_gen_token(
+                            access_tokens_arc_clone,
+                            "https://api.spaces.skype.com/Authorization.ReadWrite",
+                            &tenant_clone,
+                        )
+                        .await
+                        .unwrap();
+
+                        let region_gtms = gen_region_gtms(&access_token_skype).await.unwrap();
+
+                        let epconv_url = derive_epconv_url(&region_gtms).unwrap();
+
+                        let audio_socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await.unwrap();
+                        let audio_port = audio_socket.local_addr().unwrap().port();
+                        let video_socket = tokio::net::UdpSocket::bind("0.0.0.0:0").await.unwrap();
+                        let video_port = video_socket.local_addr().unwrap().port();
+                        let local_ip = get_local_ip();
+
+                        let make_host_candidate = |port: u16| IceCandidate {
+                            foundation: "1".to_string(),
+                            component: 1,
+                            transport: Transport::Udp,
+                            priority: 2130706431,
+                            address: local_ip.clone(),
+                            port,
+                            candidate_type: CandidateType::Host,
+                            raddr: None,
+                            rport: None,
+                        };
+
+                        let mut audio_candidates = vec![make_host_candidate(audio_port)];
+                        let mut video_candidates = vec![make_host_candidate(video_port)];
+
+                        if let Some(srflx) =
+                            gather_srflx_candidate(&audio_socket, calling::DEFAULT_STUN_SERVER)
+                                .await
+                        {
+                            audio_candidates.push(srflx);
+                        }
+                        if let Some(srflx) =
+                            gather_srflx_candidate(&video_socket, calling::DEFAULT_STUN_SERVER)
+                                .await
+                        {
+                            video_candidates.push(srflx);
+                        }
+
+                        // 4. Generate AV SDP offer (audio + video)
+                        let our_audio_ufrag = generate_ice_ufrag();
+                        let our_audio_pwd = generate_ice_pwd();
+                        let our_video_ufrag = generate_ice_ufrag();
+                        let our_video_pwd = generate_ice_pwd();
+                        // Generate SSRCs early so we can include them in SDP x-ssrc-range attributes.
+                        let video_ssrc = generate_ssrc();
+                        let audio_ssrc = generate_ssrc();
+
+                        let offer_result = generate_av_sdp_offer(&AvSdpParams {
+                            local_ip: &local_ip,
+                            audio_port,
+                            video_port,
+                            audio_ufrag: &our_audio_ufrag,
+                            audio_pwd: &our_audio_pwd,
+                            video_ufrag: &our_video_ufrag,
+                            video_pwd: &our_video_pwd,
+                            audio_candidates: &audio_candidates,
+                            video_candidates: &video_candidates,
+                            video_ssrc_base: video_ssrc,
+                            audio_ssrc,
+                        });
+
+                        let result =
+                            create_1to1_call(&token, &epconv_url, &conv_params, &offer_result.sdp)
+                                .await
+                                .unwrap();
+
+                        println!("{:#?}", result);
+                    },
+                    Message::DoNothing,
+                )
+            }
 
             // Websockets
             Message::WSConnected(info) => {
                 let access_tokens_arc = self.access_tokens.clone();
                 let tenant = self.tenant.clone();
 
-                // This will be more useful in the future...
                 self.websockets_connection_info = Some(info.clone());
 
                 let surl = info.surl.clone();
