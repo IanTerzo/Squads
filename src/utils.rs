@@ -1,8 +1,11 @@
 use directories::ProjectDirs;
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use std::{
-    env, fs, io::Write, path::{PathBuf}, time::{SystemTime, UNIX_EPOCH}
+    env, fs,
+    io::Write,
+    path::PathBuf,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 pub fn truncate_name(name: String, max_length: usize) -> String {
@@ -76,9 +79,22 @@ pub fn get_epoch_ms() -> u128 {
 }
 
 pub fn get_image_dir() -> PathBuf {
-	PathBuf::from(env::var("SQUADS_IMAGE_DIR").unwrap_or("images".to_string()))
+    PathBuf::from(env::var("SQUADS_IMAGE_DIR").unwrap_or("images".to_string()))
 }
 
 pub fn get_resource_dir() -> PathBuf {
-	PathBuf::from(env::var("SQUADS_RESOURCE_DIR").unwrap_or("resources".to_string()))
+    PathBuf::from(env::var("SQUADS_RESOURCE_DIR").unwrap_or("resources".to_string()))
+}
+
+pub fn get_local_ip() -> String {
+    // Try to determine local IP by connecting a UDP socket to a public address.
+    // This doesn't send any data, just lets the OS pick the outbound interface.
+    if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
+        if socket.connect("8.8.8.8:80").is_ok() {
+            if let Ok(addr) = socket.local_addr() {
+                return addr.ip().to_string();
+            }
+        }
+    }
+    "127.0.0.1".to_string()
 }
