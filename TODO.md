@@ -4,10 +4,8 @@ Some things that need to be done, not in any particular order. Items tagged with
 
 ### Todo
 
-- (1.0) Separate and flesh out the API. (proper names, good organization, push request bodies, docs).
 - (1.0) Optimizations.
 - (1.0) "Files" page. See the team page in the tauri branch for how this is supossed to be implemented. That implmentation uses too many api calls and could probably be improved using graph api.
-- (1.0) Voice and Video calls. Take a look at [ost](https://github.com/eisbaw/ost) to see how to implement this.
 - Team "Tabs" support, i.e the little options under the title of a team in Team's team page. For example "Home Page" or "Classwork" or "Class Notebook"
 - Support for more message types. For example "card" or the meeting type.
 - Support for more activity types.
@@ -24,3 +22,5 @@ Some things that need to be done, not in any particular order. Items tagged with
 
 ### In-progress
 - [IanTerzo](https://github.com/IanTerzo) - User presence.
+- [IanTerzo](https://github.com/IanTerzo) - (1.0) Separate and flesh out the API. (proper names, good organization, push request bodies, docs).
+- [IanTerzo](https://github.com/IanTerzo) - (1.0) Voice and Video calls. Take a look at [ost](https://github.com/eisbaw/ost) to see how to implement this.
