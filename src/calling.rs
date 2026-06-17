@@ -415,11 +415,11 @@ pub async fn create_1to1_call(
         }
     });
 
+    let access_token = format!("Bearer {}", token.value);
+
     let client = Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
-
-    let access_token = format!("Bearer {}", token.value);
 
     let resp = client
         .post(epconv_url)
@@ -441,9 +441,6 @@ pub async fn create_1to1_call(
     let status = resp.status();
     let headers = resp.headers().clone();
     let body = resp.text().await.unwrap_or_default();
-
-    println!("1:1 call response: {} ({} bytes)", status, body.len());
-    println!("1:1 call response body: {}", &body[..body.len().min(2000)]);
 
     if !status.is_success() {
         anyhow::bail!("1:1 call epconv failed ({}): {}", status, body);
@@ -470,11 +467,6 @@ pub async fn create_1to1_call(
         .pointer("/links/addParticipant")
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
-
-    println!(
-        "1:1 call: conversationController = {}, addParticipant link = {:?}",
-        conv_controller, add_participant_url
-    );
 
     let cc_active_url = resp_json
         .pointer("/links/active")
@@ -695,4 +687,124 @@ pub async fn gather_srflx_candidate(socket: &UdpSocket, stun_server: &str) -> Op
     }
 
     None
+}
+
+pub async fn invite_user(
+    token: &AccessToken,
+    conversation_controller: &str,
+    params: &ConversationCallParams,
+    callee_mri: &str,
+    include_video: bool,
+) -> Result<()> {
+    let tc = |path: &str| trouter_callback(&params.trouter_surl, &params.endpoint_id, path);
+
+    // Derive /add URL from conversation controller
+    let add_url = if let Some(idx) = conversation_controller.find('?') {
+        let (path, query) = conversation_controller.split_at(idx);
+        format!("{}/add{}", path.trim_end_matches('/'), query)
+    } else {
+        format!("{}/add", conversation_controller.trim_end_matches('/'))
+    };
+
+    let callee_participant_id = uuid::Uuid::new_v4().to_string();
+    let call_modalities: Vec<&str> = if include_video {
+        vec!["Audio", "Video"]
+    } else {
+        vec!["Audio"]
+    };
+
+    let payload = serde_json::json!({
+        "disableUnmute": false,
+        "participants": {
+            "from": {
+                "id": params.caller_mri,
+                "displayName": params.caller_display_name,
+                "endpointId": params.endpoint_id,
+                "participantId": params.participant_id,
+                "languageId": "en-US"
+            },
+            "to": [{
+                "id": callee_mri,
+                "participantId": callee_participant_id
+            }]
+        },
+        // Include call invitation data to trigger ringing on callee's device
+        "participantInvitationData": {
+            "callModalities": call_modalities,
+            "callDirection": "Outgoing"
+        },
+        "callInvitation": {
+            "callModalities": call_modalities,
+            "replaces": null,
+            "transferor": null
+        },
+        "replacementDetails": null,
+        "groupContext": null,
+        "groupChat": {
+            "threadId": params.thread_id,
+            "messageId": null
+        },
+        "links": {
+            "addParticipantSuccess": tc("conversation/addParticipantSuccess/"),
+            "addParticipantFailure": tc("conversation/addParticipantFailure/")
+        }
+    });
+
+    // Fresh message-id for deduplication
+    let invite_msg_id = uuid::Uuid::new_v4().to_string();
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let resp = client
+        .post(&add_url)
+        .header("Authorization", access_token)
+        .header("Content-Type", "application/json")
+        .header("x-microsoft-skype-chain-id", &params.chain_id)
+        .header("x-microsoft-skype-message-id", &invite_msg_id)
+        .header("x-microsoft-skype-client", SKYPE_CLIENT_HEADER)
+        .header("Referer", "https://teams.microsoft.com/")
+        .header("ms-teams-partition", TEAMS_PARTITION)
+        .header("ms-teams-region", TEAMS_REGION)
+        .header("ms-teams-ring", TEAMS_RING)
+        .header("x-ms-migration", "True")
+        .json(&payload)
+        .send()
+        .await
+        .context("Failed to POST user invite")?;
+
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+
+    if !status.is_success() {
+        anyhow::bail!("User invite failed ({}): {}", status, body);
+    }
+
+    Ok(())
+}
+
+pub fn extract_callee_oid_from_thread(thread_id: &str, caller_oid: &str) -> Option<String> {
+    let inner = thread_id
+        .strip_prefix("19:")
+        .and_then(|s| s.strip_suffix("@unq.gbl.spaces"))?;
+
+    let parts: Vec<&str> = inner.split('_').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+
+    if parts[0] == caller_oid {
+        Some(parts[1].to_string())
+    } else if parts[1] == caller_oid {
+        Some(parts[0].to_string())
+    } else {
+        println!(
+            "Thread ID {} doesn't contain caller OID {}",
+            thread_id, caller_oid
+        );
+        Some(parts[1].to_string())
+    }
 }
