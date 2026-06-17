@@ -69,8 +69,8 @@ use crate::api::{
 use crate::auth::get_or_gen_token;
 use crate::calling::{
     AvSdpParams, CandidateType, IceCandidate, Transport, create_1to1_call, derive_epconv_url,
-    gather_srflx_candidate, generate_av_sdp_offer, generate_ice_pwd, generate_ice_ufrag,
-    generate_ssrc,
+    extract_callee_oid_from_thread, gather_srflx_candidate, generate_av_sdp_offer,
+    generate_ice_pwd, generate_ice_ufrag, generate_ssrc, invite_user,
 };
 use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::c_expanded_image;
@@ -3046,6 +3046,9 @@ impl Counter {
                 let tenant = self.tenant.clone();
                 let tenant_clone = self.tenant.clone();
 
+                let caller_oid = self.me.id.clone();
+                let caller_mri = format!("8:orgid:{}", caller_oid);
+
                 let endpoint_id = Uuid::new_v4().to_string();
                 let participant_id = Uuid::new_v4().to_string();
                 let chain_id = Uuid::new_v4().to_string();
@@ -3058,11 +3061,11 @@ impl Counter {
                         .unwrap()
                         .surl
                         .clone(),
-                    caller_mri: format!("8:orgid:{}", self.me.id),
+                    caller_mri: caller_mri.clone(),
                     caller_display_name: self.me.display_name.clone().unwrap_or(String::new()),
                     endpoint_id: endpoint_id,
                     participant_id: participant_id,
-                    thread_id: thread_id,
+                    thread_id: thread_id.clone(),
                     chain_id: chain_id,
                     message_id: message_id,
                     caller_oid: "".to_string(), // Not needed for acknowledgement,
@@ -3075,6 +3078,8 @@ impl Counter {
                     &tenant,
                     move |token| async move {
                         // TODO: This needs to be improved (for starters: region_gtms should be stored somewhere)
+
+                        println!("Started call flow");
 
                         let access_token_skype = get_or_gen_token(
                             access_tokens_arc_clone,
@@ -3145,12 +3150,31 @@ impl Counter {
                             audio_ssrc,
                         });
 
-                        let result =
+                        // TODO: Handle non 1to1 calls
+
+                        let (phase1, _phase2) =
                             create_1to1_call(&token, &epconv_url, &conv_params, &offer_result.sdp)
                                 .await
                                 .unwrap();
 
-                        println!("{:#?}", result);
+                        let use_camera = false;
+                        println!("Created 1to1 call");
+
+                        let callee_oid =
+                            extract_callee_oid_from_thread(&thread_id, &caller_oid).unwrap();
+                        let callee_mri = format!("8:orgid:{}", callee_oid);
+
+                        invite_user(
+                            &token,
+                            &phase1.conversation_controller,
+                            &conv_params,
+                            &callee_mri,
+                            use_camera,
+                        )
+                        .await
+                        .unwrap();
+
+                        println!("Invited user");
                     },
                     Message::DoNothing,
                 )
