@@ -13,6 +13,7 @@ dependencies = [
  "bytes",
  "chrono",
  "directories",
+ "flate2",
  "iced",
  "image 0.24.9",
  "image 0.25.6",
