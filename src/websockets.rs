@@ -1,5 +1,6 @@
 use async_tungstenite::tokio::ConnectStream;
 use async_tungstenite::{WebSocketStream, tungstenite};
+use base64::Engine;
 use futures::sink::SinkExt;
 use futures::stream::{Stream, StreamExt};
 use iced::futures;
@@ -10,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::io::Read;
 use std::sync::{Arc, RwLock};
 use urlencoding::encode;
 
@@ -25,7 +27,15 @@ enum State {
 
 // Can be expanded in case headers are needed
 #[derive(Debug, Deserialize)]
+struct WebsocketResponseHeaders {
+    #[serde(rename = "X-Microsoft-Skype-Content-Encoding")]
+    encoding: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 struct WebsocketResponseWrapper {
+    #[serde(default)]
+    headers: Option<WebsocketResponseHeaders>,
     body: String,
 }
 
@@ -33,7 +43,8 @@ struct WebsocketResponseWrapper {
 pub enum WebsocketResponse {
     Connected(ConnectionInfo),
     Message(WebsocketMessage),
-    Presences(Presences),
+    Presences(WebsocketPresences),
+    CallAcceptance(WebsocketCallAcceptance),
     AuthExpired,
     Other(String),
 }
@@ -44,14 +55,14 @@ pub struct ConnectionInfo {
     pub surl: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Presences {
+pub struct WebsocketPresences {
     pub presence: Vec<Presence>,
     pub is_snapshot: Option<bool>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Presence {
     pub mri: String,
@@ -60,7 +71,66 @@ pub struct Presence {
     pub presence: PresenceInfo,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Links {
+    pub acknowledgement: String,
+    pub call_leg: String,
+    pub call_controller_http_transport: String,
+    pub media_renegotiation: String,
+    pub transfer: String,
+    pub replacement: String,
+    pub start_outgoing_negotiation: String,
+    pub hold: String,
+    pub monitor: String,
+    pub update_call_state: String,
+    pub control_video_streaming: String,
+    pub apply_channel_parameters: String,
+    pub update_media_descriptions: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MediaContent {
+    pub content_type: String,
+    pub blob: String,
+    pub media_leg_id: String,
+    pub escalation_occurring: bool,
+    pub new_offer: bool,
+    pub from_mixer: bool,
+    pub skip_ice_reinvite: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallAcceptance {
+    pub accepted_call_modalities: Vec<Value>,
+    pub links: Links,
+    pub media_content: MediaContent,
+    pub call_keep_alive_interval: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DebugContent {
+    #[serde(rename = "MPInstanceServiceUri")]
+    pub mpinstance_service_uri: String,
+    #[serde(rename = "MPInstanceId")]
+    pub mpinstance_id: String,
+    #[serde(rename = "MPPublicIpTagUsed")]
+    pub mppublic_ip_tag_used: String,
+    #[serde(rename = "ProcessingCallControllerInstance")]
+    pub processing_call_controller_instance: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WebsocketCallAcceptance {
+    pub call_acceptance: CallAcceptance,
+    pub debug_content: DebugContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceInfo {
     pub source_network: Option<String>,
@@ -72,13 +142,13 @@ pub struct PresenceInfo {
     pub note: Option<Note>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarData {
     pub is_out_of_office: bool,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Note {
     pub message: String,
@@ -482,13 +552,29 @@ pub fn connect(
                                     Ok(tungstenite::Message::Text(message)) => {
                                         if let Some(json_content) = message.as_str().find('{').map(|i| &message[i..]) {
                                             if let Ok(wrapper) = serde_json::from_str::<WebsocketResponseWrapper>(json_content) {
-                                                let json_body = wrapper.body;
+                                                let mut json_body = wrapper.body;
+
+                                                // Sometimes the body is encoded
+
+                                                let encoding = wrapper.headers.and_then(|h| h.encoding);
+                                                if let Some(encoding) = encoding && encoding == "gzip"  {
+                                                    let bytes = base64::engine::general_purpose::STANDARD.decode(json_body).ok().unwrap();
+                                                    let mut out = String::new();
+                                                    flate2::read::GzDecoder::new(&bytes[..])
+                                                        .read_to_string(&mut out)
+                                                         .ok().unwrap();
+
+                                                    json_body = out;
+                                                }
 
                                                 if let Ok(message_t) = serde_json::from_str(&json_body) {
                                                     let _ = output.send(WebsocketResponse::Message(message_t)).await;
                                                 }
                                                 else if let Ok(presences) = serde_json::from_str(&json_body) {
                                                     let _ = output.send(WebsocketResponse::Presences(presences)).await;
+                                                }
+                                                else if let Ok(acceptance) = serde_json::from_str(&json_body) {
+                                                    let _ = output.send(WebsocketResponse::CallAcceptance(acceptance)).await;
                                                 }
                                                 else {
                                                     let _ = output.send(WebsocketResponse::Other(message.to_string())).await;

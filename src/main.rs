@@ -58,8 +58,7 @@ use utils::{delete_cache, get_cache, get_epoch_ms, save_to_cache};
 use uuid::Uuid;
 use webbrowser;
 use websockets::{
-    ConnectionInfo, Presence, Presences, WebsocketMessage, WebsocketResponse,
-    websockets_subscription,
+    ConnectionInfo, Presence, WebsocketMessage, WebsocketResponse, websockets_subscription,
 };
 
 use crate::api::{
@@ -79,7 +78,9 @@ use crate::components::start_chat::c_start_chat;
 use crate::pages::page_activity::activity;
 use crate::parsing::get_html_preview;
 use crate::utils::get_local_ip;
-use crate::websockets::{WebsocketData, websocket_builder};
+use crate::websockets::{
+    WebsocketCallAcceptance, WebsocketData, WebsocketPresences, websocket_builder,
+};
 use crate::widgets::centered_overlay::centered_overlay;
 use crate::widgets::selectable_text;
 
@@ -266,7 +267,8 @@ pub enum Message {
     // Websockets
     WSConnected(ConnectionInfo),
     GotWSMessage(WebsocketMessage),
-    GotWSPresences(Presences),
+    GotWSPresences(WebsocketPresences),
+    GotWSCallAcceptance(WebsocketCallAcceptance),
     TypingTimeoutFinished(String, String),
 
     // Other
@@ -3485,6 +3487,10 @@ impl Counter {
                 }
                 Task::none()
             }
+            Message::GotWSCallAcceptance(acceptance) => {
+                println!("Got acceptance: {:#?}", acceptance);
+                Task::none()
+            }
             Message::TypingTimeoutFinished(chat_id, user_id) => {
                 self.users_typing_timeouts
                     .get_mut(&chat_id)
@@ -3520,6 +3526,7 @@ impl Counter {
                     WebsocketResponse::Connected(info) => Message::WSConnected(info),
                     WebsocketResponse::Message(value) => Message::GotWSMessage(value),
                     WebsocketResponse::Presences(value) => Message::GotWSPresences(value),
+                    WebsocketResponse::CallAcceptance(value) => Message::GotWSCallAcceptance(value),
                     WebsocketResponse::AuthExpired => Message::AuthExpired,
                     WebsocketResponse::Other(_value) => Message::DoNothing(()),
                 },
