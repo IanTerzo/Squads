@@ -49,6 +49,7 @@ const CHECK_TIMEOUT: Duration = Duration::from_millis(500);
 /// Maximum retry count for connectivity checks.
 const CHECK_MAX_RETRIES: u32 = 3;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConversationCallParams {
     pub trouter_surl: String,
     pub caller_mri: String,
@@ -806,5 +807,128 @@ pub fn extract_callee_oid_from_thread(thread_id: &str, caller_oid: &str) -> Opti
             thread_id, caller_oid
         );
         Some(parts[1].to_string())
+    }
+}
+
+fn cc_call_links(tc: &dyn Fn(&str) -> String) -> serde_json::Value {
+    serde_json::json!({
+        "links": {
+            "mediaAcknowledgement": tc("call/mediaAcknowledgement/"),
+            "rejection": tc("call/rejection/"),
+            "acknowledgement": tc("call/acknowledgement/"),
+            "mediaRenegotiation": tc("call/mediaRenegotiation/"),
+            "replacement": tc("call/replacement/"),
+            "progress": tc("call/progress/"),
+            "mediaAnswer": tc("call/mediaAnswer/"),
+            "newMediaOffer": tc("call/newMediaOffer/"),
+            "redirection": tc("call/redirection/"),
+            "balanceUpdate": tc("call/balanceUpdate/"),
+            "acceptance": tc("call/acceptance/"),
+            "controlVideoStreaming": tc("call/controlVideoStreaming/"),
+            "dominantSpeakerInfo": tc("call/dominantSpeakerInfo/"),
+            "csrcInfo": tc("call/csrcInfo/"),
+            "end": tc("call/end/"),
+            "retargetCompletion": tc("call/retargetCompletion/"),
+            "transfer": tc("call/transfer/"),
+            "transferAcceptance": tc("call/transferAcceptance/"),
+            "transferCompletion": tc("call/transferCompletion/"),
+            "holdCompletion": tc("call/holdCompletion/"),
+            "resumeCompletion": tc("call/resumeCompletion/"),
+            "call": tc("call/updateMediaDescriptions"),
+            "monitorCompletion": tc("call/monitorCompletion/")
+        },
+        "clientContentForMediaController": {
+            "controlVideoStreaming": tc("call/controlVideoStreaming/"),
+            "csrcInfo": tc("call/csrcInfo/")
+        }
+    })
+}
+
+pub async fn acknowledge_call_acceptance(
+    token: &AccessToken,
+    acknowledgement_url: &str,
+    params: &ConversationCallParams,
+) -> Result<()> {
+    let tc = |path: &str| trouter_callback(&params.trouter_surl, &params.endpoint_id, path);
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let resp = client
+        .post(acknowledgement_url)
+        .header("Authorization", access_token)
+        .header("Content-Type", "application/json")
+        .header("x-microsoft-skype-chain-id", &params.chain_id)
+        .header("x-microsoft-skype-message-id", &params.message_id)
+        .header("x-microsoft-skype-client", SKYPE_CLIENT_HEADER)
+        .header("Referer", "https://teams.microsoft.com/")
+        .header("ms-teams-partition", TEAMS_PARTITION)
+        .header("ms-teams-region", TEAMS_REGION)
+        .header("ms-teams-ring", TEAMS_RING)
+        .json(&serde_json::json!({
+            "callAcceptanceAcknowledgement": cc_call_links(&tc)
+        }))
+        .send()
+        .await
+        .context("Failed to POST call acceptance acknowledgement")?;
+
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+
+    if status.is_success() {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "Call acceptance acknowledgement failed ({}): {}",
+            status,
+            body
+        );
+    }
+}
+
+pub async fn register_cc_callbacks(
+    token: &AccessToken,
+    call_leg_url: &str,
+    params: &ConversationCallParams,
+) -> Result<()> {
+    let tc = |path: &str| trouter_callback(&params.trouter_surl, &params.endpoint_id, path);
+
+    let payload = serde_json::json!({
+        "callAcceptanceAcknowledgement": cc_call_links(&tc),
+        "callParticipantUpdate": cc_call_links(&tc)
+    });
+
+    let client = Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .build()?;
+
+    let access_token = format!("Bearer {}", token.value);
+
+    let resp = client
+        .post(call_leg_url)
+        .header("Authorization", access_token)
+        .header("Content-Type", "application/json")
+        .header("x-microsoft-skype-chain-id", &params.chain_id)
+        .header("x-microsoft-skype-message-id", &params.message_id)
+        .header("x-microsoft-skype-client", SKYPE_CLIENT_HEADER)
+        .header("Referer", "https://teams.microsoft.com/")
+        .header("ms-teams-partition", TEAMS_PARTITION)
+        .header("ms-teams-region", TEAMS_REGION)
+        .header("ms-teams-ring", TEAMS_RING)
+        .json(&payload)
+        .send()
+        .await
+        .context("Failed to POST CC callback registration")?;
+
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+
+    if status.is_success() {
+        Ok(())
+    } else {
+        anyhow::bail!("CC callback registration failed ({}): {}", status, body);
     }
 }
