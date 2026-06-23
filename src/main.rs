@@ -67,9 +67,10 @@ use crate::api::{
 };
 use crate::auth::get_or_gen_token;
 use crate::calling::{
-    AvSdpParams, CandidateType, IceCandidate, Transport, create_1to1_call, derive_epconv_url,
+    AvSdpParams, CandidateType, ConversationCallParams, IceCandidate, Transport,
+    acknowledge_call_acceptance, create_1to1_call, derive_epconv_url,
     extract_callee_oid_from_thread, gather_srflx_candidate, generate_av_sdp_offer,
-    generate_ice_pwd, generate_ice_ufrag, generate_ssrc, invite_user,
+    generate_ice_pwd, generate_ice_ufrag, generate_ssrc, invite_user, register_cc_callbacks,
 };
 use crate::components::add_users::c_add_users;
 use crate::components::expanded_image::c_expanded_image;
@@ -126,6 +127,7 @@ struct Counter {
     users_typing_timeouts: HashMap<String, HashMap<String, Handle>>, // Where string is the chat id and the other string is the user id
     last_opened_chat: Option<String>,
     present_messages: HashSet<String>,
+    current_call: Option<ConversationCallParams>,
 
     // UI state
     reply_options: HashMap<String, bool>, // String is the conversation id
@@ -577,6 +579,7 @@ impl Counter {
             start_chat_relevant_user: None,
             last_opened_chat: first_chat.clone(),
             region_gtms: None,
+            current_call: None,
         };
         (
             counter_self,
@@ -3074,6 +3077,8 @@ impl Counter {
                     tenant_id: tenant.clone(),
                 };
 
+                self.current_call = Some(conv_params.clone());
+
                 authed_task(
                     access_tokens_arc,
                     "https://ic3.teams.office.com/.default",
@@ -3488,8 +3493,36 @@ impl Counter {
                 Task::none()
             }
             Message::GotWSCallAcceptance(acceptance) => {
+                let access_tokens_arc = self.access_tokens.clone();
+                let tenant = self.tenant.clone();
+
                 println!("Got acceptance: {:#?}", acceptance);
-                Task::none()
+
+                let current_call = self.current_call.clone().unwrap(); // IMPROVE
+
+                authed_task(
+                    access_tokens_arc,
+                    "https://ic3.teams.office.com/.default",
+                    &tenant,
+                    move |token| async move {
+                        acknowledge_call_acceptance(
+                            &token,
+                            &acceptance.call_acceptance.links.acknowledgement,
+                            &current_call,
+                        )
+                        .await
+                        .unwrap();
+
+                        register_cc_callbacks(
+                            &token,
+                            &acceptance.call_acceptance.links.call_leg,
+                            &current_call,
+                        )
+                        .await
+                        .unwrap()
+                    },
+                    Message::DoNothing,
+                )
             }
             Message::TypingTimeoutFinished(chat_id, user_id) => {
                 self.users_typing_timeouts
