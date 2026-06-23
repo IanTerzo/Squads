@@ -9,7 +9,8 @@ use crate::websockets::Presence;
 use directories::ProjectDirs;
 use iced::alignment::{Horizontal, Vertical};
 use iced::widget::text_editor::Content;
-use iced::widget::{Column, Id, column, container, mouse_area, row, scrollable, space, text};
+use crate::widgets::click_area::click_area;
+use iced::widget::{Column, Id, column, container, row, scrollable, space, text};
 use iced::{Element, Length, Padding, border, font, padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -198,7 +199,7 @@ pub fn team<'a>(
         let page_channel_cloned = page_channel.clone();
         let channel_cloned = channel.clone();
         channels_coloumn = channels_coloumn.push(
-            mouse_area(
+            click_area(
                 container(text(truncate_name(channel.display_name, 16)))
                     .style(move |_| {
                         if channel_cloned.id == page_channel_cloned.id {
@@ -236,7 +237,7 @@ pub fn team<'a>(
             )
             .on_enter(Message::PrefetchTeam(team.id.clone(), channel.id.clone()))
             .on_exit(Message::StopShowChannelListOptions(channel.id.clone()))
-            .on_release(Message::OpenTeam(team.id.clone(), channel.id))
+            .on_press(Message::OpenTeam(team.id.clone(), channel.id))
             .interaction(iced::mouse::Interaction::Pointer),
         );
     }

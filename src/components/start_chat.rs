@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
 use crate::{Message, api::Profile, style::Theme};
+use crate::widgets::click_area::click_area;
 use iced::{
     Border, Element, Length, Padding,
     alignment::Vertical,
     border,
-    widget::{Id, column, container, mouse_area, scrollable, text, text_input},
+    widget::{Id, column, container, scrollable, text, text_input},
 };
 
 pub fn c_start_chat<'a>(
@@ -57,7 +58,7 @@ pub fn c_start_chat<'a>(
 
         user_column = user_column
             .push(
-                mouse_area(
+                click_area(
                     container(profile_row)
                         .style(move |_| container::Style {
                             // If relevant user is none make the first user of users highlighted
@@ -81,14 +82,14 @@ pub fn c_start_chat<'a>(
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
                 .on_enter(Message::SetStartChatRelevantUser(user.0.clone()))
-                .on_release(Message::StartChat(vec![user.0.clone()])),
+                .on_press(Message::StartChat(vec![user.0.clone()])),
             )
             .into();
 
         is_first_user = false;
     }
 
-    mouse_area(
+    click_area(
         container(
             column![
                 container(

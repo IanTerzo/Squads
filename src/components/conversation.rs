@@ -1,4 +1,5 @@
-use iced::widget::{column, container, mouse_area, text};
+use crate::widgets::click_area::click_area;
+use iced::widget::{column, container, text};
 use iced::{Element, border};
 use indexmap::IndexMap;
 
@@ -49,7 +50,7 @@ pub fn c_conversation<'a>(
 
     if messages.len() > 1 {
         message_chain = message_chain.push(
-            mouse_area(
+            click_area(
                 text(if show_replies {
                     "Hide replies"
                 } else {
@@ -59,7 +60,7 @@ pub fn c_conversation<'a>(
                 .size(14),
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::ToggleReplyOptions(conversation_id)),
+            .on_press(Message::ToggleReplyOptions(conversation_id)),
         );
     }
 

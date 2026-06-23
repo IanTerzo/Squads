@@ -5,11 +5,12 @@ use crate::{
     api::{Chat, Profile},
     style::Theme,
 };
+use crate::widgets::click_area::click_area;
 use iced::{
     Border, Element, Length, Padding,
     alignment::Vertical,
     border,
-    widget::{Id, checkbox, column, container, mouse_area, row, scrollable, text, text_input},
+    widget::{Id, checkbox, column, container, row, scrollable, text, text_input},
 };
 
 pub fn c_add_users<'a>(
@@ -78,7 +79,7 @@ pub fn c_add_users<'a>(
         .align_y(Vertical::Center);
         user_column = user_column
             .push(
-                mouse_area(
+                click_area(
                     container(profile_row)
                         .style(|_| container::Style {
                             background: Some(theme.colors.foreground.into()),
@@ -93,12 +94,12 @@ pub fn c_add_users<'a>(
                         }),
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(Message::ToggleUserCheckbox(is_checked, user.0.to_string())),
+                .on_press(Message::ToggleUserCheckbox(is_checked, user.0.to_string())),
             )
             .into();
     }
 
-    mouse_area(
+    click_area(
         container(
             column![
                 row![
@@ -107,7 +108,7 @@ pub fn c_add_users<'a>(
                         .padding(10)
                         .id("search_users_input")
                         .style(|_, _| theme.stylesheet.input),
-                    mouse_area(
+                    click_area(
                         container(text("Add"))
                             .padding(Padding {
                                 top: 8.0,
@@ -124,7 +125,7 @@ pub fn c_add_users<'a>(
                             })
                     )
                     .interaction(iced::mouse::Interaction::Pointer)
-                    .on_release(
+                    .on_press(
                         if !current_chat.is_one_on_one.unwrap_or(false) {
                             Message::AddToGroupChat(
                                 current_chat.id.clone(),

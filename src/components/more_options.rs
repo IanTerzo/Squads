@@ -4,7 +4,8 @@ use crate::parsing::get_html_preview;
 use crate::utils;
 use crate::{Message, style};
 use iced::alignment::Vertical;
-use iced::widget::{column, container, mouse_area, row, space, svg, text};
+use crate::widgets::click_area::click_area;
+use iced::widget::{column, container, row, space, svg, text};
 use iced::{Border, Element};
 
 pub fn c_more_options<'a>(
@@ -12,10 +13,10 @@ pub fn c_more_options<'a>(
     message: crate::api::Message,
     me: &Profile,
 ) -> Element<'a, Message> {
-    mouse_area(
+    click_area(
         container(column![
             column![
-                mouse_area(
+                click_area(
                     row![
                         svg(utils::get_image_dir().join("smile.svg"))
                             .width(19)
@@ -26,11 +27,11 @@ pub fn c_more_options<'a>(
                     .spacing(8)
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(Message::ToggleMessageEmojiPicker(
+                .on_press(Message::ToggleMessageEmojiPicker(
                     message.id.clone().unwrap()
                 )),
                 c_horizontal_line(theme, 200.into()),
-                mouse_area(
+                click_area(
                     row![
                         svg(utils::get_image_dir().join("reply.svg"))
                             .width(19)
@@ -41,12 +42,12 @@ pub fn c_more_options<'a>(
                     .spacing(8)
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(Message::Reply(
+                .on_press(Message::Reply(
                     message.content.clone(),
                     message.im_display_name.clone(),
                     message.id.clone(),
                 )),
-                mouse_area(
+                click_area(
                     row![
                         svg(utils::get_image_dir().join("copy.svg"))
                             .width(19)
@@ -57,7 +58,7 @@ pub fn c_more_options<'a>(
                     .spacing(8)
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(Message::CopyText(
+                .on_press(Message::CopyText(
                     if let Some(content) = message.content.clone() {
                         if let Some(message_type) = message.message_type.clone() {
                             if message_type == "RichText/Html" {
@@ -89,7 +90,7 @@ pub fn c_more_options<'a>(
                     if let Some(properties) = message.properties
                         && properties.deletetime > 0
                     {
-                        mouse_area(
+                        click_area(
                             row![
                                 svg(utils::get_image_dir().join("rotate-ccw.svg"))
                                     .width(19)
@@ -100,9 +101,9 @@ pub fn c_more_options<'a>(
                             .spacing(8),
                         )
                         .interaction(iced::mouse::Interaction::Pointer)
-                        .on_release(Message::Restore(message.id.clone()))
+                        .on_press(Message::Restore(message.id.clone()))
                     } else {
-                        mouse_area(
+                        click_area(
                             row![
                                 svg(utils::get_image_dir().join("trash.svg"))
                                     .width(19)
@@ -113,7 +114,7 @@ pub fn c_more_options<'a>(
                             .spacing(8),
                         )
                         .interaction(iced::mouse::Interaction::Pointer)
-                        .on_release(Message::Delete(message.id.clone()))
+                        .on_press(Message::Delete(message.id.clone()))
                     }
                 ]
                 .spacing(12)

@@ -15,7 +15,8 @@ use crate::widgets::selectable_text;
 use crate::widgets::selectable_text::selectable_text;
 use iced::alignment::Vertical;
 use iced::widget::tooltip::Position;
-use iced::widget::{column, container, mouse_area, row, space, stack, svg, text, tooltip};
+use crate::widgets::click_area::click_area;
+use iced::widget::{column, container, row, space, stack, svg, text, tooltip};
 use iced::{Alignment, Border, Element, Font, Length, Padding, border, font, padding};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -187,7 +188,7 @@ pub fn c_chat_message<'a>(
                 let mut files_row = row![].spacing(10);
 
                 for file in files {
-                    let file_container = mouse_area(
+                    let file_container = click_area(
                         container(
                             row![
                                 svg(utils::get_image_dir().join("paperclip.svg"))
@@ -206,7 +207,7 @@ pub fn c_chat_message<'a>(
                         })
                         .padding(12),
                     )
-                    .on_release(Message::DownloadFile(file.clone()))
+                    .on_press(Message::DownloadFile(file.clone()))
                     .interaction(iced::mouse::Interaction::Pointer);
                     files_row = files_row.push(file_container);
                 }
@@ -266,7 +267,7 @@ pub fn c_chat_message<'a>(
                         .join(", ");
 
                     let reaction_container = tooltip(
-                        mouse_area(
+                        click_area(
                             container(row![reaction_text, text(reacters)].spacing(4))
                                 .style(move |_| {
                                     if self_has_reacted {
@@ -297,7 +298,7 @@ pub fn c_chat_message<'a>(
                                 })
                                 .align_y(Alignment::Center),
                         )
-                        .on_release(Message::EmotionClicked(
+                        .on_press(Message::EmotionClicked(
                             message.id.clone().unwrap(),
                             reaction.clone(),
                         ))
@@ -334,7 +335,7 @@ pub fn c_chat_message<'a>(
     if are_reactions {
         reactions_row = reactions_row.push({
             let content = tooltip(
-                mouse_area(
+                click_area(
                     container(
                         svg(utils::get_image_dir().join("plus.svg"))
                             .width(19)
@@ -354,7 +355,7 @@ pub fn c_chat_message<'a>(
                     }),
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(Message::TogglePlusEmojiPicker(message.id.clone().unwrap())),
+                .on_press(Message::TogglePlusEmojiPicker(message.id.clone().unwrap())),
                 c_tooltip(theme, "Add Reaction"),
                 Position::Top,
             );
@@ -429,12 +430,12 @@ pub fn c_chat_message<'a>(
                             container(space())
                         },
                         tooltip(
-                            mouse_area(
+                            click_area(
                                 svg(utils::get_image_dir().join("reply.svg"))
                                     .width(21)
                                     .height(21)
                             )
-                            .on_release(Message::Reply(
+                            .on_press(Message::Reply(
                                 message.content.clone(),
                                 message.im_display_name.clone(),
                                 message.id.clone(),
@@ -446,12 +447,12 @@ pub fn c_chat_message<'a>(
                         space().width(6),
                         {
                             let content = tooltip(
-                                mouse_area(
+                                click_area(
                                     svg(utils::get_image_dir().join("plus.svg"))
                                         .width(21)
                                         .height(21),
                                 )
-                                .on_release(
+                                .on_press(
                                     Message::ToggleMessageEmojiPicker(message.id.clone().unwrap()),
                                 ),
                                 c_tooltip(theme, "React"),
@@ -486,12 +487,12 @@ pub fn c_chat_message<'a>(
                         space().width(6),
                         {
                             let content = tooltip(
-                                mouse_area(
+                                click_area(
                                     svg(utils::get_image_dir().join("ellipsis.svg"))
                                         .width(21)
                                         .height(21),
                                 )
-                                .on_release(
+                                .on_press(
                                     Message::ToggleShowMoreOptions(message.id.clone().unwrap()),
                                 ),
                                 c_tooltip(theme, "More"),
@@ -534,8 +535,8 @@ pub fn c_chat_message<'a>(
     }
 
     let message_id_clone = message.id.clone();
-    let message_stack = stack!(
-        mouse_area(
+    let message_stack = click_area(
+        stack!(
             container(message_row)
                 .style(move |_| container::Style {
                     background: if (is_hovered
@@ -556,14 +557,14 @@ pub fn c_chat_message<'a>(
                     right: 1.0,
                     bottom: 4.0,
                     left: 3.0,
-                })
+                }),
+            action_container
         )
-        .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
-        .on_exit(Message::StopShowChatMessageOptions(
-            message.id.clone().unwrap()
-        )),
-        action_container
-    );
+    )
+    .on_enter(Message::ShowChatMessageOptions(message.id.clone().unwrap()))
+    .on_exit(Message::StopShowChatMessageOptions(
+        message.id.clone().unwrap()
+    ));
 
     return Some(message_stack.into());
 }

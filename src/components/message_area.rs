@@ -1,6 +1,7 @@
 use iced::widget::text_editor::Content;
+use crate::widgets::click_area::click_area;
 use iced::widget::{
-    column, container, mouse_area, rich_text, row, space, span, svg, text, text_editor, text_input,
+    column, container, rich_text, row, space, span, svg, text, text_editor, text_input,
     tooltip,
 };
 use iced::{Alignment, Border, Element, Font, Length, Padding, border, font, padding};
@@ -68,12 +69,12 @@ pub fn c_message_area<'a>(
                         row![
                             {
                                 let content = tooltip(
-                                    mouse_area(
+                                    click_area(
                                         svg(utils::get_image_dir().join("smile.svg"))
                                             .width(19)
                                             .height(19),
                                     )
-                                    .on_release(Message::ToggleMessageAreaEmojiPicker)
+                                    .on_press(Message::ToggleMessageAreaEmojiPicker)
                                     .interaction(iced::mouse::Interaction::Pointer),
                                     c_tooltip(theme, "Emojis"),
                                     tooltip::Position::Top,
@@ -99,12 +100,12 @@ pub fn c_message_area<'a>(
                                 }
                             },
                             tooltip(
-                                mouse_area(
+                                click_area(
                                     svg(utils::get_image_dir().join("upload.svg"))
                                         .width(19)
                                         .height(19)
                                 )
-                                .on_release(Message::UploadFile)
+                                .on_press(Message::UploadFile)
                                 .interaction(iced::mouse::Interaction::Pointer),
                                 c_tooltip(theme, "Upload File"),
                                 tooltip::Position::Top
@@ -115,14 +116,14 @@ pub fn c_message_area<'a>(
                             row![
                                 row![
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             rich_text![span::<(), Font>("B").font(Font {
                                                 weight: font::Weight::Bold,
                                                 ..Default::default()
                                             })]
                                             .size(20)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Bold
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -130,14 +131,14 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             rich_text![span::<(), Font>("I").font(Font {
                                                 style: font::Style::Italic,
                                                 ..Default::default()
                                             })]
                                             .size(20)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Italic
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -145,11 +146,11 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             rich_text![span::<(), Font>("U").underline(true)]
                                                 .size(20)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Underline
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -157,11 +158,11 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             rich_text![span::<(), Font>("S").strikethrough(true)]
                                                 .size(20)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Striketrough
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -172,12 +173,12 @@ pub fn c_message_area<'a>(
                                 .spacing(8),
                                 row![
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("list.svg"))
                                                 .width(23)
                                                 .height(23)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::List
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -185,12 +186,12 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("list-ordered.svg"))
                                                 .width(23)
                                                 .height(23)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::OrderedList
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -202,12 +203,12 @@ pub fn c_message_area<'a>(
                                 .spacing(8),
                                 row![
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("code.svg"))
                                                 .width(23)
                                                 .height(23)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Code
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -215,12 +216,12 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("text-quote.svg"))
                                                 .width(23)
                                                 .height(23)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Blockquote
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -228,12 +229,12 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("link.svg"))
                                                 .width(19)
                                                 .height(19)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Link
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -241,12 +242,12 @@ pub fn c_message_area<'a>(
                                         tooltip::Position::Top
                                     ),
                                     tooltip(
-                                        mouse_area(
+                                        click_area(
                                             svg(utils::get_image_dir().join("image.svg"))
                                                 .width(19)
                                                 .height(19)
                                         )
-                                        .on_release(Message::MessageAreaAction(
+                                        .on_press(Message::MessageAreaAction(
                                             MessageAreaAction::Image
                                         ))
                                         .interaction(iced::mouse::Interaction::Pointer),
@@ -273,7 +274,7 @@ pub fn c_message_area<'a>(
                         if let Page::Team(_, _) = page {
                             if subject_input_content.is_none() {
                                 container(
-                                    mouse_area(
+                                    click_area(
                                         container(
                                             row![
                                                 svg(utils::get_image_dir().join("plus.svg"))
@@ -286,12 +287,12 @@ pub fn c_message_area<'a>(
                                         )
                                         .padding(4),
                                     )
-                                    .on_release(Message::AddSubject)
+                                    .on_press(Message::AddSubject)
                                     .interaction(iced::mouse::Interaction::Pointer),
                                 )
                             } else {
                                 container(
-                                    mouse_area(
+                                    click_area(
                                         container(
                                             row![
                                                 svg(utils::get_image_dir().join("minus.svg"))
@@ -305,7 +306,7 @@ pub fn c_message_area<'a>(
                                         )
                                         .padding(4),
                                     )
-                                    .on_release(Message::RemoveSubject)
+                                    .on_press(Message::RemoveSubject)
                                     .interaction(iced::mouse::Interaction::Pointer),
                                 )
                             }
@@ -318,7 +319,7 @@ pub fn c_message_area<'a>(
                             space()
                         },
                         container(
-                            mouse_area(
+                            click_area(
                                 container(
                                     row![
                                         svg(utils::get_image_dir().join("corner-down-right.svg"))
@@ -331,7 +332,7 @@ pub fn c_message_area<'a>(
                                 )
                                 .padding(4)
                             )
-                            .on_release(Message::PostMessage)
+                            .on_press(Message::PostMessage)
                             .interaction(iced::mouse::Interaction::Pointer)
                         ),
                     ])

@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use iced::alignment::Vertical;
-use iced::widget::{column, container, mouse_area, row, svg, text};
+use crate::widgets::click_area::click_area;
+use iced::widget::{column, container, row, svg, text};
 use iced::{Border, Element, Font, Padding, border, font};
 
 use crate::Message;
@@ -32,7 +33,7 @@ pub fn c_profile<'a>(
 
     let presence = user_presences.get(&me.id);
 
-    mouse_area(
+    click_area(
         container(
             column![
                 row![

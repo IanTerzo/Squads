@@ -8,7 +8,8 @@ use crate::types::Emoji;
 use crate::websockets::Presence;
 use crate::widgets::anchored_overlay::anchored_overlay;
 use crate::{style, utils};
-use iced::widget::{column, container, mouse_area, row, svg, text, tooltip};
+use crate::widgets::click_area::click_area;
+use iced::widget::{column, container, row, svg, text, tooltip};
 use iced::{Alignment, Border, Element, Font, Padding, border, font};
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -250,7 +251,7 @@ pub fn c_message<'a>(
                         .join(", ");
 
                     let reaction_container = tooltip(
-                        mouse_area(
+                        click_area(
                             container(row![reaction_text, text(reacters)].spacing(4))
                                 .style(move |_| {
                                     if self_has_reacted {
@@ -281,7 +282,7 @@ pub fn c_message<'a>(
                                 })
                                 .align_y(Alignment::Center),
                         )
-                        .on_release(Message::EmotionClicked(
+                        .on_press(Message::EmotionClicked(
                             message.id.clone().unwrap(),
                             reaction.clone(),
                         ))
@@ -312,7 +313,7 @@ pub fn c_message<'a>(
 
         let message_id_clone = message.id.clone().unwrap();
         let add_reaction_container = {
-            let content = mouse_area(
+            let content = click_area(
                 container(row![text("+")].spacing(4).padding(Padding::from([0, 3])))
                     .style(|_| container::Style {
                         background: Some(theme.colors.foreground_surface.into()),
@@ -322,7 +323,7 @@ pub fn c_message<'a>(
                     .padding(3)
                     .align_y(Alignment::Center),
             )
-            .on_release(Message::TogglePlusEmojiPicker(message.id.clone().unwrap()))
+            .on_press(Message::TogglePlusEmojiPicker(message.id.clone().unwrap()))
             .interaction(iced::mouse::Interaction::Pointer);
 
             if *show_plus_emoji_picker && *emoji_picker_message_id == message.id.clone() {
@@ -364,7 +365,7 @@ pub fn c_message<'a>(
                 let mut files_row = row![].spacing(10);
 
                 for file in files {
-                    let file_container = mouse_area(
+                    let file_container = click_area(
                         container(
                             row![
                                 svg(utils::get_image_dir().join("paperclip.svg"))
@@ -383,7 +384,7 @@ pub fn c_message<'a>(
                         })
                         .padding(12),
                     )
-                    .on_release(Message::DownloadFile(file.clone()))
+                    .on_press(Message::DownloadFile(file.clone()))
                     .interaction(iced::mouse::Interaction::Pointer);
 
                     files_row = files_row.push(file_container);

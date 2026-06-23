@@ -2,7 +2,8 @@ use crate::components::horizontal_line::c_horizontal_line;
 use crate::style::Theme;
 use crate::types::Emoji;
 use crate::{Message, utils};
-use iced::widget::{Id, column, container, mouse_area, row, scrollable, svg, text, text_input};
+use crate::widgets::click_area::click_area;
+use iced::widget::{Id, column, container, row, scrollable, svg, text, text_input};
 use iced::{Border, Element, Length, Padding};
 use indexmap::IndexMap;
 
@@ -27,7 +28,7 @@ where
             let mut emoji_cat8 = row![];
 
             for (_emoji_id, emoji) in emoji_map {
-                let emoji_component = mouse_area(
+                let emoji_component = click_area(
                     container(
                         container(text(emoji.unicode.clone()).size(34))
                             .width(38)
@@ -36,7 +37,7 @@ where
                     .padding(2),
                 )
                 .interaction(iced::mouse::Interaction::Pointer)
-                .on_release(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
+                .on_press(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
 
                 match emoji.category.as_str() {
                     "People & Body" => emoji_cat1 = emoji_cat1.push(emoji_component),
@@ -76,7 +77,7 @@ where
                     s.to_lowercase()
                         .contains(search_emojis_input_value.to_lowercase().as_str())
                 }) {
-                    let emoji_component = mouse_area(
+                    let emoji_component = click_area(
                         container(
                             container(text(emoji.unicode.clone()).size(34))
                                 .width(38)
@@ -85,7 +86,7 @@ where
                         .padding(2),
                     )
                     .interaction(iced::mouse::Interaction::Pointer)
-                    .on_release(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
+                    .on_press(on_pick(_emoji_id.to_string(), emoji.unicode.clone()));
 
                     emoji_row = emoji_row.push(emoji_component);
                 }
@@ -107,69 +108,69 @@ where
 
     let categories = container(
         column![
-            mouse_area(
+            click_area(
                 svg(utils::get_image_dir().join("clock.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.0)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.0)),
+            click_area(
                 svg(utils::get_image_dir().join("smile.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.0)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.0)),
+            click_area(
                 svg(utils::get_image_dir().join("user-round.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.1261)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.1261)),
+            click_area(
                 svg(utils::get_image_dir().join("leaf.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.342)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.342)),
+            click_area(
                 svg(utils::get_image_dir().join("pizza.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.45)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.45)),
+            click_area(
                 svg(utils::get_image_dir().join("gamepad-2.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.53)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.53)),
+            click_area(
                 svg(utils::get_image_dir().join("bike.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.59)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.59)),
+            click_area(
                 svg(utils::get_image_dir().join("lamp.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.734)),
-            mouse_area(
+            .on_press(Message::EmojiPickerScrollTo(0.734)),
+            click_area(
                 svg(utils::get_image_dir().join("heart.svg"))
                     .width(24)
                     .height(24)
             )
             .interaction(iced::mouse::Interaction::Pointer)
-            .on_release(Message::EmojiPickerScrollTo(0.9)),
+            .on_press(Message::EmojiPickerScrollTo(0.9)),
         ]
         .height(Length::Fill)
         .spacing(8),
@@ -206,7 +207,7 @@ where
     )
     .padding(12);
 
-    mouse_area(
+    click_area(
         container(column![
             top_part,
             c_horizontal_line(theme, Length::Fill),

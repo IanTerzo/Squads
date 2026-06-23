@@ -18,7 +18,8 @@ use crate::{ChatBody, style};
 use iced::alignment::Vertical;
 use iced::task::Handle;
 use iced::widget::text_editor::Content;
-use iced::widget::{Id, column, container, mouse_area, row, space, svg, tooltip};
+use crate::widgets::click_area::click_area;
+use iced::widget::{Id, column, container, row, space, svg, tooltip};
 use iced::widget::{scrollable, text};
 use iced::{Alignment, Color, Element, Length, Padding, border, padding};
 use indexmap::IndexMap;
@@ -231,7 +232,7 @@ pub fn chat<'a>(
 
         chat_items = chat_items.push(chat_info_column);
 
-        let chat_item = mouse_area(
+        let chat_item = click_area(
             container(chat_items)
                 .style(move |_| {
                     if let Some(current_chat) = current_chat {
@@ -271,7 +272,7 @@ pub fn chat<'a>(
         )
         .on_enter(Message::PrefetchChat(chat.id.clone()))
         .on_exit(Message::StopShowChatListOptions(chat.id.clone()))
-        .on_release(Message::OpenChat(chat.id.clone()))
+        .on_press(Message::OpenChat(chat.id.clone()))
         .interaction(iced::mouse::Interaction::Pointer);
 
         chats_column = chats_column.push(chat_item);
@@ -289,9 +290,9 @@ pub fn chat<'a>(
     let chat_options = column![
         container(
             container(
-                mouse_area(text("Start or find a chat"))
+                click_area(text("Start or find a chat"))
                     .interaction(iced::mouse::Interaction::Pointer)
-                    .on_release(Message::ToggleNewChatMenu)
+                    .on_press(Message::ToggleNewChatMenu)
             )
             .padding(Padding {
                 top: 5.0,
@@ -355,23 +356,23 @@ pub fn chat<'a>(
             container(
                 row![
                     tooltip(
-                        mouse_area(
+                        click_area(
                             svg(utils::get_image_dir().join("users-round.svg"))
                                 .width(19)
                                 .height(19)
                         )
-                        .on_release(Message::ToggleShowChatMembers)
+                        .on_press(Message::ToggleShowChatMembers)
                         .interaction(iced::mouse::Interaction::Pointer),
                         c_tooltip(theme, "Show Member List"),
                         tooltip::Position::Bottom
                     ),
                     tooltip(
-                        mouse_area(
+                        click_area(
                             svg(utils::get_image_dir().join("user-round-plus.svg"))
                                 .width(19)
                                 .height(19)
                         )
-                        .on_release(Message::ToggleShowChatAdd)
+                        .on_press(Message::ToggleShowChatAdd)
                         .interaction(iced::mouse::Interaction::Pointer),
                         c_tooltip(theme, "Add Users to DM"),
                         tooltip::Position::Bottom
